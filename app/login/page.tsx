@@ -136,12 +136,15 @@ export default function LoginWarga() {
 
       await supabase.from("warga").update({ auth_email: emailOtentikasi }).eq("id", cekData.id);
 
-      if (!signUpData.session) {
+      if (!signUpData.session || !signUpData.user) {
         setPesan({ text: "Gagal: Pengaturan 'Confirm Email' menyala!", type: "error" });
         setLoading(false);
         return;
       }
-      authData = signUpData;
+      authData = {
+        user: signUpData.user,
+        session: signUpData.session,
+      };
     } else if (!authData.user) {
       setPesan({ text: "Otentikasi Gagal: Kesalahan sistem enkripsi.", type: "error" });
       setLoading(false);
