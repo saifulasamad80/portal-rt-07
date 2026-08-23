@@ -10,17 +10,20 @@ export default function AdminAuditLog() {
   const router = useRouter();
 
   useEffect(() => {
-    const sesi = localStorage.getItem("admin_aktif");
-    if (!sesi) {
-      router.push("/admin");
-      return;
-    }
-    fetchLogs();
+    const cekSesi = async () => {
+      // FAKTA: Mengecek sesi JWT, bukan localStorage
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/admin");
+        return;
+      }
+      fetchLogs();
+    };
+    cekSesi();
   }, [router]);
 
   const fetchLogs = async () => {
     setLoading(true);
-    // FAKTA: Tarik maksimal 100 log terakhir biar aplikasi nggak berat
     const { data } = await supabase
       .from("audit_log")
       .select("*")
@@ -87,7 +90,6 @@ export default function AdminAuditLog() {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   );

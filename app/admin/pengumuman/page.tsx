@@ -27,13 +27,25 @@ export default function AdminPengumuman() {
   };
 
   useEffect(() => {
-    const sesi = localStorage.getItem("admin_aktif");
-    if (!sesi) {
-      router.push("/admin");
-      return;
-    }
-    setAdminAktif(JSON.parse(sesi));
-    fetchData();
+    const cekSesi = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/admin");
+        return;
+      }
+      
+      const { data: profil } = await supabase
+        .from("pengurus_rt")
+        .select("*")
+        .eq("email", session.user.email)
+        .single();
+
+      if (profil) {
+        setAdminAktif({ id: profil.id, nama: profil.nama_lengkap });
+        fetchData();
+      }
+    };
+    cekSesi();
   }, [router]);
 
   const handleSimpan = async (e: React.FormEvent) => {
@@ -46,7 +58,6 @@ export default function AdminPengumuman() {
 
     setSubmitLoading(true);
 
-    // INJEKSI AUDIT LOG 
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
       aksi: "Buat Pengumuman Baru",
@@ -61,7 +72,7 @@ export default function AdminPengumuman() {
     if (error) {
       alert("Gagal mempublikasikan: " + error.message);
     } else {
-      alert("Sempurna! Pengumuman berhasil dipublikasikan ke seluruh warga.");
+      alert("Sempurna! Pengumuman berhasil dipublikasikan.");
       setJudul(""); setDeskripsi(""); setLinkDokumen(""); 
       fetchData(); 
     }

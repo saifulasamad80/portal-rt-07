@@ -12,14 +12,26 @@ export default function TabunganKurbanWarga() {
   const router = useRouter();
 
   useEffect(() => {
-    const sesi = localStorage.getItem("warga_aktif");
-    if (!sesi) {
-      router.push("/login");
-      return;
-    }
-    const dataWarga = JSON.parse(sesi);
-    setWarga(dataWarga);
-    fetchDataKurban(dataWarga.id);
+    const cekSesiWarga = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+      const { data: profilWarga } = await supabase
+        .from("warga")
+        .select("*")
+        .eq("auth_email", session.user.email)
+        .single();
+
+      if (profilWarga) {
+        setWarga(profilWarga);
+        fetchDataKurban(profilWarga.id);
+      } else {
+        router.push("/login");
+      }
+    };
+    cekSesiWarga();
   }, [router]);
 
   const fetchDataKurban = async (idWarga: string) => {
@@ -31,7 +43,6 @@ export default function TabunganKurbanWarga() {
     
     if (data) {
       setRiwayat(data);
-      // Kalkulasi Saldo Real-Time
       const totalSetor = data.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal, 0);
       const totalTarik = data.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal, 0);
       setSaldo(totalSetor - totalTarik);
@@ -44,26 +55,14 @@ export default function TabunganKurbanWarga() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        
-        <Link href="/portal" className="text-amber-600 font-bold hover:underline mb-4 inline-block">
-          &larr; Kembali ke Dasbor
-        </Link>
-
-        {/* KARTU TABUNGAN KURBAN */}
+        <Link href="/portal" className="text-amber-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
         <div className="bg-gradient-to-br from-amber-500 to-orange-700 p-8 rounded-2xl shadow-xl text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-          <div className="absolute bottom-0 right-20 w-20 h-20 bg-white opacity-10 rounded-full mb-4"></div>
-          
           <h2 className="text-amber-100 text-sm font-bold uppercase tracking-widest mb-2">Persiapan Kurban Idul Adha</h2>
           <div className="text-5xl font-black mb-2">Rp {saldo.toLocaleString("id-ID")}</div>
-          <p className="text-sm text-amber-100 font-medium">Berapapun nominalnya, niat baik Anda tercatat dengan aman dan transparan.</p>
+          <p className="text-sm text-amber-100 font-medium">Tabungan kurban tercatat aman dan transparan.</p>
         </div>
-
-        {/* TABEL RIWAYAT TRANSAKSI */}
         <div className="bg-white p-6 rounded-xl shadow border-t-4 border-slate-700">
-          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-            <span className="text-xl">🐄</span> Riwayat Setoran Kurban
-          </h2>
+          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">🐄 Riwayat Setoran Kurban</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
@@ -96,7 +95,6 @@ export default function TabunganKurbanWarga() {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   );

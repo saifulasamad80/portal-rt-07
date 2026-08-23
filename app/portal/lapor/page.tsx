@@ -11,19 +11,30 @@ export default function LaporRTWarga() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const router = useRouter();
 
-  // State Form
   const [judul, setJudul] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
 
   useEffect(() => {
-    const sesi = localStorage.getItem("warga_aktif");
-    if (!sesi) {
-      router.push("/login");
-      return;
-    }
-    const dataWarga = JSON.parse(sesi);
-    setWarga(dataWarga);
-    fetchLaporan(dataWarga.id);
+    const cekSesiWarga = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+      const { data: profilWarga } = await supabase
+        .from("warga")
+        .select("*")
+        .eq("auth_email", session.user.email)
+        .single();
+
+      if (profilWarga) {
+        setWarga(profilWarga);
+        fetchLaporan(profilWarga.id);
+      } else {
+        router.push("/login");
+      }
+    };
+    cekSesiWarga();
   }, [router]);
 
   const fetchLaporan = async (idWarga: string) => {
@@ -51,8 +62,7 @@ export default function LaporRTWarga() {
       alert("Gagal mengirim laporan: " + error.message);
     } else {
       alert("Laporan berhasil dikirim ke Pengurus RT!");
-      setJudul("");
-      setDeskripsi("");
+      setJudul(""); setDeskripsi("");
       fetchLaporan(warga.id);
     }
     setSubmitLoading(false);
@@ -69,20 +79,12 @@ export default function LaporRTWarga() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        
-        <Link href="/portal" className="text-rose-600 font-bold hover:underline mb-4 inline-block">
-          &larr; Kembali ke Dasbor
-        </Link>
-
-        {/* HEADER */}
+        <Link href="/portal" className="text-rose-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
         <div className="bg-white p-6 rounded-xl shadow border-l-8 border-rose-500">
           <h1 className="text-2xl font-bold text-slate-800">Sistem Lapor Warga RT 07</h1>
-          <p className="text-slate-500 text-sm">Laporkan kerusakan fasilitas umum atau gangguan ketertiban. Laporan Anda akan dilacak secara transparan.</p>
+          <p className="text-slate-500 text-sm">Laporkan kerusakan fasilitas umum.</p>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* FORM LAPORAN */}
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Buat Laporan Baru</h2>
             <form onSubmit={handleKirimLaporan} className="space-y-4">
@@ -92,15 +94,13 @@ export default function LaporRTWarga() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Detail Lokasi & Kejadian</label>
-                <textarea required rows={4} className="w-full border border-slate-300 rounded-lg p-2 text-slate-900" placeholder="Cth: Lampu jalan di depan rumah Pak RT kedap-kedip sejak kemarin malam..." value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)}></textarea>
+                <textarea required rows={4} className="w-full border border-slate-300 rounded-lg p-2 text-slate-900" placeholder="Deskripsikan..." value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)}></textarea>
               </div>
               <button type="submit" disabled={submitLoading} className="w-full bg-rose-600 text-white font-bold rounded-lg p-3 shadow hover:bg-rose-700 transition-colors">
                 {submitLoading ? "Mengirim..." : "Kirim Laporan"}
               </button>
             </form>
           </div>
-
-          {/* RIWAYAT (TRACKING) */}
           <div className="bg-white p-6 rounded-xl shadow">
             <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Status Laporan Saya</h2>
             <div className="space-y-4 max-h-[400px] overflow-y-auto">
@@ -111,9 +111,7 @@ export default function LaporRTWarga() {
                   <div key={t.id} className={`p-4 border rounded-lg ${getStatusColor(t.status)}`}>
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-bold">{t.judul_laporan}</h3>
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-white/50 backdrop-blur-sm">
-                        {t.status}
-                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-white/50">{t.status}</span>
                     </div>
                     <p className="text-sm opacity-80 mb-2">{t.deskripsi}</p>
                     {t.tanggapan_rt && (
@@ -122,9 +120,7 @@ export default function LaporRTWarga() {
                         <p className="text-sm font-medium italic">"{t.tanggapan_rt}"</p>
                       </div>
                     )}
-                    <div className="text-[10px] font-bold mt-3 opacity-60 text-right">
-                      Dikirim: {new Date(t.created_at).toLocaleDateString('id-ID')}
-                    </div>
+                    <div className="text-[10px] font-bold mt-3 opacity-60 text-right">Dikirim: {new Date(t.created_at).toLocaleDateString('id-ID')}</div>
                   </div>
                 ))
               )}

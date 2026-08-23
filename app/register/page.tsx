@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import imageCompression from "browser-image-compression";
 
 export default function LaporDiri() {
   const [nik, setNik] = useState("");
@@ -9,10 +10,14 @@ export default function LaporDiri() {
   const [pin, setPin] = useState(""); 
   const [statusTinggal, setStatusTinggal] = useState("");
   const [detailAlamat, setDetailAlamat] = useState("");
-  
-  // FAKTA PERBAIKAN: Menambahkan 'nik' ke dalam struktur anggota keluarga
   const [anggota, setAnggota] = useState<{ nama: string; nik: string; hubungan: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [progressTeks, setProgressTeks] = useState("");
+
+  // FAKTA: State File & Opsi Dokumen Menyusul
+  const [fileKtp, setFileKtp] = useState<File | null>(null);
+  const [fileKk, setFileKk] = useState<File | null>(null);
+  const [dokumenMenyusul, setDokumenMenyusul] = useState(false);
 
   const tambahAnggota = () => setAnggota([...anggota, { nama: "", nik: "", hubungan: "" }]);
   const ubahAnggota = (index: number, field: "nama" | "nik" | "hubungan", value: string) => {
@@ -22,16 +27,58 @@ export default function LaporDiri() {
   };
   const hapusAnggota = (index: number) => setAnggota(anggota.filter((_, i) => i !== index));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const pinLemah = ["123456", "111111", "000000", "654321", "121212"];
-    if (pinLemah.includes(pin)) {
-      alert("PIN terlalu gampang ditebak! Tolong gunakan kombinasi angka lain yang lebih aman.");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, tipe: 'ktp' | 'kk') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Hanya boleh mengunggah file gambar (JPG/PNG/JPEG)!");
+      e.target.value = "";
       return;
     }
 
-    // Double-check NIK Anggota (wajib 16 digit jika diisi)
+    if (tipe === 'ktp') setFileKtp(file);
+    if (tipe === 'kk') setFileKk(file);
+  };
+
+  const kompresDanUploadFile = async (fileOri: File, tipe: string, nikWarga: string) => {
+    const options = {
+      maxSizeMB: 0.2, // Maksimal 200KB
+      maxWidthOrHeight: 1024,
+      useWebWorker: true,
+      fileType: "image/jpeg"
+    };
+
+    try {
+      setProgressTeks(`Mengompres dokumen ${tipe.toUpperCase()}...`);
+      const fileKompresi = await imageCompression(fileOri, options);
+      
+      setProgressTeks(`Mengirim dokumen ${tipe.toUpperCase()} ke brankas RT...`);
+      const fileName = `${nikWarga}_${tipe}_${Date.now()}.jpg`;
+      const { error } = await supabase.storage
+        .from('dokumen_warga')
+        .upload(fileName, fileKompresi, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+      return fileName;
+    } catch (error: any) {
+      console.error(`Error upload ${tipe}:`, error);
+      throw new Error(`Gagal mengamankan dokumen ${tipe}. Pastikan koneksi stabil.`);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validasi PIN & NIK
+    const pinLemah = ["123456", "111111", "000000", "654321", "121212"];
+    if (pinLemah.includes(pin)) {
+      alert("PIN terlalu gampang ditebak! Gunakan kombinasi 6 angka lain.");
+      return;
+    }
     for (let i = 0; i < anggota.length; i++) {
       if (anggota[i].nik.length !== 16) {
         alert(`NIK untuk anggota keluarga bernama ${anggota[i].nama || 'ke-' + (i+1)} tidak valid. Wajib 16 digit!`);
@@ -39,47 +86,81 @@ export default function LaporDiri() {
       }
     }
 
-    setLoading(true);
-
-    const { data: dataWarga, error: errorWarga } = await supabase
-      .from("warga")
-      .insert([{
-          nik: nik,
-          nama_lengkap: nama,
-          no_whatsapp: wa,
-          pin: pin, 
-          status_tinggal: statusTinggal,
-          detail_alamat: detailAlamat,
-      }])
-      .select();
-
-    if (errorWarga) {
-      alert("Gagal menyimpan data warga: " + errorWarga.message);
-      setLoading(false);
-      return;
-    }
-
-    if (anggota.length > 0 && dataWarga) {
-      const idWarga = dataWarga[0].id;
-      const payloadAnggota = anggota.map((a) => ({
-        warga_id: idWarga,
-        nama_lengkap: a.nama,
-        nik: a.nik, // FAKTA PERBAIKAN: NIK anggota sekarang masuk ke Supabase
-        hubungan_keluarga: a.hubungan,
-      }));
-
-      const { error: errorAnggota } = await supabase.from("anggota_keluarga").insert(payloadAnggota);
-
-      if (errorAnggota) {
-        alert("Warga tersimpan, tapi gagal menyimpan anggota keluarga: " + errorAnggota.message);
-        setLoading(false);
+    // FAKTA: Validasi Kondisional Dokumen
+    if (!dokumenMenyusul) {
+      if (!fileKtp) {
+        alert("Lampirkan Foto KTP, atau centang opsi 'Dokumen Menyusul' di bawah jika belum ada.");
+        return;
+      }
+      if (!fileKk) {
+        alert("Lampirkan Foto Kartu Keluarga, atau centang opsi 'Dokumen Menyusul' di bawah jika belum ada.");
         return;
       }
     }
 
-    alert("Sempurna! Data Kepala Keluarga beserta Anggota Keluarga berhasil didaftarkan.");
-    setNik(""); setNama(""); setWa(""); setPin(""); setStatusTinggal(""); setDetailAlamat(""); setAnggota([]);
-    setLoading(false);
+    setLoading(true);
+
+    try {
+      let pathKtp: string | null = null;
+      let pathKk: string | null = null;
+
+      // PROSES 1: Upload Dokumen Jika Ada
+      if (!dokumenMenyusul) {
+        if (fileKtp) pathKtp = await kompresDanUploadFile(fileKtp, 'ktp', nik);
+        if (fileKk) pathKk = await kompresDanUploadFile(fileKk, 'kk', nik);
+      } else {
+        pathKtp = "MENYUSUL";
+        pathKk = "MENYUSUL";
+      }
+
+      // PROSES 2: Simpan Data Warga
+      setProgressTeks("Mendaftarkan identitas ke Buku Induk Warga...");
+      const { data: dataWarga, error: errorWarga } = await supabase
+        .from("warga")
+        .insert([{
+            nik: nik,
+            nama_lengkap: nama,
+            no_whatsapp: wa,
+            pin: pin, 
+            status_tinggal: statusTinggal,
+            detail_alamat: detailAlamat,
+            ktp_path: pathKtp,
+            kk_path: pathKk
+        }])
+        .select();
+
+      if (errorWarga) throw new Error("Gagal menyimpan data teks warga: " + errorWarga.message);
+
+      // PROSES 3: Simpan Anggota Keluarga
+      if (anggota.length > 0 && dataWarga) {
+        setProgressTeks("Menyinkronkan data anggota keluarga...");
+        const idWarga = dataWarga[0].id;
+        const payloadAnggota = anggota.map((a) => ({
+          warga_id: idWarga,
+          nama_lengkap: a.nama,
+          nik: a.nik,
+          hubungan_keluarga: a.hubungan,
+        }));
+
+        const { error: errorAnggota } = await supabase.from("anggota_keluarga").insert(payloadAnggota);
+        if (errorAnggota) throw new Error("Warga tersimpan, tapi gagal menyimpan anggota: " + errorAnggota.message);
+      }
+
+      alert("Sempurna! Data Lapor Diri berhasil dikirim. Silakan tunggu verifikasi pengurus RT.");
+      
+      // Reset Form
+      setNik(""); setNama(""); setWa(""); setPin(""); setStatusTinggal(""); setDetailAlamat(""); setAnggota([]);
+      setFileKtp(null); setFileKk(null); setDokumenMenyusul(false);
+      
+      const inputs = document.querySelectorAll('input[type=file]') as NodeListOf<HTMLInputElement>;
+      inputs.forEach(input => input.value = '');
+
+    } catch (err: any) {
+      alert("TERJADI KESALAHAN: " + err.message);
+    } finally {
+      setLoading(false);
+      setProgressTeks("");
+    }
   };
 
   return (
@@ -130,6 +211,52 @@ export default function LaporDiri() {
             )}
           </div>
 
+          {/* FAKTA: BLOK DOKUMEN FLEKSIBEL (DENGAN OPSI MENYUSUL) */}
+          <div className="space-y-4 pb-4 border-b border-slate-200 bg-slate-100 p-4 rounded-xl border border-slate-300">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div>
+                <h2 className="font-bold text-slate-800 flex items-center gap-2">🔒 Dokumen Pendukung</h2>
+                <p className="text-[10px] text-slate-500 mt-0.5">Disimpan di brankas terenkripsi khusus pengurus RT.</p>
+              </div>
+              
+              {/* Checkbox Dokumen Menyusul */}
+              <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-amber-300 text-amber-900 font-bold text-xs shadow-sm hover:bg-amber-50 select-none">
+                <input 
+                  type="checkbox" 
+                  checked={dokumenMenyusul} 
+                  onChange={(e) => {
+                    setDokumenMenyusul(e.target.checked);
+                    if (e.target.checked) {
+                      setFileKtp(null);
+                      setFileKk(null);
+                    }
+                  }} 
+                  className="w-4 h-4 text-amber-600 rounded"
+                />
+                Dokumen Menyusul (Serahkan Fisik)
+              </label>
+            </div>
+            
+            {!dokumenMenyusul ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <label className="block text-xs font-bold text-slate-700 mb-2">📸 Foto E-KTP (Kepala Keluarga)</label>
+                  <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'ktp')} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                  {fileKtp && <div className="text-[10px] text-emerald-600 font-bold mt-1">✓ File terpilih</div>}
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                  <label className="block text-xs font-bold text-slate-700 mb-2">📸 Foto Kartu Keluarga (KK)</label>
+                  <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'kk')} className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                  {fileKk && <div className="text-[10px] text-emerald-600 font-bold mt-1">✓ File terpilih</div>}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs font-medium">
+                ⚠️ Anda memilih untuk menyerahkan dokumen menyusul. Mohon segera serahkan fotokopi KTP & KK fisik ke rumah Pak RT agar akun Anda segera disahkan.
+              </div>
+            )}
+          </div>
+
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-100 p-2 rounded">
               <div>
@@ -159,8 +286,12 @@ export default function LaporDiri() {
             ))}
           </div>
 
-          <button type="submit" disabled={loading} className={`w-full text-white text-lg font-bold rounded-xl p-4 transition-all mt-6 shadow-md ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'}`}>
-            {loading ? "Menyinkronkan ke Database..." : "Kirim Data Lapor Diri"}
+          <button type="submit" disabled={loading} className={`w-full text-white text-lg font-bold rounded-xl p-4 transition-all mt-6 shadow-md relative overflow-hidden ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg'}`}>
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="animate-spin">⌛</span> {progressTeks}
+              </span>
+            ) : "Kirim Data Lapor Diri"}
           </button>
         </form>
       </div>

@@ -12,14 +12,26 @@ export default function TabunganSampahWarga() {
   const router = useRouter();
 
   useEffect(() => {
-    const sesi = localStorage.getItem("warga_aktif");
-    if (!sesi) {
-      router.push("/login");
-      return;
-    }
-    const dataWarga = JSON.parse(sesi);
-    setWarga(dataWarga);
-    fetchDataTabungan(dataWarga.id);
+    const cekSesiWarga = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+      const { data: profilWarga } = await supabase
+        .from("warga")
+        .select("*")
+        .eq("auth_email", session.user.email)
+        .single();
+
+      if (profilWarga) {
+        setWarga(profilWarga);
+        fetchDataTabungan(profilWarga.id);
+      } else {
+        router.push("/login");
+      }
+    };
+    cekSesiWarga();
   }, [router]);
 
   const fetchDataTabungan = async (idWarga: string) => {
@@ -31,7 +43,6 @@ export default function TabunganSampahWarga() {
     
     if (data) {
       setRiwayat(data);
-      // Kalkulasi Saldo Real-Time
       const totalSetor = data.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
       const totalTarik = data.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
       setSaldo(totalSetor - totalTarik);
@@ -44,27 +55,14 @@ export default function TabunganSampahWarga() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        
-        <Link href="/portal" className="text-emerald-600 font-bold hover:underline mb-4 inline-block">
-          &larr; Kembali ke Dasbor
-        </Link>
-
-        {/* KARTU ATM DIGITAL */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-800 p-8 rounded-2xl shadow-xl text-white relative overflow-hidden">
-          {/* Efek visual hiasan */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-          <div className="absolute bottom-0 right-20 w-16 h-16 bg-white opacity-10 rounded-full mb-4"></div>
-          
+        <Link href="/portal" className="text-emerald-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-800 p-8 rounded-2xl shadow-xl text-white">
           <h2 className="text-emerald-100 text-sm font-bold uppercase tracking-widest mb-2">Tabungan Mandiri RT 07</h2>
           <div className="text-5xl font-black mb-1">Rp {saldo.toLocaleString("id-ID")}</div>
-          <p className="text-sm text-emerald-200">Saldo ini dapat dicairkan melalui pengurus RT untuk keperluan Anda.</p>
+          <p className="text-sm text-emerald-200">Saldo tabungan bank sampah Anda.</p>
         </div>
-
-        {/* TABEL RIWAYAT TRANSAKSI */}
         <div className="bg-white p-6 rounded-xl shadow border-t-4 border-slate-700">
-          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-            <span className="text-xl">📘</span> Mutasi Tabungan
-          </h2>
+          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">📘 Mutasi Tabungan</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
@@ -95,7 +93,6 @@ export default function TabunganSampahWarga() {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   );

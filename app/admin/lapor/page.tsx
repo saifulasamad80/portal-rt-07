@@ -22,21 +22,31 @@ export default function AdminLaporRT() {
   };
 
   useEffect(() => {
-    // FAKTA: Proteksi sesi dan identifikasi aktor
-    const sesi = localStorage.getItem("admin_aktif");
-    if (!sesi) {
-      router.push("/admin");
-      return;
-    }
-    setAdminAktif(JSON.parse(sesi));
-    fetchLaporan();
+    const cekSesi = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/admin");
+        return;
+      }
+      
+      const { data: profil } = await supabase
+        .from("pengurus_rt")
+        .select("*")
+        .eq("email", session.user.email)
+        .single();
+
+      if (profil) {
+        setAdminAktif({ id: profil.id, nama: profil.nama_lengkap });
+        fetchLaporan();
+      }
+    };
+    cekSesi();
   }, [router]);
 
   const prosesLaporan = async (id: string, statusBaru: string) => {
     const tanggapan = prompt(`Ubah status menjadi ${statusBaru}. Masukkan tanggapan Anda untuk warga (Opsional):`);
     if (tanggapan === null) return; 
 
-    // INJEKSI AUDIT LOG
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
       aksi: `Proses Laporan: ${statusBaru}`,

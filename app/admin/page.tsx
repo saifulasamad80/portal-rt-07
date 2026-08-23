@@ -6,50 +6,73 @@ import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
   const [warga, setWarga] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [adminAktif, setAdminAktif] = useState<any>(null);
   const router = useRouter();
 
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
-    const sesiAdmin = localStorage.getItem("admin_aktif");
-    if (sesiAdmin) {
-      setAdminAktif(JSON.parse(sesiAdmin));
-      fetchWarga();
-    } else {
-      setLoading(false);
-    }
+    cekSesi();
   }, []);
+
+  const cekSesi = async () => {
+    setIsInitializing(true); 
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      const { data: profil } = await supabase
+        .from("pengurus_rt")
+        .select("*")
+        .eq("email", session.user.email)
+        .single();
+
+      if (profil) {
+        setAdminAktif({ id: profil.id, nama: profil.nama_lengkap, jabatan: profil.jabatan, email: profil.email });
+        fetchWarga();
+      } else {
+        setIsInitializing(false);
+      }
+    } else {
+      setIsInitializing(false);
+    }
+  };
 
   const handleLoginAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
 
-    const { data, error } = await supabase
-      .from("pengurus_rt")
-      .select("*")
-      .eq("username", username)
-      .eq("password", password)
-      .single();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
 
-    if (error || !data) {
-      alert("Akses Ditolak! Username atau Password salah.");
+    if (error || !data.user) {
+      alert("Akses Ditolak! Kredensial tidak valid.");
       setLoginLoading(false);
     } else {
-      const profilAdmin = { id: data.id, nama: data.nama_lengkap, jabatan: data.jabatan };
-      localStorage.setItem("admin_aktif", JSON.stringify(profilAdmin));
-      setAdminAktif(profilAdmin);
-      fetchWarga();
+      const { data: profil } = await supabase
+        .from("pengurus_rt")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (profil) {
+        setAdminAktif({ id: profil.id, nama: profil.nama_lengkap, jabatan: profil.jabatan, email: profil.email });
+        fetchWarga();
+      } else {
+        alert("Sistem Error: Akun Auth tidak tertaut ke Profil Pengurus.");
+      }
       setLoginLoading(false);
     }
   };
 
-  const handleLogoutAdmin = () => {
+  const handleLogoutAdmin = async () => {
     if (confirm("Tutup Pusat Komando dan kembali ke halaman utama?")) {
-      localStorage.removeItem("admin_aktif");
+      await supabase.auth.signOut();
       setAdminAktif(null);
       router.push("/");
     }
@@ -68,6 +91,7 @@ export default function AdminDashboard() {
       setWarga(data || []);
     }
     setLoading(false);
+    setIsInitializing(false); 
   };
 
   const updateStatus = async (id: string, statusBaru: string) => {
@@ -76,7 +100,7 @@ export default function AdminDashboard() {
 
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
-      aksi: `Validasi Warga Baru: ${statusBaru}`,
+      aksi: `Ubah Status Warga: ${statusBaru}`,
       tabel_target: "warga",
       detail: `ID Warga: ${id}`
     }]);
@@ -90,19 +114,70 @@ export default function AdminDashboard() {
     else fetchWarga();
   };
 
+  const hapusWarga = async (id: string, namaLengkap: string) => {
+    const konfirmasi = confirm(`PERINGATAN FATAL: Yakin ingin MENGHAPUS PERMANEN warga bernama ${namaLengkap}?`);
+    if (!konfirmasi) return;
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama,
+      aksi: `Hapus Permanen Warga`,
+      tabel_target: "warga",
+      detail: `Menghapus warga: ${namaLengkap}`
+    }]);
+
+    const { error } = await supabase.from("warga").delete().eq("id", id);
+
+    if (error) {
+      alert("GAGAL MENGHAPUS: Warga ini kemungkinan sudah memiliki riwayat transaksi.\n\nDetail Error: " + error.message);
+    } else {
+      fetchWarga();
+    }
+  };
+
+  // FAKTA: Fungsi penembus brankas dokumen Private
+  const lihatDokumen = async (path: string, tipe: string) => {
+    if (!path) {
+      alert("Dokumen tidak ditemukan di database.");
+      return;
+    }
+    if (path === "MENYUSUL") {
+      alert(`Warga belum mengunggah ${tipe} (Status: Menyusul Fisik).`);
+      return;
+    }
+
+    // Generate URL yang hanya valid selama 60 detik untuk mencegah kebocoran link
+    const { data, error } = await supabase.storage.from('dokumen_warga').createSignedUrl(path, 60);
+    
+    if (error) {
+      alert("Akses ditolak oleh brankas Supabase: " + error.message);
+    } else if (data) {
+      // Buka dokumen di tab baru
+      window.open(data.signedUrl, '_blank');
+    }
+  };
+
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 font-mono text-emerald-500">
+        <div className="text-4xl mb-4 animate-spin">⚙️</div>
+        <div className="font-bold tracking-widest uppercase">OTENTIKASI SISTEM...</div>
+      </div>
+    );
+  }
+
   if (!adminAktif) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
         <form onSubmit={handleLoginAdmin} className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center border-t-8 border-emerald-600 relative overflow-hidden">
-          <div className="absolute top-0 right-0 bg-slate-100 text-slate-400 text-[10px] font-bold px-2 py-1 rounded-bl-lg">v2.0 RBAC</div>
+          <div className="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 rounded-bl-lg">SECURE JWT AUTH</div>
           <div className="text-4xl mb-4">🏛️</div>
           <h2 className="text-2xl font-black text-slate-800 mb-2">Pusat Komando</h2>
           <p className="text-slate-500 text-sm mb-6">Sistem terenkripsi khusus Pengurus RT.</p>
           
           <div className="space-y-4 mb-6 text-left">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Username Pengurus</label>
-              <input type="text" required className="w-full border-2 border-slate-300 rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Masukkan username..." value={username} onChange={(e) => setUsername(e.target.value)} />
+              <label className="block text-xs font-bold text-slate-600 mb-1">Email Pengurus</label>
+              <input type="email" required className="w-full border-2 border-slate-300 rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Masukkan email resmi..." value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1">Password</label>
@@ -166,29 +241,6 @@ export default function AdminDashboard() {
             <h2 className="font-bold text-slate-800 text-sm">Inventaris</h2>
             <p className="text-[10px] text-slate-500 mt-1">Setujui peminjaman</p>
           </Link>
-          <Link href="/admin/audit" className="bg-slate-800 p-5 rounded-xl shadow-sm border-t-4 border-rose-500 hover:shadow-md hover:-translate-y-1 transition-all">
-            <div className="text-3xl mb-2">👁️‍🗨️</div>
-            <h2 className="font-bold text-white text-sm">Log Audit</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
-          </Link>
-          <Link href="/admin/pengurus" className="bg-white p-5 rounded-xl shadow-sm border-t-4 border-indigo-600 hover:shadow-md hover:-translate-y-1 transition-all">
-            <div className="text-3xl mb-2">👔</div>
-            <h2 className="font-bold text-slate-800 text-sm">Manajemen Pengurus</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun RT</p>
-          </Link>
-          
-          {/* FAKTA: Gembok dilepas, dikembalikan jadi Link aktif */}
-          <Link href="/admin/lapor" className="bg-white p-5 rounded-xl shadow-sm border-t-4 border-rose-500 hover:shadow-md hover:-translate-y-1 transition-all">
-            <div className="text-3xl mb-2">🚨</div>
-            <h2 className="font-bold text-slate-800 text-sm">Laporan Warga</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tiket keluhan</p>
-          </Link>
-          <Link href="/admin/pengumuman" className="bg-white p-5 rounded-xl shadow-sm border-t-4 border-amber-500 hover:shadow-md hover:-translate-y-1 transition-all">
-            <div className="text-3xl mb-2">📢</div>
-            <h2 className="font-bold text-slate-800 text-sm">Pengumuman</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Edaran ke warga</p>
-          </Link>
-
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-slate-800">
@@ -197,8 +249,8 @@ export default function AdminDashboard() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-sm">
-                  <th className="p-3 border">Nama Kepala Keluarga</th>
-                  <th className="p-3 border">NIK & Kontak</th>
+                  <th className="p-3 border">Nama & Kontak</th>
+                  <th className="p-3 border">Dokumen Warga</th>
                   <th className="p-3 border">Status & Alamat</th>
                   <th className="p-3 border text-center">Status Saat Ini</th>
                   <th className="p-3 border text-center">Aksi (Validasi)</th>
@@ -207,28 +259,58 @@ export default function AdminDashboard() {
               <tbody>
                 {warga.map((w) => (
                   <tr key={w.id} className="border-b hover:bg-slate-50 text-sm">
-                    <td className="p-3 border font-bold text-slate-800">{w.nama_lengkap}</td>
                     <td className="p-3 border">
-                      <div className="text-xs text-slate-600 font-mono">NIK: {w.nik}</div>
+                      <div className="font-bold text-slate-800">{w.nama_lengkap}</div>
+                      <div className="text-xs text-slate-600 font-mono mt-1">NIK: {w.nik}</div>
                       <div className="text-xs text-slate-600">WA: {w.no_whatsapp}</div>
                     </td>
+                    
+                    {/* FAKTA: Blok Tombol Buka KTP & KK */}
                     <td className="p-3 border">
-                      <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-1 rounded font-bold uppercase">{w.status_tinggal}</span>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={() => lihatDokumen(w.ktp_path, 'KTP')} 
+                          className={`flex items-center justify-center gap-1 text-[10px] px-2 py-1.5 rounded font-bold w-full transition-colors border ${w.ktp_path === 'MENYUSUL' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}
+                        >
+                          📸 {w.ktp_path === 'MENYUSUL' ? 'KTP Menyusul' : 'Cek KTP'}
+                        </button>
+                        <button 
+                          onClick={() => lihatDokumen(w.kk_path, 'KK')} 
+                          className={`flex items-center justify-center gap-1 text-[10px] px-2 py-1.5 rounded font-bold w-full transition-colors border ${w.kk_path === 'MENYUSUL' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`}
+                        >
+                          📸 {w.kk_path === 'MENYUSUL' ? 'KK Menyusul' : 'Cek KK'}
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className="p-3 border">
+                      <span className="bg-slate-100 text-slate-700 border border-slate-300 text-[10px] px-2 py-1 rounded font-bold uppercase">{w.status_tinggal}</span>
                       <div className="text-xs mt-1 text-slate-600">{w.detail_alamat}</div>
                     </td>
                     <td className="p-3 border font-bold text-center">
-                      {w.status_verifikasi === 'Disetujui' && <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Disetujui</span>}
-                      {w.status_verifikasi === 'Ditolak' && <span className="text-rose-600 bg-rose-50 px-2 py-1 rounded">Ditolak</span>}
-                      {w.status_verifikasi === 'Menunggu' && <span className="text-amber-500 bg-amber-50 px-2 py-1 rounded">Menunggu</span>}
+                      {w.status_verifikasi === 'Disetujui' && <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 block">Disetujui</span>}
+                      {w.status_verifikasi === 'Ditolak' && <span className="text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-200 block">Ditolak</span>}
+                      {w.status_verifikasi === 'Menunggu' && <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200 block">Menunggu</span>}
                     </td>
                     <td className="p-3 border text-center">
                       {w.status_verifikasi === 'Menunggu' ? (
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => updateStatus(w.id, 'Disetujui')} className="bg-emerald-500 text-white text-xs px-3 py-1.5 rounded shadow hover:bg-emerald-600 font-bold transition-colors">Sah</button>
-                          <button onClick={() => updateStatus(w.id, 'Ditolak')} className="bg-rose-500 text-white text-xs px-3 py-1.5 rounded shadow hover:bg-rose-600 font-bold transition-colors">Tolak</button>
+                          <button onClick={() => updateStatus(w.id, 'Disetujui')} className="bg-emerald-500 text-white text-xs px-3 py-1.5 rounded shadow hover:bg-emerald-600 font-bold">Sah</button>
+                          <button onClick={() => updateStatus(w.id, 'Ditolak')} className="bg-rose-500 text-white text-xs px-3 py-1.5 rounded shadow hover:bg-rose-600 font-bold">Tolak</button>
+                          <button onClick={() => hapusWarga(w.id, w.nama_lengkap)} className="bg-slate-700 text-white text-xs px-3 py-1.5 rounded shadow hover:bg-slate-800 font-bold">Hapus</button>
                         </div>
                       ) : (
-                        <span className="text-[10px] uppercase text-slate-400 font-bold">Tervalidasi</span>
+                        <div className="flex flex-col gap-1 items-center">
+                          <span className="text-[10px] uppercase text-slate-400 font-bold mb-1">Tervalidasi</span>
+                          <div className="flex gap-1">
+                            {w.status_verifikasi === 'Disetujui' ? (
+                              <button onClick={() => updateStatus(w.id, 'Menunggu')} className="bg-amber-500 text-white text-[10px] px-2 py-1 rounded shadow hover:bg-amber-600 font-bold">Batal Setuju</button>
+                            ) : (
+                              <button onClick={() => updateStatus(w.id, 'Menunggu')} className="bg-blue-500 text-white text-[10px] px-2 py-1 rounded shadow hover:bg-blue-600 font-bold">Tinjau Ulang</button>
+                            )}
+                            <button onClick={() => hapusWarga(w.id, w.nama_lengkap)} className="bg-rose-600 text-white text-[10px] px-2 py-1 rounded shadow hover:bg-rose-700 font-bold">Hapus</button>
+                          </div>
+                        </div>
                       )}
                     </td>
                   </tr>

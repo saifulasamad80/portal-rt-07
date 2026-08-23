@@ -2,213 +2,265 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function AdminKurban() {
-  const [trxKurban, setTrxKurban] = useState<any[]>([]);
-  const [trxSampah, setTrxSampah] = useState<any[]>([]);
+  const [transaksi, setTransaksi] = useState<any[]>([]);
   const [wargaList, setWargaList] = useState<any[]>([]);
+  const [sampahList, setSampahList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);
+  
+  const [adminAktif, setAdminAktif] = useState<any>(null);
+  const router = useRouter();
 
   const [wargaId, setWargaId] = useState("");
   const [jenis, setJenis] = useState("Setor");
-  const [sumberDana, setSumberDana] = useState("Tunai / Transfer");
+  const [sumberDana, setSumberDana] = useState("Tunai");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
     const { data: dataKurban } = await supabase.from("tabungan_kurban").select("*, warga(nama_lengkap)").order("created_at", { ascending: false });
+    const { data: dataWarga } = await supabase.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui");
     const { data: dataSampah } = await supabase.from("transaksi_sampah").select("*");
-    const { data: dataWarga } = await supabase.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui").order("nama_lengkap", { ascending: true });
 
-    setTrxKurban(dataKurban || []);
-    setTrxSampah(dataSampah || []);
-    setWargaList(dataWarga || []);
+    if (dataKurban) setTransaksi(dataKurban);
+    if (dataWarga) setWargaList(dataWarga);
+    if (dataSampah) setSampahList(dataSampah);
+    
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    const cekSesi = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/admin");
+        return;
+      }
+      
+      const { data: profil } = await supabase
+        .from("pengurus_rt")
+        .select("*")
+        .eq("email", session.user.email)
+        .single();
 
-  const getSaldoKurban = (id: string) => {
-    const trx = trxKurban.filter(t => t.warga_id === id);
-    return trx.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal, 0) - trx.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal, 0);
-  };
+      if (profil) {
+        setAdminAktif({ id: profil.id, nama: profil.nama_lengkap });
+        fetchData();
+      }
+    };
+    cekSesi();
+  }, [router]);
 
   const getSaldoSampah = (id: string) => {
-    const trx = trxSampah.filter(t => t.warga_id === id);
-    return trx.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0) - trx.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
+    const trxWarga = sampahList.filter(s => s.warga_id === id);
+    const setor = trxWarga.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
+    const tarik = trxWarga.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
+    return setor - tarik;
   };
+
+  const getSaldoKurban = (id: string) => {
+    const trxWarga = transaksi.filter(s => s.warga_id === id);
+    const setor = trxWarga.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal, 0);
+    const tarik = trxWarga.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal, 0);
+    return setor - tarik;
+  };
+
+  // FAKTA: Kalkulasi Total Keseluruhan Dana Kurban RT
+  const totalDanaKeseluruhan = transaksi.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal, 0) - 
+                               transaksi.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal, 0);
 
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!wargaId) return alert("Pilih warga terlebih dahulu!");
 
-    const uang = parseInt(nominal);
-    const saldoSampah = getSaldoSampah(wargaId);
-    const saldoKurban = getSaldoKurban(wargaId);
-
-    if (jenis === "Tarik" && uang > saldoKurban) {
-      return alert(`Ditolak! Saldo kurban tidak cukup. Saldo saat ini: Rp ${saldoKurban.toLocaleString("id-ID")}`);
-    }
-    if (jenis === "Setor" && sumberDana === "Potong Saldo Sampah" && uang > saldoSampah) {
-      return alert(`Ditolak! Saldo Bank Sampah tidak cukup untuk dipotong. Saldo sampah: Rp ${saldoSampah.toLocaleString("id-ID")}`);
-    }
-
     setSubmitLoading(true);
+    const uang = parseInt(nominal);
 
-    const { error: errKurban } = await supabase.from("tabungan_kurban").insert([{
-      warga_id: wargaId, jenis_transaksi: jenis, sumber_dana: jenis === "Setor" ? sumberDana : "-", nominal: uang, keterangan: keterangan
-    }]);
+    if (jenis === "Tarik") {
+      const saldoKurban = getSaldoKurban(wargaId);
+      if (uang > saldoKurban) {
+        alert(`Ditolak! Saldo kurban warga tidak cukup. Saldo saat ini: Rp ${saldoKurban.toLocaleString('id-ID')}`);
+        setSubmitLoading(false);
+        return;
+      }
 
-    if (errKurban) {
-      alert("Gagal mencatat kurban: " + errKurban.message);
-      setSubmitLoading(false);
-      return;
-    }
-
-    if (jenis === "Setor" && sumberDana === "Potong Saldo Sampah") {
-      const { error: errSampah } = await supabase.from("transaksi_sampah").insert([{
-        warga_id: wargaId, jenis_transaksi: "Tarik", keterangan: "Auto-Debet untuk Tabungan Kurban", berat_kg: 0, nominal_warga: uang, nominal_kas_rt: 0
+      await supabase.from("audit_log").insert([{
+        aktor: adminAktif.nama,
+        aksi: "Tarik Saldo Kurban",
+        tabel_target: "tabungan_kurban",
+        detail: `Menarik Rp ${uang} untuk Warga ID: ${wargaId}`
       }]);
-      if (errSampah) alert("Peringatan: Gagal memotong saldo sampah secara otomatis.");
-    }
 
-    alert("Transaksi Kurban Berhasil Dieksekusi!");
-    setNominal(""); setKeterangan(""); setWargaId(""); setSumberDana("Tunai / Transfer");
-    fetchData(); 
+      const { error } = await supabase.from("tabungan_kurban").insert([{
+        warga_id: wargaId, jenis_transaksi: jenis, sumber_dana: sumberDana, nominal: uang, keterangan
+      }]);
+
+      if (error) alert("Gagal menarik kurban: " + error.message);
+      else finishSimpan();
+
+    } else if (jenis === "Setor" && sumberDana === "Potong Saldo Sampah") {
+      
+      const { error } = await supabase.rpc("eksekusi_autodebet_kurban", {
+        p_warga_id: wargaId,
+        p_nominal: uang,
+        p_keterangan: keterangan || "Auto-debet kurban",
+        p_aktor: adminAktif.nama
+      });
+
+      if (error) {
+        if (error.message.includes("SALDO_TIDAK_CUKUP")) {
+          alert("TRANSAKSI DITOLAK (SERVER): Saldo Bank Sampah warga tidak mencukupi untuk dipotong!");
+        } else {
+          alert("Gagal memproses auto-debet: " + error.message);
+        }
+      } else {
+        alert("Transaksi Auto-Debet Berhasil dan Tercatat Aman!");
+        finishSimpan();
+      }
+
+    } else {
+      await supabase.from("audit_log").insert([{
+        aktor: adminAktif.nama,
+        aksi: "Setor Saldo Kurban",
+        tabel_target: "tabungan_kurban",
+        detail: `Setor Rp ${uang} (${sumberDana}) untuk Warga ID: ${wargaId}`
+      }]);
+
+      const { error } = await supabase.from("tabungan_kurban").insert([{
+        warga_id: wargaId, jenis_transaksi: jenis, sumber_dana: sumberDana, nominal: uang, keterangan
+      }]);
+
+      if (error) alert("Gagal setor kurban: " + error.message);
+      else finishSimpan();
+    }
+  };
+
+  const finishSimpan = () => {
+    setWargaId(""); setNominal(""); setKeterangan("");
+    fetchData();
     setSubmitLoading(false);
   };
 
-  if (loading) return <div className="p-10 text-center font-bold text-slate-500">Membuka brankas kurban...</div>;
+  if (!adminAktif) return null;
+  if (loading) return <div className="p-10 text-center font-bold text-slate-500">Membuka catatan kurban...</div>;
 
   return (
     <div className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        <Link href="/admin" className="text-amber-600 font-bold hover:underline mb-2 inline-block">
+        <Link href="/admin" className="text-amber-700 font-bold hover:underline mb-2 inline-block">
           &larr; Kembali ke Pusat Komando
         </Link>
 
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-8 border-amber-500">
-          <h1 className="text-3xl font-bold text-slate-800">Panitia Kurban RT 07</h1>
-          <p className="text-slate-500">Sistem Tabungan Mandiri (Terintegrasi Bank Sampah)</p>
+        {/* FAKTA: Brankas Utama dikembalikan ke UI */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border-l-8 border-amber-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">Manajemen Tabungan Kurban</h1>
+            <p className="text-slate-500">Kelola cicilan kurban Idul Adha dengan fitur auto-debet bank sampah.</p>
+          </div>
+          <div className="bg-amber-100 border border-amber-200 p-4 rounded-xl text-left md:text-right min-w-[250px] shadow-inner">
+            <div className="text-xs font-black text-amber-700 uppercase tracking-wider mb-1">Total Dana Terkumpul</div>
+            <div className="text-3xl font-black text-amber-900">
+              Rp {totalDanaKeseluruhan.toLocaleString('id-ID')}
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-lg lg:col-span-1 h-fit border-t-4 border-amber-500">
-            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Catat Setoran</h2>
+            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Catat Transaksi</h2>
             <form onSubmit={handleSimpan} className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Pilih Warga</label>
-                <select required className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900 text-sm" value={wargaId} onChange={(e) => setWargaId(e.target.value)}>
-                  <option value="" disabled>-- Cari Warga --</option>
+                <select required className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900" value={wargaId} onChange={(e) => setWargaId(e.target.value)}>
+                  <option value="">-- Pilih Warga --</option>
                   {wargaList.map(w => (
-                    <option key={w.id} value={w.id}>
-                      {w.nama_lengkap} (Kurban: Rp {getSaldoKurban(w.id).toLocaleString("id-ID")} | Sampah: Rp {getSaldoSampah(w.id).toLocaleString("id-ID")})
-                    </option>
+                    <option key={w.id} value={w.id}>{w.nama_lengkap} {wargaId === w.id ? `(Saldo: Rp ${getSaldoKurban(w.id).toLocaleString('id-ID')})` : ''}</option>
                   ))}
                 </select>
+                {wargaId && jenis === "Setor" && sumberDana === "Potong Saldo Sampah" && (
+                  <div className="text-[10px] font-bold text-blue-600 mt-1 bg-blue-50 p-2 rounded border border-blue-200">
+                    Sisa Saldo Bank Sampah Warga ini: Rp {getSaldoSampah(wargaId).toLocaleString('id-ID')}
+                  </div>
+                )}
               </div>
-
-              <div className="flex gap-2">
-                <label className="flex-1 cursor-pointer">
-                  <input type="radio" className="peer sr-only" checked={jenis === "Setor"} onChange={() => setJenis("Setor")} />
-                  <div className="text-center p-2 rounded-lg border-2 border-slate-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-700 font-bold transition-all">Setor Nabung</div>
-                </label>
-                <label className="flex-1 cursor-pointer">
-                  <input type="radio" className="peer sr-only" checked={jenis === "Tarik"} onChange={() => {setJenis("Tarik"); setSumberDana("-");}} />
-                  <div className="text-center p-2 rounded-lg border-2 border-slate-200 peer-checked:border-rose-500 peer-checked:bg-rose-50 peer-checked:text-rose-700 font-bold transition-all">Tarik / Batal</div>
-                </label>
-              </div>
-
-              {jenis === "Setor" && (
+              
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Sumber Dana</label>
-                  <select className="w-full border border-slate-300 rounded p-2 bg-white text-slate-900" value={sumberDana} onChange={(e) => setSumberDana(e.target.value)}>
-                    <option value="Tunai / Transfer">Uang Tunai / Transfer</option>
-                    <option value="Potong Saldo Sampah">Potong Saldo Bank Sampah</option>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Jenis</label>
+                  <select className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900 font-bold" value={jenis} onChange={(e) => setJenis(e.target.value)}>
+                    <option value="Setor" className="text-emerald-600">Setor</option>
+                    <option value="Tarik" className="text-rose-600">Tarik Dana</option>
                   </select>
-                  {sumberDana === "Potong Saldo Sampah" && wargaId && (
-                    <div className="mt-1 text-xs text-rose-600 font-bold">*Sistem akan mengurangi saldo Bank Sampah secara otomatis.</div>
-                  )}
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-bold text-amber-700 mb-1">Nominal (Rp)</label>
-                <input type="number" required min="1000" className="w-full border-2 border-amber-400 focus:border-amber-600 outline-none rounded-lg p-3 font-mono text-xl text-slate-900" placeholder="0" value={nominal} onChange={(e) => setNominal(e.target.value)} />
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Metode</label>
+                  <select className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900" value={sumberDana} onChange={(e) => setSumberDana(e.target.value)}>
+                    <option value="Tunai">Tunai</option>
+                    <option value="Transfer">Transfer</option>
+                    {jenis === "Setor" && <option value="Potong Saldo Sampah" className="font-bold text-amber-700">Auto-Debet Sampah</option>}
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Keterangan</label>
-                <input type="text" required className="w-full border border-slate-300 rounded-lg p-2 text-slate-900" placeholder="Cth: Setoran bulan berjalan" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
+                <label className="block text-sm font-bold text-slate-700 mb-1">Nominal (Rp)</label>
+                <input type="number" required min="1000" className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900 font-mono text-lg" placeholder="50000" value={nominal} onChange={(e) => setNominal(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Keterangan (Opsional)</label>
+                <input type="text" className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm" placeholder="Koreksi salah transfer..." value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
+              </div>
+              
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-[10px] text-slate-500 italic mt-2">
+                <span className="font-bold text-rose-600 block mb-1">ATURAN AUDIT:</span>
+                Transaksi bersifat permanen (Immutable Ledger). Jika terjadi kesalahan input, lakukan pencatatan dengan jenis <b>Tarik Dana</b> sebagai kompensasi perbaikan.
               </div>
 
-              <button type="submit" disabled={submitLoading} className="w-full bg-amber-600 text-white font-bold rounded-lg p-3 shadow-md hover:bg-amber-700">
-                {submitLoading ? "Mengeksekusi..." : "Simpan Transaksi"}
+              <button type="submit" disabled={submitLoading} className={`w-full text-white font-bold rounded-lg p-3 shadow-md mt-2 ${submitLoading ? 'bg-slate-400' : 'bg-amber-700 hover:bg-amber-800'}`}>
+                {submitLoading ? "Memproses..." : "Simpan Transaksi"}
               </button>
             </form>
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Riwayat Tabungan Kurban Warga</h2>
-              <div className="max-h-[400px] overflow-y-auto relative border border-slate-200 rounded">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-slate-800 text-white">
-                      <th className="p-3 border">Tgl</th>
-                      <th className="p-3 border">Warga</th>
-                      <th className="p-3 border">Keterangan & Sumber Dana</th>
-                      <th className="p-3 border text-right">Mutasi (Rp)</th>
+          <div className="bg-white p-6 rounded-xl shadow-lg lg:col-span-2">
+            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Riwayat Tabungan Kurban</h2>
+            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-slate-800 text-white">
+                    <th className="p-3 border">Tanggal</th>
+                    <th className="p-3 border">Nama Warga</th>
+                    <th className="p-3 border">Transaksi & Metode</th>
+                    <th className="p-3 border text-right">Nominal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transaksi.map((t) => (
+                    <tr key={t.id} className="border-b hover:bg-slate-50">
+                      <td className="p-3 border text-slate-600 text-xs">{new Date(t.created_at).toLocaleString('id-ID')}</td>
+                      <td className="p-3 border font-bold text-slate-800">{t.warga?.nama_lengkap}</td>
+                      <td className="p-3 border">
+                        {t.jenis_transaksi === 'Setor' ? 
+                          <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded">SETOR</span> : 
+                          <span className="text-[10px] bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded">TARIK</span>
+                        }
+                        <span className="text-xs text-slate-500 ml-2">via {t.sumber_dana}</span>
+                        {t.keterangan && <div className="text-[10px] text-slate-400 mt-1 italic">{t.keterangan}</div>}
+                      </td>
+                      <td className={`p-3 border text-right font-mono font-bold ${t.jenis_transaksi === 'Setor' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {t.jenis_transaksi === 'Setor' ? '+' : '-'} Rp {t.nominal.toLocaleString('id-ID')}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {trxKurban.length === 0 ? (
-                      <tr><td colSpan={4} className="p-4 text-center text-slate-400 font-bold italic">Belum ada warga yang menabung kurban.</td></tr>
-                    ) : (
-                      trxKurban.map((t) => (
-                        <tr key={t.id} className="border-b hover:bg-slate-50">
-                          <td className="p-3 border text-slate-600">{new Date(t.created_at).toLocaleDateString('id-ID')}</td>
-                          <td className="p-3 border font-bold text-slate-800">{t.warga?.nama_lengkap}</td>
-                          <td className="p-3 border">
-                            <div className="font-bold text-slate-800">{t.keterangan}</div>
-                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${t.sumber_dana === 'Potong Saldo Sampah' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'}`}>
-                              {t.jenis_transaksi === 'Setor' ? `Asal: ${t.sumber_dana}` : 'Penarikan Dana'}
-                            </span>
-                          </td>
-                          <td className={`p-3 border text-right font-bold ${t.jenis_transaksi === 'Setor' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {t.jenis_transaksi === 'Setor' ? '+' : '-'} {t.nominal.toLocaleString('id-ID')}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-            {/* REKAP SALDO KURBAN BIAR RT NGGAK BUTA */}
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Rekap Saldo Terkini Tabungan Kurban</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto">
-                {wargaList.map(w => {
-                  const saldo = getSaldoKurban(w.id);
-                  if (saldo === 0) return null;
-                  return (
-                    <div key={w.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col items-center text-center">
-                      <span className="font-bold text-slate-700 text-sm mb-1">{w.nama_lengkap}</span>
-                      <span className="font-mono font-black text-amber-600 text-lg">Rp {saldo.toLocaleString("id-ID")}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
           </div>
-          
         </div>
       </div>
     </div>

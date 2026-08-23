@@ -1,36 +1,67 @@
 "use client";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function PortalWarga() {
   const [warga, setWarga] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const sesi = localStorage.getItem("warga_aktif");
-    if (!sesi) {
-      router.push("/login");
-      return;
-    }
-    setWarga(JSON.parse(sesi));
+    const cekSesiWarga = async () => {
+      setIsInitializing(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+      
+      // Mengambil profil asli berdasarkan auth_email dummy
+      const { data: profilWarga } = await supabase
+        .from("warga")
+        .select("*")
+        .eq("auth_email", session.user.email)
+        .single();
+
+      if (profilWarga) {
+        setWarga(profilWarga);
+      } else {
+        router.push("/login");
+      }
+      setIsInitializing(false);
+    };
+    
+    cekSesiWarga();
   }, [router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("Yakin ingin keluar dari portal?")) {
-      localStorage.removeItem("warga_aktif");
+      await supabase.auth.signOut();
       router.push("/");
     }
   };
 
-  if (!warga) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Memverifikasi Sesi...</div>;
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 font-mono text-blue-600">
+        <div className="text-4xl mb-4 animate-spin">🛡️</div>
+        <div className="font-bold tracking-widest uppercase">MEMVERIFIKASI TOKEN WARGA...</div>
+      </div>
+    );
+  }
+
+  if (!warga) return null;
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <nav className="bg-blue-700 text-white p-4 shadow-md flex justify-between items-center">
-        <div className="font-bold text-lg">Portal RT 07</div>
-        <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-1.5 px-4 rounded transition-colors">
-          Keluar
+      <nav className="bg-blue-700 text-white p-4 shadow-md flex justify-between items-center relative overflow-hidden">
+        <div className="absolute top-0 left-0 bg-blue-800 text-blue-200 text-[8px] font-bold px-2 py-0.5 rounded-br-lg">JWT PROTECTED</div>
+        <div className="font-bold text-lg mt-2">Portal RT 07</div>
+        <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-1.5 px-4 rounded transition-colors shadow">
+          Keluar Sesi
         </button>
       </nav>
 
@@ -46,8 +77,6 @@ export default function PortalWarga() {
             <div className="font-bold">{warga.status_verifikasi}</div>
           </div>
         </div>
-
-        {/* FAKTA: Pengumuman & Panic Button ditiadakan dari sini karena sudah di halaman depan */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/portal/keuangan" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-emerald-500 block">
@@ -69,7 +98,7 @@ export default function PortalWarga() {
           
           <Link href="/portal/lapor" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-rose-500 block md:col-span-2">
             <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2>
-            <p className="text-sm text-slate-500">Buat tiket laporan fasilitas rusak (lampu mati/selokan mampet) dengan auto-tracking dari Pak RT.</p>
+            <p className="text-sm text-slate-500">Buat tiket laporan fasilitas rusak dengan auto-tracking dari Pak RT.</p>
           </Link>
           <Link href="/portal/inventaris" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-amber-600 block">
             <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2>
@@ -84,24 +113,6 @@ export default function PortalWarga() {
             <p className="text-sm text-slate-400">Cek jadwal tugas ronda malam Anda dan konfirmasi kehadiran secara digital.</p>
           </Link>
         </div>
-
-        <div className="mt-8 border-t-2 border-dashed border-slate-300 pt-6">
-          <h2 className="font-bold text-lg text-slate-500 mb-4">🚀 Layanan Ekstra <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-1 rounded-full">BUTUH DANA SERVER</span></h2>
-          {/* FAKTA: Grid disesuaikan jadi 2 kolom karena CCTV dihapus */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-75">
-            <div className="bg-slate-100 p-5 rounded-xl border border-slate-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-bl-lg">🔒 Upgrade Storage</div>
-              <h2 className="font-bold text-slate-500 mb-2">📸 Buku Tamu</h2>
-              <p className="text-xs text-slate-400">Lapor tamu menginap dgn upload E-KTP.</p>
-            </div>
-            <div className="bg-slate-100 p-5 rounded-xl border border-slate-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded-bl-lg">🔒 Upgrade Storage</div>
-              <h2 className="font-bold text-slate-500 mb-2">🏪 Pasar Warga</h2>
-              <p className="text-xs text-slate-400">Jual-beli dengan foto resolusi tinggi.</p>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   );
