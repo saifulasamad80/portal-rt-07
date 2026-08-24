@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -38,8 +39,6 @@ export default async function PortalWarga() {
 
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka);
 
-  // FAKTA: Ini adalah "Server Action". Sebuah fungsi yang hidup murni di server.
-  // Tidak butuh API route terpisah atau fetch onClick!
   const handleLogout = async () => {
     "use server";
     const cookieStore = await cookies();
@@ -66,7 +65,6 @@ export default async function PortalWarga() {
              </div>
            </div>
            
-           {/* FAKTA: Tombol onClick diubah menjadi elemen Form yang mengeksekusi Server Action */}
            <form action={handleLogout} className="mt-4 md:mt-0">
              <button type="submit" className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-md active:scale-95">
                Tutup Sesi
@@ -74,7 +72,7 @@ export default async function PortalWarga() {
            </form>
         </div>
         
-        {/* DASHBOARD AGREGASI */}
+        {/* DASHBOARD AGREGASI SALDO */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-blue-500">
             <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Total Kas RT</p>
@@ -85,14 +83,42 @@ export default async function PortalWarga() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-emerald-500">
             <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Tabungan Kurban Anda</p>
             <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoKurban)}</h2>
-            <p className="text-xs text-slate-400 mt-2">*Data ditarik otomatis dari sistem</p>
+            <p className="text-xs text-slate-400 mt-2">*Data ditarik otomatis</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-500">
             <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Saldo Bank Sampah</p>
             <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoSampah)}</h2>
-            <p className="text-xs text-slate-400 mt-2">*Dapat dicairkan atau dialihkan</p>
+            <p className="text-xs text-slate-400 mt-2">*Dapat dicairkan/dialihkan</p>
           </div>
+        </div>
+
+        {/* MENU LAYANAN WARGA (UI LAMA DICANGKOK KEMBALI) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+          <Link href="/portal/keuangan" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-emerald-500 block">
+            <h2 className="font-bold text-slate-800 mb-2">💰 Transparansi & Iuran</h2>
+            <p className="text-sm text-slate-500">Cek saldo kas RT dan riwayat pembayaran.</p>
+          </Link>
+          <Link href="/portal/surat" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-blue-500 block">
+            <h2 className="font-bold text-slate-800 mb-2">📄 Layanan Surat</h2>
+            <p className="text-sm text-slate-500">Cetak surat pengantar RT secara mandiri.</p>
+          </Link>
+          <Link href="/portal/lapor" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-rose-500 block md:col-span-2">
+            <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2>
+            <p className="text-sm text-slate-500">Buat tiket laporan fasilitas rusak dengan auto-tracking dari Pak RT.</p>
+          </Link>
+          <Link href="/portal/inventaris" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-amber-600 block">
+            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2>
+            <p className="text-sm text-slate-500">Booking tenda, kursi, atau sound system RT dengan sistem anti-bentrok jadwal.</p>
+          </Link>
+          <Link href="/portal/voting" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-indigo-500 block">
+            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2>
+            <p className="text-sm text-slate-500">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
+          </Link>
+          <Link href="/portal/ronda" className="bg-slate-800 p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-slate-500 block md:col-span-2">
+            <h2 className="font-bold text-white mb-2 flex items-center gap-2">🔦 Jadwal Siskamling</h2>
+            <p className="text-sm text-slate-400">Cek jadwal tugas ronda malam Anda dan konfirmasi kehadiran secara digital.</p>
+          </Link>
         </div>
 
       </div>
