@@ -1,3 +1,4 @@
+// app/portal/surat/SuratClient.tsx
 "use client";
 import { useState } from "react";
 import Link from "next/link";
@@ -13,36 +14,67 @@ export default function SuratClient({ warga }: { warga: any }) {
   const today = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
   const nomorSurat = `0${new Date().getMonth() + 1} / RT.07 / ${new Date().getFullYear()}`;
 
+  // Daftar opsi dipisah untuk di-render jadi tombol interaktif
+  const daftarKeperluan = [
+    "KTP Baru", "Perpanjangan KTP", "KTP Sementara", 
+    "Kartu Keluarga Baru", "Pengantar SKCK", 
+    "Domisili Tempat Tinggal", "Lainnya"
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 p-6 print:p-0 print:bg-white">
-      <div className="max-w-4xl mx-auto print:hidden space-y-6">
+    <div className="min-h-screen bg-slate-50 p-6 print:p-0 print:bg-white flex flex-col items-center">
+      <div className="w-full max-w-4xl print:hidden space-y-6">
         <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-white p-6 rounded-xl shadow border-t-4 border-blue-600">
-          <h1 className="text-2xl font-bold text-slate-800 mb-4">Layanan Surat Pengantar Mandiri</h1>
-          <p className="text-sm text-slate-600 mb-6">Pilih keperluan Anda, lalu cetak surat ini.</p>
-          <div className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+        <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
+          <p className="text-sm text-slate-500 mb-8">Pilih keperluan Anda di bawah ini, lalu cetak surat secara instan.</p>
+          
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-blue-900 mb-1">Pilih Keperluan Surat</label>
-              <select className="w-full border border-blue-300 p-2.5 rounded text-slate-900 bg-white" value={keperluan} onChange={e => setKeperluan(e.target.value)}>
-                <option value="">-- Pilih Keperluan --</option>
-                <option value="KTP Baru">1. KTP Baru</option>
-                <option value="Perpanjangan KTP">2. Perpanjangan KTP</option>
-                <option value="KTP Sementara">3. KTP Sementara</option>
-                <option value="Kartu Keluarga Baru">4. Kartu Keluarga Baru</option>
-                <option value="Pengantar SKCK">5. Pengantar SKCK</option>
-                <option value="Domisili Tempat Tinggal">6. Domisili Tempat Tinggal</option>
-                <option value="Lainnya">7. Lainnya</option>
-              </select>
+              <label className="block text-sm font-bold text-slate-700 mb-3">Pilih Keperluan Surat</label>
+              
+              {/* TRANSFORMASI UX: Native <select> dibunuh, diganti Grid Tombol (Pills) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {daftarKeperluan.map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setKeperluan(item)}
+                    className={`p-3 rounded-lg border text-sm font-semibold transition-all duration-200 text-left ${
+                      keperluan === item
+                        ? "bg-blue-600 text-white border-blue-600 shadow-md transform -translate-y-0.5"
+                        : "bg-white text-slate-600 border-slate-300 hover:border-blue-400 hover:bg-blue-50"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div>
-              <label className="block text-sm font-bold text-blue-900 mb-1">Keterangan Tambahan</label>
-              <input type="text" className="w-full border border-blue-300 p-2.5 rounded text-slate-900" placeholder="Keterangan..." value={keterangan} onChange={e => setKeterangan(e.target.value)} />
+              <label className="block text-sm font-bold text-slate-700 mb-2">Keterangan Tambahan (Opsional)</label>
+              <input 
+                type="text" 
+                className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                placeholder="Tulis detail tambahan jika diperlukan..." 
+                value={keterangan} 
+                onChange={e => setKeterangan(e.target.value)} 
+              />
             </div>
-            <button onClick={handlePrint} disabled={!keperluan} className="w-full bg-blue-600 text-white font-bold px-6 py-3 rounded-lg shadow hover:bg-blue-700 disabled:bg-slate-400 mt-2">Cetak Kertas Sekarang</button>
+            
+            <button 
+              onClick={handlePrint} 
+              disabled={!keperluan} 
+              className="w-full bg-blue-600 text-white font-bold px-6 py-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none transition-all mt-4 text-lg"
+            >
+              Cetak Kertas Sekarang
+            </button>
           </div>
         </div>
       </div>
-      <div className="max-w-4xl mx-auto mt-8 bg-white p-12 shadow-2xl print:shadow-none print:m-0 print:p-0 text-black">
+
+      {/* AREA CETAK (Hanya tampil penuh di kertas) */}
+      <div className="max-w-4xl mx-auto mt-8 bg-white p-12 shadow-2xl print:shadow-none print:m-0 print:p-0 text-black w-full">
          <div className="text-center border-b-[3px] border-black pb-4 mb-8">
            <h2 className="text-2xl font-black uppercase tracking-wide">Rukun Tetangga (RT) 07</h2>
          </div>
