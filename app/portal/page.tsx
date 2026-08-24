@@ -12,12 +12,9 @@ export default async function PortalWarga() {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
 
-  if (!token) {
-    redirect("/login");
-  }
+  if (!token) redirect("/login");
 
   let wargaAktif: any;
-  
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     wargaAktif = payload;
@@ -27,7 +24,6 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // EFEK DOMINO: Query v_rekap_kas_rt DIMATIKAN! Server jauh lebih ringan.
   const [kurbanRes, sampahRes] = await Promise.all([
     supabaseAdmin.from('v_saldo_kurban_warga').select('*').eq('warga_id', wargaAktif.id).maybeSingle(),
     supabaseAdmin.from('v_saldo_sampah_warga').select('*').eq('warga_id', wargaAktif.id).maybeSingle(),
@@ -71,19 +67,19 @@ export default async function PortalWarga() {
            </form>
         </div>
         
-        {/* DASHBOARD AGREGASI SALDO PERSONAL (GRID 2 KOLOM) */}
+        {/* DASHBOARD AGREGASI SALDO PERSONAL (GRID 2 KOLOM) - SEKARANG BISA DI-KLIK! */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-emerald-500">
+          <Link href="/portal/kurban" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-emerald-500 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Tabungan Kurban Anda</p>
             <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoKurban)}</h2>
-            <p className="text-xs text-slate-400 mt-2">*Data ditarik otomatis</p>
-          </div>
+            <p className="text-xs text-slate-400 mt-2 flex items-center gap-1"><span>Masuk ke Rincian</span> &rarr;</p>
+          </Link>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-500">
+          <Link href="/portal/sampah" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-500 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Saldo Bank Sampah</p>
             <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoSampah)}</h2>
-            <p className="text-xs text-slate-400 mt-2">*Dapat dicairkan/dialihkan</p>
-          </div>
+            <p className="text-xs text-slate-400 mt-2 flex items-center gap-1"><span>Masuk ke Rincian</span> &rarr;</p>
+          </Link>
         </div>
 
         {/* MENU LAYANAN WARGA */}
