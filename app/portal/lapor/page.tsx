@@ -1,133 +1,52 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
+import LaporClient from "./LaporClient";
 
-export default function LaporRTWarga() {
-  const [warga, setWarga] = useState<any>(null);
-  const [riwayatLaporan, setRiwayatLaporan] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const router = useRouter();
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-  const [judul, setJudul] = useState("");
-  const [deskripsi, setDeskripsi] = useState("");
+export default async function LaporRTPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
 
-  useEffect(() => {
-    const cekSesiWarga = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-      const { data: profilWarga } = await supabase
-        .from("warga")
-        .select("*")
-        .eq("auth_email", session.user.email)
-        .single();
+  if (!token) redirect("/login");
 
-      if (profilWarga) {
-        setWarga(profilWarga);
-        fetchLaporan(profilWarga.id);
-      } else {
-        router.push("/login");
-      }
-    };
-    cekSesiWarga();
-  }, [router]);
+  let wargaAktif: any;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    wargaAktif = payload;
+  } catch (error) {
+    redirect("/login");
+  }
 
-  const fetchLaporan = async (idWarga: string) => {
-    const { data } = await supabase
-      .from("laporan_warga")
-      .select("*")
-      .eq("warga_id", idWarga)
-      .order("created_at", { ascending: false });
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  // FAKTA: Server mengeksekusi penarikan data secara simultan menembus RLS
+  const [wargaRes, laporanRes] = await Promise.all([
+    supabaseAdmin.from("warga").select("*").eq("id", wargaAktif.id).single(),
+    supabaseAdmin.from("laporan_warga").select("*").eq("warga_id", wargaAktif.id).order("created_at", { ascending: false })
+  ]);
+
+  if (!wargaRes.data) redirect("/login");
+
+  // FAKTA: Ini adalah "Server Action". Fungsi ini dieksekusi secara buta dari klien, 
+  // lalu menembus database via server dengan keamanan absolut (Bypass RLS).
+  async function kirimLaporan(judul: string, deskripsi: string) {
+    "use server";
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    if (data) setRiwayatLaporan(data);
-    setLoading(false);
-  };
-
-  const handleKirimLaporan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitLoading(true);
-
-    const { error } = await supabase.from("laporan_warga").insert([{
-      warga_id: warga.id,
+    const { error } = await supabaseAdmin.from("laporan_warga").insert([{
+      warga_id: wargaAktif.id,
       judul_laporan: judul,
-      deskripsi: deskripsi
+      deskripsi: deskripsi,
+      status: "Menunggu"
     }]);
 
-    if (error) {
-      alert("Gagal mengirim laporan: " + error.message);
-    } else {
-      alert("Laporan berhasil dikirim ke Pengurus RT!");
-      setJudul(""); setDeskripsi("");
-      fetchLaporan(warga.id);
-    }
-    setSubmitLoading(false);
-  };
+    if (error) throw new Error(error.message);
+  }
 
-  const getStatusColor = (status: string) => {
-    if (status === 'Selesai') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (status === 'Diproses') return 'bg-amber-100 text-amber-700 border-amber-200';
-    return 'bg-slate-100 text-slate-600 border-slate-200';
-  };
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Membuka tiket laporan...</div>;
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-rose-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-white p-6 rounded-xl shadow border-l-8 border-rose-500">
-          <h1 className="text-2xl font-bold text-slate-800">Sistem Lapor Warga RT 07</h1>
-          <p className="text-slate-500 text-sm">Laporkan kerusakan fasilitas umum.</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Buat Laporan Baru</h2>
-            <form onSubmit={handleKirimLaporan} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Judul Laporan</label>
-                <input type="text" required className="w-full border border-slate-300 rounded-lg p-2 text-slate-900" placeholder="Cth: Lampu Tiang No. 4 Mati" value={judul} onChange={(e) => setJudul(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Detail Lokasi & Kejadian</label>
-                <textarea required rows={4} className="w-full border border-slate-300 rounded-lg p-2 text-slate-900" placeholder="Deskripsikan..." value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)}></textarea>
-              </div>
-              <button type="submit" disabled={submitLoading} className="w-full bg-rose-600 text-white font-bold rounded-lg p-3 shadow hover:bg-rose-700 transition-colors">
-                {submitLoading ? "Mengirim..." : "Kirim Laporan"}
-              </button>
-            </form>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Status Laporan Saya</h2>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
-              {riwayatLaporan.length === 0 ? (
-                <p className="text-sm text-slate-500 italic">Anda belum pernah membuat laporan.</p>
-              ) : (
-                riwayatLaporan.map(t => (
-                  <div key={t.id} className={`p-4 border rounded-lg ${getStatusColor(t.status)}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold">{t.judul_laporan}</h3>
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-white/50">{t.status}</span>
-                    </div>
-                    <p className="text-sm opacity-80 mb-2">{t.deskripsi}</p>
-                    {t.tanggapan_rt && (
-                      <div className="mt-2 pt-2 border-t border-black/10">
-                        <span className="text-xs font-bold block mb-1">Respon Pengurus RT:</span>
-                        <p className="text-sm font-medium italic">"{t.tanggapan_rt}"</p>
-                      </div>
-                    )}
-                    <div className="text-[10px] font-bold mt-3 opacity-60 text-right">Dikirim: {new Date(t.created_at).toLocaleDateString('id-ID')}</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <LaporClient warga={wargaRes.data} initialLaporan={laporanRes.data || []} kirimLaporan={kirimLaporan} />;
 }
