@@ -1,56 +1,39 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 
-export default function TabunganSampahWarga() {
-  const [warga, setWarga] = useState<any>(null);
-  const [riwayat, setRiwayat] = useState<any[]>([]);
-  const [saldo, setSaldo] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-  useEffect(() => {
-    const cekSesiWarga = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-      const { data: profilWarga } = await supabase
-        .from("warga")
-        .select("*")
-        .eq("auth_email", session.user.email)
-        .single();
+export default async function TabunganSampahWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
 
-      if (profilWarga) {
-        setWarga(profilWarga);
-        fetchDataTabungan(profilWarga.id);
-      } else {
-        router.push("/login");
-      }
-    };
-    cekSesiWarga();
-  }, [router]);
+  if (!token) redirect("/login");
 
-  const fetchDataTabungan = async (idWarga: string) => {
-    const { data } = await supabase
-      .from("transaksi_sampah")
-      .select("*")
-      .eq("warga_id", idWarga)
-      .order("created_at", { ascending: false });
-    
-    if (data) {
-      setRiwayat(data);
-      const totalSetor = data.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
-      const totalTarik = data.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
-      setSaldo(totalSetor - totalTarik);
-    }
-    setLoading(false);
-  };
+  let wargaAktif: any;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    wargaAktif = payload;
+  } catch (error) {
+    redirect("/login");
+  }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Menarik data dari buku tabungan...</div>;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data } = await supabaseAdmin
+    .from("transaksi_sampah")
+    .select("*")
+    .eq("warga_id", wargaAktif.id)
+    .order("created_at", { ascending: false });
+  
+  const riwayat = data || [];
+  const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
+  const totalTarik = riwayat.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
+  const saldo = totalSetor - totalTarik;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">

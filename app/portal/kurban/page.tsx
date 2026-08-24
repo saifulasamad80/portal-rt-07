@@ -1,92 +1,73 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 
-export default function TabunganKurbanWarga() {
-  const [warga, setWarga] = useState<any>(null);
-  const [riwayat, setRiwayat] = useState<any[]>([]);
-  const [saldo, setSaldo] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-  useEffect(() => {
-    const cekSesiWarga = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-      const { data: profilWarga } = await supabase
-        .from("warga")
-        .select("*")
-        .eq("auth_email", session.user.email)
-        .single();
+export default async function TabunganSampahWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
 
-      if (profilWarga) {
-        setWarga(profilWarga);
-        fetchDataKurban(profilWarga.id);
-      } else {
-        router.push("/login");
-      }
-    };
-    cekSesiWarga();
-  }, [router]);
+  if (!token) redirect("/login");
 
-  const fetchDataKurban = async (idWarga: string) => {
-    const { data } = await supabase
-      .from("tabungan_kurban")
-      .select("*")
-      .eq("warga_id", idWarga)
-      .order("created_at", { ascending: false });
-    
-    if (data) {
-      setRiwayat(data);
-      const totalSetor = data.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal, 0);
-      const totalTarik = data.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal, 0);
-      setSaldo(totalSetor - totalTarik);
-    }
-    setLoading(false);
-  };
+  let wargaAktif: any;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    wargaAktif = payload;
+  } catch (error) {
+    redirect("/login");
+  }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Membuka catatan kurban...</div>;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data } = await supabaseAdmin
+    .from("transaksi_sampah")
+    .select("*")
+    .eq("warga_id", wargaAktif.id)
+    .order("created_at", { ascending: false });
+  
+  const riwayat = data || [];
+  const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
+  const totalTarik = riwayat.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
+  const saldo = totalSetor - totalTarik;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-amber-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-gradient-to-br from-amber-500 to-orange-700 p-8 rounded-2xl shadow-xl text-white relative overflow-hidden">
-          <h2 className="text-amber-100 text-sm font-bold uppercase tracking-widest mb-2">Persiapan Kurban Idul Adha</h2>
-          <div className="text-5xl font-black mb-2">Rp {saldo.toLocaleString("id-ID")}</div>
-          <p className="text-sm text-amber-100 font-medium">Tabungan kurban tercatat aman dan transparan.</p>
+        <Link href="/portal" className="text-emerald-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-800 p-8 rounded-2xl shadow-xl text-white">
+          <h2 className="text-emerald-100 text-sm font-bold uppercase tracking-widest mb-2">Tabungan Mandiri RT 07</h2>
+          <div className="text-5xl font-black mb-1">Rp {saldo.toLocaleString("id-ID")}</div>
+          <p className="text-sm text-emerald-200">Saldo tabungan bank sampah Anda.</p>
         </div>
         <div className="bg-white p-6 rounded-xl shadow border-t-4 border-slate-700">
-          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">🐄 Riwayat Setoran Kurban</h2>
+          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">📘 Mutasi Tabungan</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-slate-100 text-slate-700">
                   <th className="p-3 border-b">Tanggal</th>
-                  <th className="p-3 border-b">Keterangan & Sumber</th>
+                  <th className="p-3 border-b">Keterangan</th>
                   <th className="p-3 border-b text-right">Mutasi (Rp)</th>
                 </tr>
               </thead>
               <tbody>
                 {riwayat.length === 0 ? (
-                  <tr><td colSpan={3} className="p-4 text-center text-slate-400 font-bold italic">Belum ada aktivitas tabungan kurban.</td></tr>
+                  <tr><td colSpan={3} className="p-4 text-center text-slate-400 font-bold italic">Belum ada aktivitas tabungan.</td></tr>
                 ) : (
                   riwayat.map((t) => (
                     <tr key={t.id} className="border-b hover:bg-slate-50">
                       <td className="p-3 text-slate-600 whitespace-nowrap">{new Date(t.created_at).toLocaleDateString('id-ID')}</td>
                       <td className="p-3">
                         <div className="font-bold text-slate-800">{t.keterangan}</div>
-                        <div className={`text-[11px] mt-1 inline-block px-2 py-0.5 rounded font-bold ${t.sumber_dana === 'Potong Saldo Sampah' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'}`}>
-                          {t.sumber_dana !== '-' ? `Asal: ${t.sumber_dana}` : 'Penarikan'}
-                        </div>
+                        {t.berat_kg > 0 && <div className="text-xs text-slate-500 font-mono mt-0.5">Berat: {t.berat_kg} Kg</div>}
                       </td>
                       <td className={`p-3 text-right font-black ${t.jenis_transaksi === 'Setor' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {t.jenis_transaksi === 'Setor' ? '+' : '-'} {t.nominal.toLocaleString('id-ID')}
+                        {t.jenis_transaksi === 'Setor' ? '+' : '-'} {t.nominal_warga.toLocaleString('id-ID')}
                       </td>
                     </tr>
                   ))
