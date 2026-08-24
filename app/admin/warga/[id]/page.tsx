@@ -2,54 +2,47 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
-import WargaAdminClient from "./WargaAdminClient";
+import WargaDetailClient from "./WargaDetailClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-export default async function AdminWargaPage() {
+export default async function AdminWargaDetailPage({ params }: { params: { id: string } }) {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
   if (!token) redirect("/admin");
-
   let adminAktif: any;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     adminAktif = payload;
-  } catch (error) {
-    redirect("/admin");
-  }
+  } catch (error) { redirect("/admin"); }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tarik semua warga yang sudah tervalidasi + anggota keluarganya
+  // FAKTA: Tarik detail 1 warga beserta seluruh keluarganya
   const { data: wargaRes } = await supabaseAdmin
     .from("warga")
     .select("*, anggota_keluarga(*)")
-    .eq("status_verifikasi", "Disetujui")
-    .order("nama_lengkap", { ascending: true });
+    .eq("id", params.id)
+    .single();
 
-  // FAKTA: Server Action untuk Hapus Warga Ekstrem (Cascade)
-  async function hapusWarga(wargaId: string) {
+  // FAKTA: Server Action Verifikasi Lapor Diri
+  async function verifikasiWarga(wargaId: string, statusBaru: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Ambil nama sebelum dihapus untuk log
-    const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap, nik").eq("id", wargaId).single();
-    
-    // Hapus warga (semua relasi seperti kas, tabungan, dll akan ikut terhapus jika DB diset Cascade/Set Null)
-    const { error } = await supabase.from("warga").delete().eq("id", wargaId);
+    const { error } = await supabase.from("warga").update({ status_verifikasi: statusBaru }).eq("id", wargaId);
     if (error) throw new Error(error.message);
 
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
-      aksi: "HAPUS BUKU INDUK WARGA",
+      aksi: `Verifikasi Warga: ${statusBaru}`,
       tabel_target: "warga",
-      detail: `Menghapus Permanen Warga: ${targetWarga?.nama_lengkap} (NIK: ${targetWarga?.nik})`
+      detail: `Memverifikasi NIK ${wargaRes?.nik} (${wargaRes?.nama_lengkap}) menjadi ${statusBaru}`
     }]);
   }
 
-  return <WargaAdminClient wargaList={wargaRes || []} aksiHapus={hapusWarga} />;
+  return <WargaDetailClient warga={wargaRes} aksiVerifikasi={verifikasiWarga} />;
 }

@@ -1,132 +1,64 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
+import { redirect } from "next/navigation";
+import LaporAdminClient from "./LaporAdminClient";
 
-export default function AdminLaporRT() {
-  const [laporan, setLaporan] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adminAktif, setAdminAktif] = useState<any>(null);
-  const router = useRouter();
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-  const fetchLaporan = async () => {
-    setLoading(true);
-    const { data } = await supabase
+export default async function AdminLaporPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
+
+  if (!token) redirect("/admin");
+
+  let adminAktif: any;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    adminAktif = payload;
+  } catch (error) {
+    redirect("/admin");
+  }
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // FAKTA: Tarik daftar laporan beserta nama warga pelapornya
+  const { data: laporanRes } = await supabaseAdmin
+    .from("laporan_warga")
+    .select("*, warga(nama_lengkap)")
+    .order("created_at", { ascending: false });
+
+  // FAKTA: Server Action untuk menanggapi dan update status laporan
+  async function tanggapiLaporan(laporanId: string, statusBaru: string, tanggapanTeks: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    const { error } = await supabase
       .from("laporan_warga")
-      .select("*, warga(nama_lengkap, detail_alamat)")
-      .order("created_at", { ascending: false });
+      .update({ 
+        status: statusBaru,
+        tanggapan_rt: tanggapanTeks
+      })
+      .eq("id", laporanId);
 
-    if (data) setLaporan(data);
-    setLoading(false);
-  };
+    if (error) throw new Error(error.message);
 
-  useEffect(() => {
-    const cekSesi = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/admin");
-        return;
-      }
-      
-      const { data: profil } = await supabase
-        .from("pengurus_rt")
-        .select("*")
-        .eq("email", session.user.email)
-        .single();
-
-      if (profil) {
-        setAdminAktif({ id: profil.id, nama: profil.nama_lengkap });
-        fetchLaporan();
-      }
-    };
-    cekSesi();
-  }, [router]);
-
-  const prosesLaporan = async (id: string, statusBaru: string) => {
-    const tanggapan = prompt(`Ubah status menjadi ${statusBaru}. Masukkan tanggapan Anda untuk warga (Opsional):`);
-    if (tanggapan === null) return; 
+    // Ambil judul laporan untuk log audit
+    const { data: targetLaporan } = await supabase.from("laporan_warga").select("judul_laporan").eq("id", laporanId).single();
 
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
-      aksi: `Proses Laporan: ${statusBaru}`,
+      aksi: `Tanggapan Laporan: ${statusBaru}`,
       tabel_target: "laporan_warga",
-      detail: `ID Laporan: ${id} | Tanggapan: ${tanggapan.trim() || 'Tanpa tanggapan'}`
+      detail: `Merespons tiket: ${targetLaporan?.judul_laporan}`
     }]);
+  }
 
-    const payload: any = { status: statusBaru };
-    if (tanggapan.trim() !== "") payload.tanggapan_rt = tanggapan;
-
-    const { error } = await supabase.from("laporan_warga").update(payload).eq("id", id);
-    if (error) alert("Gagal update laporan: " + error.message);
-    else fetchLaporan();
-  };
-
-  if (!adminAktif) return null;
-  if (loading) return <div className="p-10 text-center font-bold text-slate-500">Membuka meja pengaduan...</div>;
-
-  return (
-    <div className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Link href="/admin" className="text-rose-600 font-bold hover:underline mb-2 inline-block">
-          &larr; Kembali ke Pusat Komando
-        </Link>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-8 border-rose-600">
-          <h1 className="text-3xl font-bold text-slate-800">Manajemen Laporan Warga</h1>
-          <p className="text-slate-500">Tindak lanjut tiket keluhan infrastruktur & keamanan lingkungan.</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="bg-slate-800 text-white">
-                  <th className="p-3 border">Tanggal</th>
-                  <th className="p-3 border">Pelapor</th>
-                  <th className="p-3 border">Detail Laporan</th>
-                  <th className="p-3 border">Status</th>
-                  <th className="p-3 border text-center">Tindakan RT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {laporan.map((t) => (
-                  <tr key={t.id} className="border-b hover:bg-slate-50">
-                    <td className="p-3 border text-slate-600">{new Date(t.created_at).toLocaleDateString('id-ID')}</td>
-                    <td className="p-3 border">
-                      <div className="font-bold text-slate-800">{t.warga?.nama_lengkap}</div>
-                      <div className="text-xs text-slate-500">{t.warga?.detail_alamat}</div>
-                    </td>
-                    <td className="p-3 border">
-                      <div className="font-bold text-slate-800">{t.judul_laporan}</div>
-                      <div className="text-slate-600 mt-1">{t.deskripsi}</div>
-                      {t.tanggapan_rt && (
-                        <div className="mt-2 text-xs bg-slate-100 p-2 rounded text-slate-700 italic border-l-2 border-slate-400">
-                          Respon RT: {t.tanggapan_rt}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3 border font-bold">
-                      {t.status === 'Selesai' && <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded">Selesai</span>}
-                      {t.status === 'Diproses' && <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded">Diproses</span>}
-                      {t.status === 'Menunggu' && <span className="text-slate-500 bg-slate-100 px-2 py-1 rounded">Menunggu</span>}
-                    </td>
-                    <td className="p-3 border text-center space-y-2">
-                      {t.status !== 'Selesai' && (
-                        <>
-                          <button onClick={() => prosesLaporan(t.id, 'Diproses')} className="block w-full bg-amber-500 text-white text-xs px-3 py-2 rounded shadow hover:bg-amber-600 font-bold transition-colors">Tandai Diproses</button>
-                          <button onClick={() => prosesLaporan(t.id, 'Selesai')} className="block w-full bg-emerald-500 text-white text-xs px-3 py-2 rounded shadow hover:bg-emerald-600 font-bold transition-colors">Selesaikan</button>
-                        </>
-                      )}
-                      {t.status === 'Selesai' && <span className="text-xs text-slate-400 font-bold">Case Closed</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <LaporAdminClient 
+            adminAktif={adminAktif} 
+            laporanList={laporanRes || []} 
+            aksiTanggapi={tanggapiLaporan} 
+         />;
 }

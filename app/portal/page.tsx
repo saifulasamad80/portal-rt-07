@@ -21,8 +21,9 @@ export default async function PortalWarga() {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: profilWarga } = await supabaseAdmin.from("warga").select("*").eq("id", wargaAktif.id).single();
 
-  // FAKTA: Tarik pengumuman RT reguler (opsional)
-  const { data: pengumumanReguler } = await supabaseAdmin.from("pengumuman_rt").select("*").order("tanggal_publikasi", { ascending: false }).limit(1);
+  // FAKTA: Tarik pengumuman RT reguler (opsional) dengan penjinak TypeScript
+  const { data: dataPengumuman } = await supabaseAdmin.from("pengumuman_rt").select("*").order("tanggal_publikasi", { ascending: false }).limit(1);
+  const pengumumanReguler = dataPengumuman || []; // Dijamin selalu berupa Array
 
   // FAKTA: Logika 7 Hari! Cari 1 voting terakhir yang sudah ditutup
   const { data: votingDitutup } = await supabaseAdmin
@@ -89,7 +90,7 @@ export default async function PortalWarga() {
         </div>
 
         {/* FAKTA: PAPAN PENGUMUMAN & REKAP KEPUTUSAN YANG RINGKAS */}
-        {(pengumumanReguler?.length > 0 || rekapVoting) && (
+        {(pengumumanReguler.length > 0 || rekapVoting) && (
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-t-4 border-t-amber-500">
             <h2 className="font-black text-slate-800 text-sm flex items-center gap-2 mb-3">📢 Papan Informasi RT</h2>
             
@@ -121,7 +122,7 @@ export default async function PortalWarga() {
             )}
             
             {/* Pengumuman Biasa (Jika Ada) */}
-            {pengumumanReguler?.length > 0 && (
+            {pengumumanReguler.length > 0 && (
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg">
                 <h3 className="font-bold text-slate-800 text-sm">{pengumumanReguler[0].judul}</h3>
                 <p className="text-xs text-slate-600 mt-1">{pengumumanReguler[0].deskripsi}</p>

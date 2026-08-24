@@ -53,7 +53,7 @@ export default async function AdminDashboard() {
     "use server";
     const cookieStore = await cookies();
     cookieStore.delete("admin_session");
-    redirect("/admin");
+    redirect("/");
   };
 
   return <AdminDashboardClient adminAktif={adminAktif} wargaList={wargaListRes || []} prosesValidasi={prosesValidasi} logoutAction={handleLogout} />;
