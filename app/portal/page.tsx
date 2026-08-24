@@ -27,13 +27,12 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const [kasRes, kurbanRes, sampahRes] = await Promise.all([
-    supabaseAdmin.from('v_rekap_kas_rt').select('*').limit(1).single(),
+  // EFEK DOMINO: Query v_rekap_kas_rt DIMATIKAN! Server jauh lebih ringan.
+  const [kurbanRes, sampahRes] = await Promise.all([
     supabaseAdmin.from('v_saldo_kurban_warga').select('*').eq('warga_id', wargaAktif.id).maybeSingle(),
     supabaseAdmin.from('v_saldo_sampah_warga').select('*').eq('warga_id', wargaAktif.id).maybeSingle(),
   ]);
 
-  const saldoKasGlobal = kasRes.data?.saldo_akhir || kasRes.data?.total_saldo || 0;
   const saldoKurban = kurbanRes.data?.saldo_akhir || kurbanRes.data?.total_kurban || 0;
   const saldoSampah = sampahRes.data?.saldo_akhir || sampahRes.data?.total_sampah || 0;
 
@@ -72,14 +71,8 @@ export default async function PortalWarga() {
            </form>
         </div>
         
-        {/* DASHBOARD AGREGASI SALDO */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-blue-500">
-            <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Total Kas RT</p>
-            <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoKasGlobal)}</h2>
-            <p className="text-xs text-slate-400 mt-2">*Saldo transparan kas lingkungan</p>
-          </div>
-
+        {/* DASHBOARD AGREGASI SALDO PERSONAL (GRID 2 KOLOM) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-emerald-500">
             <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Tabungan Kurban Anda</p>
             <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoKurban)}</h2>
@@ -93,7 +86,7 @@ export default async function PortalWarga() {
           </div>
         </div>
 
-        {/* MENU LAYANAN WARGA (UI LAMA DICANGKOK KEMBALI) */}
+        {/* MENU LAYANAN WARGA */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
           <Link href="/portal/keuangan" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-emerald-500 block">
             <h2 className="font-bold text-slate-800 mb-2">💰 Transparansi & Iuran</h2>
