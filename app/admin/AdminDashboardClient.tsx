@@ -110,7 +110,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <p className="text-[10px] text-slate-400 font-bold mt-1">Tambah & Reset Akun RT</p>
           </Link>
 
-          {/* FAKTA: ICON GEMBOK DITAMBAHKAN */}
+          {/* KARTU BUKU TAMU & PASAR WARGA (TANPA COL-SPAN-2) */}
           <div className="bg-slate-100 p-5 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
             <div className="absolute top-2 right-2 bg-rose-100 text-rose-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
             <div className="text-3xl mb-2 grayscale">📸</div>
@@ -118,13 +118,13 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <p className="text-[10px] text-slate-400 font-bold mt-1">Sistem lapor tamu dgn E-KTP</p>
           </div>
 
-          <div className="bg-slate-100 p-5 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden md:col-span-2">
+          <div className="bg-slate-100 p-5 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
             <div className="absolute top-2 right-2 bg-rose-100 text-rose-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
             <div className="text-3xl mb-2 grayscale">🏪</div>
             <h2 className="font-black text-slate-500 text-sm">Pasar Warga (Lapak)</h2>
             <p className="text-[10px] text-slate-400 font-bold mt-1">Katalog UMKM warga</p>
           </div>
-        </div>
+        </div> {/* <-- Penutup div grid */}
 
         {/* TABEL VALIDASI PENDAFTARAN AKURAT (NO VERTICAL BORDERS) */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-300 p-6 overflow-hidden mt-8">
