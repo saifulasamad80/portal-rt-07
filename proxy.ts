@@ -1,11 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// FAKTA: Nama fungsi wajib 'proxy' sesuai nama file di Next.js 16+
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,9 +14,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -28,15 +23,24 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  // Tarik identitas bawaan Supabase
   const { data: { user } } = await supabase.auth.getUser()
 
-  // PROTEKSI BRUTAL: Tendang ke halaman login admin jika belum ada token
-  if (!user && request.nextUrl.pathname.startsWith("/admin") && request.nextUrl.pathname !== "/admin") {
+  // FAKTA: Berikan kacamata baru agar Middleware BISA MELIHAT Custom JWT kita!
+  const adminToken = request.cookies.get('admin_session')?.value
+  const wargaToken = request.cookies.get('warga_session')?.value
+
+  // PROTEKSI ADMIN DOMINO EFFECT RESOLVED
+  if (!user && !adminToken && 
+      request.nextUrl.pathname.startsWith("/admin") && 
+      request.nextUrl.pathname !== "/admin") {
     return NextResponse.redirect(new URL("/admin", request.url))
   }
 
-  // PROTEKSI PORTAL WARGA
-  if (!user && request.nextUrl.pathname.startsWith("/portal") && request.nextUrl.pathname !== "/login") {
+  // PROTEKSI PORTAL WARGA DOMINO EFFECT RESOLVED
+  if (!user && !wargaToken && 
+      request.nextUrl.pathname.startsWith("/portal") && 
+      request.nextUrl.pathname !== "/login") {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
@@ -44,8 +48,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/admin/:path*", 
-    "/portal/:path*"
-  ],
+  matcher: ["/admin/:path*", "/portal/:path*"]
 }

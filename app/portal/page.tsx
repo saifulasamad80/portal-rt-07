@@ -1,118 +1,100 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
 
-export default function PortalWarga() {
-  const [warga, setWarga] = useState<any>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const router = useRouter();
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-  useEffect(() => {
-    const cekSesiWarga = async () => {
-      setIsInitializing(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        router.push("/login");
-        return;
-      }
-      
-      // Mengambil profil asli berdasarkan auth_email dummy
-      const { data: profilWarga } = await supabase
-        .from("warga")
-        .select("*")
-        .eq("auth_email", session.user.email)
-        .single();
+export default async function PortalWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
 
-      if (profilWarga) {
-        setWarga(profilWarga);
-      } else {
-        router.push("/login");
-      }
-      setIsInitializing(false);
-    };
-    
-    cekSesiWarga();
-  }, [router]);
-
-  const handleLogout = async () => {
-    if (confirm("Yakin ingin keluar dari portal?")) {
-      await supabase.auth.signOut();
-      router.push("/");
-    }
-  };
-
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 font-mono text-blue-600">
-        <div className="text-4xl mb-4 animate-spin">🛡️</div>
-        <div className="font-bold tracking-widest uppercase">MEMVERIFIKASI TOKEN WARGA...</div>
-      </div>
-    );
+  if (!token) {
+    redirect("/login");
   }
 
-  if (!warga) return null;
+  let wargaAktif: any;
+  
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    wargaAktif = payload;
+  } catch (error) {
+    redirect("/login");
+  }
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const [kasRes, kurbanRes, sampahRes] = await Promise.all([
+    supabaseAdmin.from('v_rekap_kas_rt').select('*').limit(1).single(),
+    supabaseAdmin.from('v_saldo_kurban_warga').select('*').eq('warga_id', wargaAktif.id).maybeSingle(),
+    supabaseAdmin.from('v_saldo_sampah_warga').select('*').eq('warga_id', wargaAktif.id).maybeSingle(),
+  ]);
+
+  const saldoKasGlobal = kasRes.data?.saldo_akhir || kasRes.data?.total_saldo || 0;
+  const saldoKurban = kurbanRes.data?.saldo_akhir || kurbanRes.data?.total_kurban || 0;
+  const saldoSampah = sampahRes.data?.saldo_akhir || sampahRes.data?.total_sampah || 0;
+
+  const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka);
+
+  // FAKTA: Ini adalah "Server Action". Sebuah fungsi yang hidup murni di server.
+  // Tidak butuh API route terpisah atau fetch onClick!
+  const handleLogout = async () => {
+    "use server";
+    const cookieStore = await cookies();
+    cookieStore.delete("warga_session");
+    redirect("/login");
+  };
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <nav className="bg-blue-700 text-white p-4 shadow-md flex justify-between items-center relative overflow-hidden">
-        <div className="absolute top-0 left-0 bg-blue-800 text-blue-200 text-[8px] font-bold px-2 py-0.5 rounded-br-lg">JWT PROTECTED</div>
-        <div className="font-bold text-lg mt-2">Portal RT 07</div>
-        <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-1.5 px-4 rounded transition-colors shadow">
-          Keluar Sesi
-        </button>
-      </nav>
-
-      <div className="p-6 max-w-4xl mx-auto space-y-6 mt-4">
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
         
-        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-blue-500 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Halo, {warga.nama_lengkap}!</h1>
-            <p className="text-sm text-slate-500 mt-1">NIK: <span className="font-mono">{warga.nik}</span> | Status: <span className="font-bold text-blue-700">{warga.status_tinggal}</span></p>
+        {/* HEADER PROFIL */}
+        <div className="bg-blue-700 p-6 rounded-2xl shadow-xl text-white flex flex-col md:flex-row justify-between items-center relative overflow-hidden">
+           <div className="absolute top-0 right-0 bg-emerald-400 text-emerald-900 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest">
+             WARGA TERVERIFIKASI
+           </div>
+           <div className="flex items-center gap-4">
+             <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-2xl font-black shadow-inner">
+               {wargaAktif.nama?.toString().charAt(0)}
+             </div>
+             <div>
+               <h1 className="text-3xl font-black mb-1">Halo, {wargaAktif.nama}!</h1>
+               <p className="text-blue-200 font-mono text-sm tracking-wide">NIK: {wargaAktif.nik}</p>
+             </div>
+           </div>
+           
+           {/* FAKTA: Tombol onClick diubah menjadi elemen Form yang mengeksekusi Server Action */}
+           <form action={handleLogout} className="mt-4 md:mt-0">
+             <button type="submit" className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-md active:scale-95">
+               Tutup Sesi
+             </button>
+           </form>
+        </div>
+        
+        {/* DASHBOARD AGREGASI */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-blue-500">
+            <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Total Kas RT</p>
+            <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoKasGlobal)}</h2>
+            <p className="text-xs text-slate-400 mt-2">*Saldo transparan kas lingkungan</p>
           </div>
-          <div className="bg-green-100 text-green-700 p-2 rounded-lg text-center shadow-inner">
-            <div className="text-xs font-bold uppercase">Status Akun</div>
-            <div className="font-bold">{warga.status_verifikasi}</div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-emerald-500">
+            <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Tabungan Kurban Anda</p>
+            <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoKurban)}</h2>
+            <p className="text-xs text-slate-400 mt-2">*Data ditarik otomatis dari sistem</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-4 border-amber-500">
+            <p className="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Saldo Bank Sampah</p>
+            <h2 className="text-3xl font-black text-slate-800">{formatRp(saldoSampah)}</h2>
+            <p className="text-xs text-slate-400 mt-2">*Dapat dicairkan atau dialihkan</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link href="/portal/keuangan" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-emerald-500 block">
-            <h2 className="font-bold text-slate-800 mb-2">💰 Transparansi & Iuran</h2>
-            <p className="text-sm text-slate-500">Cek saldo kas RT dan riwayat pembayaran.</p>
-          </Link>
-          <Link href="/portal/surat" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-blue-500 block">
-            <h2 className="font-bold text-slate-800 mb-2">📄 Layanan Surat</h2>
-            <p className="text-sm text-slate-500">Cetak surat pengantar RT secara mandiri.</p>
-          </Link>
-          <Link href="/portal/sampah" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-emerald-600 block">
-            <h2 className="font-bold text-slate-800 mb-2">♻️ Tabungan Sampah</h2>
-            <p className="text-sm text-slate-500">Pantau saldo hasil setor sampah anorganik.</p>
-          </Link>
-          <Link href="/portal/kurban" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-amber-500 block">
-            <h2 className="font-bold text-slate-800 mb-2">🐄 Tabungan Kurban</h2>
-            <p className="text-sm text-slate-500">Pantau persiapan dana kurban Idul Adha.</p>
-          </Link>
-          
-          <Link href="/portal/lapor" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-rose-500 block md:col-span-2">
-            <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2>
-            <p className="text-sm text-slate-500">Buat tiket laporan fasilitas rusak dengan auto-tracking dari Pak RT.</p>
-          </Link>
-          <Link href="/portal/inventaris" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-amber-600 block">
-            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2>
-            <p className="text-sm text-slate-500">Booking tenda, kursi, atau sound system RT dengan sistem anti-bentrok jadwal.</p>
-          </Link>
-          <Link href="/portal/voting" className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-indigo-500 block">
-            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2>
-            <p className="text-sm text-slate-500">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
-          </Link>
-          <Link href="/portal/ronda" className="bg-slate-800 p-5 rounded-xl shadow hover:shadow-lg transition-all border-l-4 border-slate-500 block">
-            <h2 className="font-bold text-white mb-2 flex items-center gap-2">🔦 Jadwal Siskamling</h2>
-            <p className="text-sm text-slate-400">Cek jadwal tugas ronda malam Anda dan konfirmasi kehadiran secara digital.</p>
-          </Link>
-        </div>
       </div>
     </div>
   );

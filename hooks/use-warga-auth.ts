@@ -1,51 +1,54 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
 
 export interface WargaSession {
   id: string;
   nama: string;
-  no_whatsapp: string;
-  alamat: string;
+  nik?: string; 
   role: "warga";
+  [key: string]: any; 
 }
 
 export function useWargaAuth() {
   const [wargaAktif, setWargaAktif] = useState<WargaSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const pathname = usePathname();
 
-  // Sinkronisasi status sesi dengan server HttpOnly cookie secara berkala/on mount
   const checkSession = useCallback(async () => {
     try {
-      const response = await fetch("/api/portal/login");
+      const timestamp = new Date().getTime();
+      // FAKTA: Cache Buster brutal dengan kredensial inklusif
+      const response = await fetch(`/api/portal/login?t=${timestamp}`, { 
+        method: "GET",
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setWargaAktif(data.warga);
       } else {
+        // FAKTA: Fungsi tendangan otomatis GUA HAPUS. Kalau gagal baca cookie, 
+        // lu hanya akan mentok di layar "Akses Ilegal", BUKAN terlempar balik ke /login.
         setWargaAktif(null);
-        // Proteksi Halaman Dalam Portal Warga (Contoh rute sub-modul warga: /portal/*)
-        if (pathname.startsWith("/portal") && pathname !== "/login") {
-          router.push("/login"); // Mengalihkan warga ke halaman login umum warga jika tidak terotentikasi
-        }
       }
     } catch (error) {
-      console.error("Gagal melakukan pengecekan sesi warga:", error);
+      console.error("Gagal melakukan pengecekan sesi:", error);
       setWargaAktif(null);
     } finally {
       setLoading(false);
     }
-  }, [pathname, router]);
+  }, []);
 
   useEffect(() => {
     checkSession();
   }, [checkSession]);
 
-  /**
-   * Mengirimkan request login terenkripsi ke sisi server
-   */
   const login = async (nik: string, password_plain: string) => {
     try {
       const response = await fetch("/api/portal/login", {
@@ -53,6 +56,7 @@ export function useWargaAuth() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ nik, password: password_plain }),
       });
 
@@ -63,30 +67,28 @@ export function useWargaAuth() {
       }
 
       setWargaAktif(result.warga);
-      router.push("/portal"); // Alihkan ke beranda warga mandiri jika berhasil
+      window.location.href = "/portal"; 
       return { success: true };
     } catch (error) {
-      return { success: false, error: "Gagal terhubung dengan server" };
+      return { success: false, error: "Gagal terhubung ke server" };
     }
   };
 
-  /**
-   * Menghapus sesi HttpOnly warga di server dan redirect ke halaman depan
-   */
   const logout = async () => {
     try {
       const response = await fetch("/api/portal/login", {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (response.ok) {
         setWargaAktif(null);
-        router.push("/login");
+        window.location.href = "/login";
       } else {
         alert("Gagal menghapus sesi!");
       }
     } catch (error) {
-      console.error("Gagal melakukan proses keluar sesi:", error);
+      console.error("Logout gagal:", error);
     }
   };
 
