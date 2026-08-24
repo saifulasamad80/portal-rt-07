@@ -38,7 +38,7 @@ export default async function PortalWarga() {
     "use server";
     const cookieStore = await cookies();
     cookieStore.delete("warga_session");
-    redirect("/login");
+    redirect("/");
   };
 
   return (
