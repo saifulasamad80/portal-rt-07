@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+// INJEKSI MUTLAK: Panggil Client Component untuk Jalur Darurat
+import JalurDaruratClient from "./JalurDaruratClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -72,10 +74,8 @@ export default async function LandingPage() {
         <p className="text-slate-500 text-sm max-w-lg mx-auto leading-relaxed">Platform terpadu untuk pelayanan surat, pelaporan darurat, manajemen fasilitas, dan pencatatan kas lingkungan secara transparan.</p>
       </div>
 
-      {/* REVISI UX: Menggunakan spacing vertikal absolut 24px (space-y-6) */}
       <div className="w-full max-w-4xl space-y-6">
         
-        {/* REVISI UX: Hapus border norak, ganti standardisasi container shadow */}
         <div className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <h2 className="font-black text-slate-800 text-sm flex items-center justify-center gap-2 mb-6">📢 Pengumuman & Galeri Warga</h2>
           
@@ -155,7 +155,6 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        {/* REVISI UX: Standardisasi container kas */}
         <div className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <h2 className="font-black text-slate-800 text-sm text-center mb-1">Transparansi Kas RT 07</h2>
           <p className="text-[10px] text-slate-400 text-center font-bold mb-6">Rekapitulasi keuangan lingkungan secara real-time.</p>
@@ -176,22 +175,9 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        {/* REVISI UX: Menghilangkan border merah yang memicu kepanikan */}
-        <div className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-          <div className="flex items-center gap-4">
-            <div className="text-4xl animate-pulse">🚨</div>
-            <div>
-              <h3 className="font-black text-slate-800 text-sm mb-1">Jalur Darurat & Keamanan</h3>
-              <p className="text-xs text-slate-500 font-medium">Akses langsung ke fasilitas keamanan lingkungan.</p>
-            </div>
-          </div>
-          <div className="flex gap-3 w-full md:w-auto">
-            <button className="flex-1 md:flex-none bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs py-3 px-5 rounded-lg flex items-center justify-center gap-2 transition-colors border border-rose-200 shadow-sm"><span className="text-rose-500">📞</span> Panic Button</button>
-            <button className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-3 px-5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"><span className="text-slate-400">📹</span> Buka CCTV</button>
-          </div>
-        </div>
+        {/* REVISI ABSOLUT: Blok lama dibuang, diganti dengan Client Component */}
+        <JalurDaruratClient />
 
-        {/* REVISI UX: Grid gap 24px (gap-6) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
           <div className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 text-center flex flex-col transition-all duration-300 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1">
             <div className="w-16 h-16 bg-slate-50 border border-slate-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-6 shadow-sm">👤</div>

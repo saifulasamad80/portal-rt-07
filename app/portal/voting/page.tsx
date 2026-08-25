@@ -13,15 +13,17 @@ export default async function PortalVotingPage() {
   const token = cookieStore.get("warga_session")?.value;
 
   if (!token) redirect("/login");
+  
   let wargaAktif: any;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     wargaAktif = payload;
-  } catch (error) { redirect("/login"); }
+  } catch (error) { 
+    redirect("/login"); 
+  }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Cari voting yang sedang berstatus "Aktif"
   const { data: votingAktif } = await supabaseAdmin
     .from("voting_rt")
     .select("*")
@@ -30,7 +32,6 @@ export default async function PortalVotingPage() {
     .limit(1)
     .maybeSingle();
 
-  // FAKTA: Cek apakah warga ini sudah memberikan suaranya pada voting tersebut
   let suaraKu = null;
   if (votingAktif) {
     const { data: cekSuara } = await supabaseAdmin
@@ -42,7 +43,6 @@ export default async function PortalVotingPage() {
     suaraKu = cekSuara;
   }
 
-  // FAKTA: Server Action untuk memasukkan suara (Tembus RLS)
   async function kirimSuara(votingId: string, pilihanTeks: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
