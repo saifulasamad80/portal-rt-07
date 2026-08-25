@@ -2,16 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 
-// Menggunakan variable lingkungan (env) yang aman di sisi server
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Menggunakan Service Role Key untuk operasi server-side yang aman
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("Missing Supabase environment variables in server-side.");
 }
 
-// Inisialisasi Supabase Client sisi server dengan Service Role Key (Bypass RLS hanya untuk fungsi verifikasi internal)
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: {
     persistSession: false,
@@ -24,7 +22,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { username, password } = body;
 
-    // 1. Validasi input dasar
     if (!username || !password) {
       return NextResponse.json(
         { error: "Username dan Password wajib diisi!" },
@@ -32,11 +29,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Eksekusi RPC verifikasi_login_admin di database (Password diverifikasi secara kriptografis menggunakan bcrypt)
     const { data, error } = await supabaseAdmin.rpc("verifikasi_login_admin", {
       p_username: username,
       p_password: password,
     });
+
+    // ==========================================
+    // MATA DEWA: CETAK ERROR ASLI KE TERMINAL!
+    // ==========================================
+    if (error) {
+      console.error("\n[X] SUPABASE RPC ERROR BUNG:", error);
+    }
 
     if (error || !data || data.length === 0) {
       return NextResponse.json(
@@ -47,7 +50,6 @@ export async function POST(request: Request) {
 
     const hasilLogin = data[0];
 
-    // Jika login_valid bernilai false, kembalikan respon akses ditolak
     if (!hasilLogin.login_valid) {
       return NextResponse.json(
         { error: "Akses Ditolak! Username atau Password salah." },
@@ -55,46 +57,63 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Buat Payload JWT Sesi Kustom
+    // INJEKSI MULTI-TENANT: Ambil rt_id pengurus langsung dari tabel pengurus_rt
+    const { data: pengurusData, error: errPengurus } = await supabaseAdmin
+      .from("pengurus_rt")
+      .select("rt_id")
+      .eq("id", hasilLogin.id)
+      .single();
+
+    if (errPengurus) {
+      console.error("\n[X] ERROR GET PENGURUS RT:", errPengurus);
+    }
+
+    if (!pengurusData || !pengurusData.rt_id) {
+      return NextResponse.json(
+        { error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." },
+        { status: 403 }
+      );
+    }
+
+    // Buat Payload JWT Sesi Kustom dengan rt_id tersemat aman
     const jwtPayload = {
       sub: hasilLogin.id,
       nama: hasilLogin.nama_lengkap,
       jabatan: hasilLogin.jabatan,
       role: "admin",
+      rt_id: pengurusData.rt_id, // DNA TENANT RESMI MASUK KE JWT
     };
 
-    // Tanda tangani JWT menggunakan library 'jose' (Native di Next.js Edge runtime)
     const secretKey = new TextEncoder().encode(JWT_SECRET);
     const token = await new SignJWT(jwtPayload)
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime("2h") // Sesi kadaluarsa dalam 2 jam
+      .setExpirationTime("2h")
       .sign(secretKey);
 
-    // 4. Konfigurasi HttpOnly Cookie untuk melindungi token dari serangan XSS (Cross-Site Scripting)
     const cookieOptions = {
-      httpOnly: true, // Memblokir akses Javascript client-side (Mencegah pencurian token via XSS)
-      secure: process.env.NODE_ENV === "production", // Wajib HTTPS di lingkungan produksi
-      sameSite: "strict", // Memblokir pengiriman cookie lintas situs (Mencegah serangan CSRF)
-      maxAge: 60 * 60 * 2, // 2 jam (Sesuai masa aktif token)
-      path: "/", // Berlaku untuk seluruh rute aplikasi
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 2,
+      path: "/",
     } as const;
 
-    // 5. Susun respon sukses
     const response = NextResponse.json({
       success: true,
       user: {
         id: hasilLogin.id,
         nama: hasilLogin.nama_lengkap,
         jabatan: hasilLogin.jabatan,
+        rt_id: pengurusData.rt_id,
       },
     });
 
-    // Tempelkan cookie ke respon
     response.cookies.set("admin_session", token, cookieOptions);
 
     return response;
   } catch (err: any) {
+    console.error("\n[X] FATAL SERVER ERROR:", err);
     return NextResponse.json(
       { error: "Server Error: " + err.message },
       { status: 500 }
@@ -102,16 +121,14 @@ export async function POST(request: Request) {
   }
 }
 
-// Endpoint GET untuk membersihkan cookie saat logout
 export async function DELETE() {
   const response = NextResponse.json({ success: true, message: "Berhasil keluar sesi." });
   
-  // Hapus cookie admin_session dengan menyetel masa aktif ke 0
   response.cookies.set("admin_session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 0, // Segera hapus cookie
+    maxAge: 0,
     path: "/",
   });
   return response;

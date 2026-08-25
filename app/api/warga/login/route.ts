@@ -12,14 +12,14 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 export async function GET(request: NextRequest) {
   try {
-    // FAKTA: Tarik cookie langsung dari objek request masuk, menghindari bug cache global Next.js
     const token = request.cookies.get("warga_session")?.value;
 
     if (!token) {
       return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
     }
 
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    // PERBAIKAN MUTLAK: Pemanggilan jwtVerify yang bersih, no hack.
+    const { payload } = await jwtVerify(token, JWT_SECRET); 
     return NextResponse.json({ success: true, warga: payload });
   } catch (error) {
     console.error("JWT Error:", error);
@@ -45,11 +45,23 @@ export async function POST(request: NextRequest) {
 
     const warga = data[0];
 
+    // INJEKSI MULTI-TENANT: Ambil rt_id warga langsung dari tabel warga
+    const { data: wargaData } = await supabaseAdmin
+      .from("warga")
+      .select("rt_id")
+      .eq("id", warga.id)
+      .single();
+
+    if (!wargaData || !wargaData.rt_id) {
+      return NextResponse.json({ success: false, error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
+    }
+
     const token = await new SignJWT({
       id: warga.id,
       nama: warga.nama_lengkap,
       nik: warga.nik,
-      role: "warga"
+      role: "warga",
+      rt_id: wargaData.rt_id // DNA TENANT MASUK KE TOKEN WARGA
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -58,7 +70,6 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ success: true, warga: warga });
 
-    // FAKTA: Ubah sameSite menjadi 'lax' agar lebih toleran pada navigasi browser
     response.cookies.set("warga_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

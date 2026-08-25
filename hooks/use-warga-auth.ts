@@ -18,7 +18,7 @@ export function useWargaAuth() {
     try {
       const timestamp = new Date().getTime();
       // FAKTA: Cache Buster brutal dengan kredensial inklusif
-      const response = await fetch(`/api/portal/login?t=${timestamp}`, { 
+      const response = await fetch(`/api/warga/login?t=${timestamp}`, { 
         method: "GET",
         cache: "no-store",
         credentials: "include",
@@ -51,7 +51,7 @@ export function useWargaAuth() {
 
   const login = async (nik: string, password_plain: string) => {
     try {
-      const response = await fetch("/api/portal/login", {
+      const response = await fetch("/api/warga/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,7 +76,7 @@ export function useWargaAuth() {
 
   const logout = async () => {
     try {
-      const response = await fetch("/api/portal/login", {
+      const response = await fetch("/api/warga/login", {
         method: "DELETE",
         credentials: "include",
       });

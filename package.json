@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
-    "@supabase/supabase-js": "^2.112.3",
+    "@supabase/supabase-js": "^2.112.4",
     "browser-image-compression": "^2.0.2",
     "cookie": "^2.0.1",
     "jose": "^6.2.10",

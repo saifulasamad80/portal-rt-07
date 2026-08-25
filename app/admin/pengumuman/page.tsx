@@ -24,30 +24,46 @@ export default async function AdminPengumumanPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tarik seluruh pengumuman RT langsung dari server
+  // INJEKSI MUTLAK (MULTI-TENANT): Tarik rt_id admin dari database sebagai pelampung
+  // sebelum JWT kita update di tahap selanjutnya.
+  const { data: profilAdmin } = await supabaseAdmin
+    .from("pengurus_rt")
+    .select("rt_id")
+    .eq("id", adminAktif.id)
+    .single();
+
+  const rtIdAktif = adminAktif.rt_id || profilAdmin?.rt_id;
+  
+  if (!rtIdAktif) redirect("/admin"); // Tendang keluar kalau rt_id ga ketemu (Keamanan Absolut)
+
+  // Tarik daftar pengumuman yang HANYA milik RT ini
   const { data: pengumumanRes } = await supabaseAdmin
     .from("pengumuman_rt")
     .select("*")
+    .eq("rt_id", rtIdAktif)
     .order("tanggal_publikasi", { ascending: false });
 
-  // FAKTA: Server Action untuk Rilis Pengumuman
+  // Server Action untuk Rilis Pengumuman
   async function simpanPengumuman(judul: string, deskripsi: string, linkDokumen: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
+    // PENAMBALAN MULTI-TENANT: Masukkan rt_id saat insert pengumuman
     const { error } = await supabase.from("pengumuman_rt").insert([
-      { judul, deskripsi, link_dokumen: linkDokumen }
+      { judul, deskripsi, link_dokumen: linkDokumen, rt_id: rtIdAktif }
     ]);
     if (error) throw new Error(error.message);
 
-    // Rekam di Log Audit
+    // PENAMBALAN MULTI-TENANT: Masukkan rt_id saat insert audit log
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
       aksi: "Buat Pengumuman Baru",
       tabel_target: "pengumuman_rt",
-      detail: `Judul: ${judul}`
+      detail: `Judul: ${judul}`,
+      rt_id: rtIdAktif
     }]);
   }
 
+  // Catatan: File PengumumanAdminClient.tsx lu udah aman, gak perlu diubah.
   return <PengumumanAdminClient adminAktif={adminAktif} pengumumanList={pengumumanRes || []} aksiSimpan={simpanPengumuman} />;
 }
