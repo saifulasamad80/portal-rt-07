@@ -1,7 +1,64 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 
 export default function AuditClient({ logs }: { logs: any[] }) {
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // INJEKSI MUTLAK: Generator PDF Forensik (Landscape)
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      
+      const doc = new jsPDF("landscape"); 
+      
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("LAPORAN FORENSIK AUDIT SISTEM (AUDIT TRAIL) RT 07", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 27);
+      doc.text(`Total Log Terekam: ${logs.length} Aktivitas Terbaru`, 14, 32);
+
+      const tableData = logs.map(l => [
+        new Date(l.created_at).toLocaleString('id-ID'),
+        l.aktor,
+        l.aksi,
+        l.tabel_target,
+        l.detail || "-"
+      ]);
+
+      autoTable(doc, {
+        startY: 40,
+        head: [['Waktu (Timestamp)', 'Aktor Eksekutor', 'Tindakan / Aksi', 'Modul Target', 'Detail Forensik']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [225, 29, 72] }, // rose-600 untuk menegaskan tema peringatan audit
+        styles: { fontSize: 8, font: "courier" }, // Font typewriter untuk nuansa log
+        columnStyles: { 4: { cellWidth: 80 } }
+      });
+
+      // Stempel RT Kanan Bawah
+      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      doc.setTextColor(220, 38, 38); 
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.5);
+      doc.circle(250, finalY + 25, 16); 
+      doc.circle(250, finalY + 25, 15); 
+      doc.setFontSize(9);
+      doc.text("SAH & TERVERIFIKASI", 250, finalY + 23, { align: "center" });
+      doc.text("SISTEM PUSAT RT 07", 250, finalY + 28, { align: "center" });
+
+      doc.save(`Audit_Forensik_RT07_${Date.now()}.pdf`);
+    } catch (error) {
+      alert("Gagal merakit PDF. Pastikan internet stabil.");
+    }
+    setPdfLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 p-6 md:p-8 font-mono">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -10,13 +67,23 @@ export default function AuditClient({ logs }: { logs: any[] }) {
           &larr; KEMBALI KE PUSAT KOMANDO
         </Link>
 
-        <div className="bg-slate-800 p-6 rounded-xl shadow-2xl border-l-8 border-rose-500 flex flex-col md:flex-row justify-between md:items-center gap-4">
+        <div className="bg-slate-800 p-6 rounded-xl shadow-2xl border-l-8 border-rose-500 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-widest">SYSTEM AUDIT TRAIL</h1>
             <p className="text-slate-400 mt-1 text-xs md:text-sm">Pencatatan aktivitas pengurus bersifat IMMUTABLE (Tidak dapat diubah/dihapus).</p>
           </div>
-          <div className="bg-rose-500/20 text-rose-400 border border-rose-500/50 px-3 py-1.5 rounded font-black text-xs uppercase tracking-widest w-fit">
-            STRICT READ-ONLY
+          <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="bg-rose-500/20 text-rose-400 border border-rose-500/50 px-3 py-2.5 rounded font-black text-xs uppercase tracking-widest w-full md:w-fit text-center">
+              STRICT READ-ONLY
+            </div>
+            {/* TOMBOL CETAK FORENSIK */}
+            <button 
+              onClick={handleExportPDF}
+              disabled={pdfLoading || logs.length === 0}
+              className={`w-full md:w-auto px-4 py-2.5 rounded font-black text-xs tracking-widest uppercase transition-all shadow-md flex items-center justify-center gap-2 border ${pdfLoading ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white border-red-500'}`}
+            >
+              {pdfLoading ? "MEMPROSES PDF..." : "📄 CETAK LOG"}
+            </button>
           </div>
         </div>
 
