@@ -17,26 +17,25 @@ export default async function AdminKasPage() {
   let adminAktif: any;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    adminAktif = payload;
+    // INJEKSI MUTLAK: Sterilisasi objek untuk mencegah Error 441
+    adminAktif = JSON.parse(JSON.stringify(payload));
   } catch (error) {
     redirect("/admin");
   }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tarik transaksi kas beserta nama warga (relasi)
   const { data: dataKas } = await supabaseAdmin
     .from("kas_rt")
     .select("*, warga(nama_lengkap)")
     .order("created_at", { ascending: false });
 
-  // FAKTA: Tarik daftar warga yang sudah tervalidasi untuk opsi "Sumber Dana"
   const { data: dataWarga } = await supabaseAdmin
     .from("warga")
     .select("id, nama_lengkap")
     .eq("status_verifikasi", "Disetujui");
 
-  // FAKTA: Server Action untuk nyimpen Kas + Audit Log (Bypass RLS)
+  // INJEKSI MUTLAK: Ubah sistem return, dilarang pakai 'throw error' di Vercel
   async function simpanTransaksi(tipe: string, wargaId: string, kategori: string, nominal: number, keterangan: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -45,7 +44,7 @@ export default async function AdminKasPage() {
     if (wargaId) payload.warga_id = wargaId;
 
     const { error } = await supabase.from("kas_rt").insert([payload]);
-    if (error) throw new Error(error.message);
+    if (error) return { success: false, message: error.message };
 
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
@@ -53,6 +52,8 @@ export default async function AdminKasPage() {
       tabel_target: "kas_rt",
       detail: `${kategori} - Rp ${nominal}`
     }]);
+
+    return { success: true };
   }
 
   return <KasAdminClient 

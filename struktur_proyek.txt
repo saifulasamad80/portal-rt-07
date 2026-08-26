@@ -1,0 +1,138 @@
+.
+├── AGENTS.md
+├── app
+│   ├── admin
+│   │   ├── AdminDashboardClient.tsx
+│   │   ├── AdminLogin.tsx
+│   │   ├── audit
+│   │   │   ├── AuditClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── inventaris
+│   │   │   ├── InventarisClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── kas
+│   │   │   ├── KasAdminClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── kurban
+│   │   │   ├── KurbanClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── lapor
+│   │   │   ├── LaporAdminClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   ├── pengumuman
+│   │   │   ├── page.tsx
+│   │   │   └── PengumumanAdminClient.tsx
+│   │   ├── pengurus
+│   │   │   ├── page.tsx
+│   │   │   └── PengurusAdminClient.tsx
+│   │   ├── ronda
+│   │   │   ├── page.tsx
+│   │   │   └── RondaAdminClient.tsx
+│   │   ├── sampah
+│   │   │   ├── page.tsx
+│   │   │   └── SampahAdminClient.tsx
+│   │   ├── voting
+│   │   │   ├── page.tsx
+│   │   │   └── VotingAdminClient.tsx
+│   │   └── warga
+│   │       ├── [id]
+│   │       │   ├── page.tsx
+│   │       │   └── WargaDetailClient.tsx
+│   │       ├── page.tsx
+│   │       └── WargaAdminClient.tsx
+│   ├── api
+│   │   ├── admin
+│   │   │   ├── login
+│   │   │   │   └── route.ts
+│   │   │   └── warga
+│   │   │       └── route.ts
+│   │   └── warga
+│   │       └── login
+│   │           └── route.ts
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── JalurDaruratClient.tsx
+│   ├── layout.tsx
+│   ├── login
+│   │   └── page.tsx
+│   ├── page.tsx
+│   ├── portal
+│   │   ├── inventaris
+│   │   │   ├── InventarisClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── keuangan
+│   │   │   └── page.tsx
+│   │   ├── kurban
+│   │   │   └── page.tsx
+│   │   ├── lapor
+│   │   │   ├── LaporClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   ├── page_visual_lama.tsx
+│   │   ├── ronda
+│   │   │   ├── page.tsx
+│   │   │   └── RondaClient.tsx
+│   │   ├── sampah
+│   │   │   └── page.tsx
+│   │   ├── surat
+│   │   │   ├── page.tsx
+│   │   │   └── SuratClient.tsx
+│   │   ├── voting
+│   │   │   ├── page.tsx
+│   │   │   └── VotingClient.tsx
+│   │   └── VotingWidget.tsx
+│   └── register
+│       ├── page.tsx
+│       └── RegisterClient.tsx
+├── automated-backup-policy-rt07.md
+├── CLAUDE.md
+├── daftar-file-folder-file .txt
+├── daftar_file_folder.txt
+├── dashboard-visualization-architecture.md
+├── .env.local
+├── eslint.config.mjs
+├── e-voting-security-migration.sql
+├── .gitignore
+├── hooks
+│   ├── use-admin-auth.ts
+│   └── use-warga-auth.ts
+├── json
+├── lib
+│   └── supabase.ts
+├── next.config.ts
+├── next-env.d.ts
+├── os
+├── package.json
+├── package-lock.json
+├── page.tsx
+├── performance_audit_report.md
+├── portal-login-route.ts
+├── portal-security-migration.sql
+├── postcss.config.mjs
+├── proxy.ts
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── query_performance_test.py
+├── README.md
+├── requests
+├── security_alert_notifier.py
+├── security-pentest-v2.yml
+├── security-test-cases.md
+├── security_test_script_v2.py
+├── semua_tabel.sql
+├── sop-keamanan-portal-rt07.md
+├── struktur_proyek.txt
+├── supabase-security-migration.sql
+├── supabase-security-migration-v2.sql
+├── sys
+├── tsconfig.json
+├── use-admin-auth.ts
+└── .vscode
+    └── settings.json
+
+36 directories, 100 files

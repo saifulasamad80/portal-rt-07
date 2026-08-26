@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function KasAdminClient({ adminAktif, transaksiList, wargaList, aksiSimpan }: { adminAktif: any, transaksiList: any[], wargaList: any[], aksiSimpan: any }) {
   const router = useRouter();
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false); // State khusus untuk tombol PDF
 
   const [wargaId, setWargaId] = useState("");
   const [tipe, setTipe] = useState("Pemasukan");
@@ -23,14 +24,82 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
     const uang = parseInt(nominal);
 
     try {
-      await aksiSimpan(tipe, wargaId, kategori, uang, keterangan);
-      setNominal(""); 
-      setKeterangan("");
-      router.refresh();
+      const res = await aksiSimpan(tipe, wargaId, kategori, uang, keterangan);
+      if (res && !res.success) {
+        alert("Gagal menyimpan transaksi: " + res.message);
+      } else {
+        setNominal(""); 
+        setKeterangan("");
+        router.refresh();
+      }
     } catch (error: any) {
-      alert("Gagal menyimpan transaksi: " + error.message);
+      alert("Terjadi kesalahan sistem: " + error.message);
     }
     setSubmitLoading(false);
+  };
+
+  // INJEKSI MUTLAK: Logika Export PDF Kinerja Tinggi
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    try {
+      // Dynamic import agar website tidak lambat saat pertama kali dibuka
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF();
+      
+      // Kop Surat & Judul
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("LAPORAN KAS & KEUANGAN RT 07", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Dicetak oleh: ${adminAktif.nama} (${adminAktif.email})`, 14, 27);
+      doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 14, 32);
+
+      // Pembuatan Tabel Data
+      const tableData = transaksiList.map(t => [
+        new Date(t.created_at).toLocaleDateString('id-ID'),
+        t.tipe_transaksi,
+        t.kategori,
+        t.warga?.nama_lengkap || "-",
+        `Rp ${t.nominal.toLocaleString('id-ID')}`
+      ]);
+
+      autoTable(doc, {
+        startY: 40,
+        head: [['Tanggal', 'Tipe', 'Kategori', 'Sumber Dana', 'Nominal']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59] }, // slate-800
+        styles: { fontSize: 8 },
+      });
+
+      // Rekapitulasi Akhir
+      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Total Pemasukan: Rp ${totalPemasukan.toLocaleString('id-ID')}`, 14, finalY + 10);
+      doc.text(`Total Pengeluaran: Rp ${totalPengeluaran.toLocaleString('id-ID')}`, 14, finalY + 16);
+      doc.text(`SALDO AKHIR: Rp ${saldoAkhir.toLocaleString('id-ID')}`, 14, finalY + 24);
+
+      // Injeksi Stempel Otomatis (Anti repot gambar eksternal)
+      doc.setTextColor(220, 38, 38); 
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.5);
+      doc.circle(160, finalY + 20, 16); // Lingkaran luar
+      doc.circle(160, finalY + 20, 15); // Lingkaran dalam
+      doc.setFontSize(9);
+      doc.text("SAH & TERVERIFIKASI", 160, finalY + 18, { align: "center" });
+      doc.text("PENGURUS RT 07", 160, finalY + 23, { align: "center" });
+
+      // Eksekusi Unduhan
+      doc.save(`Laporan_Kas_RT07_${Date.now()}.pdf`);
+    } catch (error) {
+      alert("Gagal merakit PDF. Pastikan internet stabil.");
+    }
+    setPdfLoading(false);
   };
 
   return (
@@ -42,10 +111,29 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
         </Link>
 
         {/* HEADER */}
-        <div className="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8">
-          <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Manajemen Kas RT</h1>
-          <p className="text-slate-300 text-sm">Rekapitulasi iuran warga dan biaya operasional lingkungan.</p>
+        <div className="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Manajemen Kas RT</h1>
+            <p className="text-slate-300 text-sm">Rekapitulasi iuran warga dan biaya operasional lingkungan.</p>
+          </div>
+          {/* TOMBOL EXPORT PDF DENGAN LOADING STATE */}
+          <button 
+            onClick={handleExportPDF} 
+            disabled={pdfLoading || transaksiList.length === 0}
+            className={`hidden md:flex items-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all ${pdfLoading ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+          >
+            {pdfLoading ? "Merakit PDF..." : "📄 Cetak Laporan PDF"}
+          </button>
         </div>
+
+        {/* Tombol PDF versi Mobile (Tampil jika layar kecil) */}
+        <button 
+            onClick={handleExportPDF} 
+            disabled={pdfLoading || transaksiList.length === 0}
+            className={`w-full md:hidden flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all ${pdfLoading ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+          >
+            {pdfLoading ? "Merakit PDF..." : "📄 Cetak Laporan PDF"}
+        </button>
 
         {/* WIDGET SALDO */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -100,7 +188,8 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
                 <input type="text" className="w-full border-2 border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Catatan tambahan..." value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
               </div>
               
-              <button type="submit" disabled={submitLoading} className={`w-full text-white font-black rounded-lg p-3.5 shadow-md mt-4 transition-colors ${submitLoading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+              {/* TOMBOL SIMPAN DENGAN LOADING STATE */}
+              <button type="submit" disabled={submitLoading} className={`w-full text-white font-black rounded-lg p-3.5 shadow-md mt-4 transition-colors ${submitLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {submitLoading ? "Mencatat..." : "Simpan ke Buku Kas"}
               </button>
             </form>
