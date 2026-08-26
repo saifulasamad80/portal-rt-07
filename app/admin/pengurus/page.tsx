@@ -19,6 +19,11 @@ export default async function AdminPengurusPage() {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     adminAktif = JSON.parse(JSON.stringify(payload));
+    
+    // PERTAHANAN LAPIS SERVER: Tendang jika bukan webmaster
+    if (adminAktif.role !== "webmaster") {
+      redirect("/admin");
+    }
   } catch (error) {
     redirect("/admin");
   }
@@ -34,7 +39,6 @@ export default async function AdminPengurusPage() {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // INJEKSI MUTLAK: Hashing Password Pengurus Baru (C1 Fix)
     const hashedPassword = await bcrypt.hash(pass, 10);
 
     const { error } = await supabase.from("pengurus_rt").insert([{

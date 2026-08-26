@@ -15,13 +15,16 @@ export default async function AdminAuditPage() {
   if (!token) redirect("/admin");
 
   try {
-    // Validasi JWT untuk memastikan ini benar-benar admin
-    await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    
+    // PERTAHANAN LAPIS SERVER: Tendang jika bukan webmaster
+    if (payload.role !== "webmaster") {
+      redirect("/admin");
+    }
   } catch (error) {
     redirect("/admin");
   }
 
-  // Gunakan Service Role untuk menembus RLS agar log audit selalu terbaca penuh
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: logsRes } = await supabaseAdmin

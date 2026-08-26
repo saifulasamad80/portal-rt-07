@@ -47,7 +47,10 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-white mb-1">Pusat Komando RT 07</h1>
-              <p className="text-slate-400 font-medium text-xs">Dasbor eksklusif pengurus lingkungan.</p>
+              {/* Menampilkan kasta admin sebagai status */}
+              <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded w-fit mt-1 border border-slate-700">
+                Akses: {adminAktif.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
+              </p>
             </div>
           </div>
           <form action={logoutAction} className="w-full md:w-auto">
@@ -83,14 +86,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
             <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
           </Link>
-          
-          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
-            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 DIGEMBOK</div>
-            <div className="text-3xl mb-3 grayscale">🚨</div>
-            <h2 className="font-black text-slate-500 text-sm">Laporan Warga</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Ditunda instruksi RT</p>
-          </div>
-
+          <Link href="/admin/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3">🚨</div>
+            <h2 className="font-black text-slate-800 text-sm">Laporan Warga</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Tindak lanjut tiket keluhan</p>
+          </Link>
           <Link href="/admin/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🎪</div>
             <h2 className="font-black text-slate-800 text-sm">Inventaris</h2>
@@ -106,16 +106,39 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-white text-sm">Jadwal Siskamling</h2>
             <p className="text-[10px] text-slate-400 mt-1">Atur regu ronda malam</p>
           </Link>
-          <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🔍</div>
-            <h2 className="font-black text-white text-sm">Log Audit</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
-          </Link>
-          <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3 text-indigo-500">👔</div>
-            <h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun RT</p>
-          </Link>
+          
+          {/* LOGIKA KASTA: LOG AUDIT */}
+          {adminAktif.role === 'webmaster' ? (
+            <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
+              <div className="text-3xl mb-3">🔍</div>
+              <h2 className="font-black text-white text-sm">Log Audit</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
+            </Link>
+          ) : (
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+              <div className="absolute top-2 right-2 bg-rose-100 text-rose-700 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 WEBMASTER</div>
+              <div className="text-3xl mb-3 grayscale">🔍</div>
+              <h2 className="font-black text-slate-500 text-sm">Log Audit</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Akses khusus Webmaster</p>
+            </div>
+          )}
+
+          {/* LOGIKA KASTA: AKSES PENGURUS */}
+          {adminAktif.role === 'webmaster' ? (
+            <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+              <div className="text-3xl mb-3 text-indigo-500">👔</div>
+              <h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2>
+              <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun RT</p>
+            </Link>
+          ) : (
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+              <div className="absolute top-2 right-2 bg-rose-100 text-rose-700 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 WEBMASTER</div>
+              <div className="text-3xl mb-3 grayscale">👔</div>
+              <h2 className="font-black text-slate-500 text-sm">Akses Pengurus</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Akses khusus Webmaster</p>
+            </div>
+          )}
+
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
             <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
             <div className="text-3xl mb-3 grayscale">📸</div>
@@ -158,7 +181,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                               w.ktp_path === 'MENYUSUL' ? (
                                 <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
                               ) : w.ktp_path ? (
-                                // TARGET BLANK DIHAPUS
                                 <a href={`/api/admin/dokumen?path=${w.ktp_path}`} className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
                               ) : null
                             )}
@@ -166,7 +188,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                             {w.kk_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KK Fisik</span>
                             ) : w.kk_path ? (
-                              // TARGET BLANK DIHAPUS
                               <a href={`/api/admin/dokumen?path=${w.kk_path}`} className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
                             ) : null}
                           </div>
