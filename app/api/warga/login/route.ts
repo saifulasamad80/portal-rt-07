@@ -13,16 +13,10 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get("warga_session")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
-    }
-
-    // PERBAIKAN MUTLAK: Pemanggilan jwtVerify yang bersih, no hack.
+    if (!token) return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
     const { payload } = await jwtVerify(token, JWT_SECRET); 
     return NextResponse.json({ success: true, warga: payload });
   } catch (error) {
-    console.error("JWT Error:", error);
     return NextResponse.json({ error: "Sesi tidak valid atau kedaluwarsa" }, { status: 401 });
   }
 }
@@ -32,52 +26,54 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { nik, password } = body;
 
-    const { data, error } = await supabaseAdmin.rpc("verifikasi_login_warga", {
-      p_nik: nik,
-      p_password: password
-    });
+    // 1. Tarik data warga secara langsung (Bypass RPC)
+    const { data: warga, error: errWarga } = await supabaseAdmin
+      .from("warga")
+      .select("id, nama_lengkap, nik, pin, rt_id, percobaan_gagal, terkunci_sampai")
+      .eq("nik", nik)
+      .maybeSingle();
 
-    if (error) throw error;
-
-    if (!data || data.length === 0 || !data[0].login_valid) {
-      return NextResponse.json({ success: false, error: "NIK atau Password salah!" }, { status: 401 });
+    if (errWarga || !warga) {
+      return NextResponse.json({ success: false, error: "Akses Ditolak! NIK tidak terdaftar." }, { status: 401 });
     }
 
-    const warga = data[0];
+    // 2. CEK TAMENG BRUTE FORCE (Apakah sedang dikunci?)
+    if (warga.terkunci_sampai && new Date(warga.terkunci_sampai) > new Date()) {
+      return NextResponse.json({ success: false, error: "🚨 AKUN TERKUNCI: Anda telah gagal 5x. Silakan coba lagi dalam 15 menit untuk mencegah peretasan." }, { status: 429 });
+    }
 
-    // INJEKSI MULTI-TENANT: Ambil rt_id warga langsung dari tabel warga
-    const { data: wargaData } = await supabaseAdmin
-      .from("warga")
-      .select("rt_id")
-      .eq("id", warga.id)
-      .single();
+    // 3. VALIDASI PIN
+    if (warga.pin !== password) {
+      const gagalSekarang = (warga.percobaan_gagal || 0) + 1;
+      let updateData: any = { percobaan_gagal: gagalSekarang };
+      let pesanError = `PIN salah! (Percobaan ${gagalSekarang}/5)`;
+      
+      // Jika nyampe 5x, cor pintunya 15 Menit ke depan
+      if (gagalSekarang >= 5) {
+        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
+        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
+      }
+      
+      await supabaseAdmin.from("warga").update(updateData).eq("id", warga.id);
+      return NextResponse.json({ success: false, error: pesanError }, { status: 401 });
+    }
 
-    if (!wargaData || !wargaData.rt_id) {
+    // 4. JIKA LOGIN SUKSES - Hancurkan jejak kegagalan & gembok
+    await supabaseAdmin.from("warga").update({ percobaan_gagal: 0, terkunci_sampai: null }).eq("id", warga.id);
+
+    if (!warga.rt_id) {
       return NextResponse.json({ success: false, error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
     }
 
-    const token = await new SignJWT({
-      id: warga.id,
-      nama: warga.nama_lengkap,
-      nik: warga.nik,
-      role: "warga",
-      rt_id: wargaData.rt_id // DNA TENANT MASUK KE TOKEN WARGA
-    })
+    // 5. Cetak Tiket JWT
+    const token = await new SignJWT({ id: warga.id, nama: warga.nama_lengkap, nik: warga.nik, role: "warga", rt_id: warga.rt_id })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("24h")
       .sign(JWT_SECRET);
 
     const response = NextResponse.json({ success: true, warga: warga });
-
-    response.cookies.set("warga_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", 
-      maxAge: 60 * 60 * 24,
-      path: "/",
-    });
-
+    response.cookies.set("warga_session", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" });
     return response;
 
   } catch (err: any) {
@@ -87,12 +83,6 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const response = NextResponse.json({ success: true });
-  response.cookies.set("warga_session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
+  response.cookies.set("warga_session", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0, path: "/" });
   return response;
 }
