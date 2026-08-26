@@ -3,7 +3,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function RondaClient({ jadwal, konfirmasiKehadiran, generateTest }: { jadwal: any[], konfirmasiKehadiran: any, generateTest: any }) {
+// INJEKSI MUTLAK: Parameter generateTest dihapus karena fungsinya sudah dibunuh
+export default function RondaClient({ jadwal, konfirmasiKehadiran }: { jadwal: any[], konfirmasiKehadiran: any }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
 
@@ -20,20 +21,11 @@ export default function RondaClient({ jadwal, konfirmasiKehadiran, generateTest 
     try {
       await konfirmasiKehadiran(idJadwal, aksi, alasan);
       alert("Konfirmasi berhasil dikirim ke Pengurus Keamanan RT!");
-      router.refresh(); // FAKTA: Tarik ulang data jadwal terbaru dari server secara mulus
+      router.refresh(); 
     } catch (error: any) {
       alert("Gagal menyimpan konfirmasi: " + error.message);
     }
     setLoadingId("");
-  };
-
-  const handleGenerateTest = async () => {
-    try {
-      await generateTest();
-      router.refresh();
-    } catch (error: any) {
-      alert("Gagal membuat jadwal test: " + error.message);
-    }
   };
 
   return (
@@ -47,10 +39,7 @@ export default function RondaClient({ jadwal, konfirmasiKehadiran, generateTest 
         <div className="space-y-4">
           {jadwal.length === 0 ? (
             <div className="bg-slate-800 p-8 rounded-xl text-center shadow-lg border border-slate-700">
-              <p className="text-slate-400 font-bold mb-4">Belum ada jadwal tugas ronda untuk Anda.</p>
-              <button onClick={handleGenerateTest} className="text-xs bg-slate-700 text-slate-300 px-4 py-2 rounded hover:bg-slate-600 transition-colors">
-                [Testing] + Buatkan Saya 1 Jadwal Besok
-              </button>
+              <p className="text-slate-400 font-bold">Belum ada jadwal tugas ronda untuk Anda.</p>
             </div>
           ) : (
             jadwal.map((j) => (

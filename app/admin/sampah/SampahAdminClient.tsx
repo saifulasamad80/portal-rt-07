@@ -15,7 +15,6 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
   const [nominalKasRt, setNominalKasRt] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
 
-  // Kalkulasi Statistik Cepat
   const totalSaldoWarga = transaksiList.reduce((sum, t) => {
     if (t.jenis_transaksi === "Setor Sampah") return sum + t.nominal_warga;
     if (t.jenis_transaksi === "Tarik Saldo") return sum - t.nominal_warga;
@@ -86,7 +85,14 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
               
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Jenis Transaksi</label>
-                <select className="w-full border-2 border-slate-200 rounded-lg p-3 font-bold outline-none focus:border-emerald-500" value={jenis} onChange={(e) => setJenis(e.target.value)}>
+                {/* INJEKSI MUTLAK: Fitur reset otomatis saat merubah select (M2 Fix) */}
+                <select className="w-full border-2 border-slate-200 rounded-lg p-3 font-bold outline-none focus:border-emerald-500" value={jenis} onChange={(e) => {
+                  setJenis(e.target.value);
+                  if (e.target.value === "Tarik Saldo") {
+                    setBeratKg("");
+                    setNominalKasRt("");
+                  }
+                }}>
                   <option value="Setor Sampah" className="text-emerald-600">Setor Sampah (+)</option>
                   <option value="Tarik Saldo" className="text-rose-600">Tarik Saldo Warga (-)</option>
                 </select>

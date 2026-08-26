@@ -18,19 +18,20 @@ export default async function AdminDashboard() {
   let adminAktif: any;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    adminAktif = payload;
+    // MATA DEWA: Obat anti-crash Null Prototype (H7 Fix)
+    adminAktif = JSON.parse(JSON.stringify(payload));
   } catch (error) {
     return <AdminLogin />;
   }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tambahkan ktp_path & kk_path agar admin bisa melihat dokumen pendaftar
+  // FAKTA: Filter HANYA status "Menunggu" dan hapus limit(10) agar antrean tidak hilang (H2 Fix)
   const { data: wargaListRes } = await supabaseAdmin
     .from("warga")
     .select("id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)")
-    .order("created_at", { ascending: false })
-    .limit(10);
+    .eq("status_verifikasi", "Menunggu")
+    .order("created_at", { ascending: true }); // Yang antre duluan, tampil duluan
 
   async function prosesValidasi(idWarga: string, status: string) {
     "use server";
