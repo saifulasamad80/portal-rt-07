@@ -3,6 +3,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+const FITUR_KTP_AKTIF = false;
+
 export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: any, aksiVerifikasi: any }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -81,13 +84,14 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
           <div className="bg-slate-800 p-6 rounded-2xl shadow-sm text-white md:col-span-2">
             <h2 className="font-black text-slate-200 border-b border-slate-700 pb-2 mb-4">🔒 Brankas Dokumen Digital</h2>
             <div className="flex flex-wrap gap-4">
-              {warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? (
-                // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
-              ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>}
+              {/* SAKELAR DEWA BEKERJA DI SINI */}
+              {FITUR_KTP_AKTIF && (
+                warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? (
+                  <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
+                ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>
+              )}
               
               {warga.kk_path && warga.kk_path !== 'MENYUSUL' ? (
-                // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
                 <a href={`/api/admin/dokumen?path=${warga.kk_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a>
               ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KK Menyusul (Fisik)</div>}
             </div>
@@ -103,12 +107,12 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                     <th className="p-3 border-b-2">TTL & Gender</th>
                     <th className="p-3 border-b-2">Hubungan</th>
                     <th className="p-3 border-b-2">Pekerjaan</th>
-                    <th className="p-3 border-b-2 text-center">Dokumen KTP</th>
+                    {FITUR_KTP_AKTIF && <th className="p-3 border-b-2 text-center">Dokumen KTP</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {warga.anggota_keluarga?.length === 0 ? (
-                    <tr><td colSpan={5} className="p-6 text-center italic text-slate-400 font-bold">Tidak ada tanggungan tercatat.</td></tr>
+                    <tr><td colSpan={FITUR_KTP_AKTIF ? 5 : 4} className="p-6 text-center italic text-slate-400 font-bold">Tidak ada tanggungan tercatat.</td></tr>
                   ) : (
                     warga.anggota_keluarga?.map((ak: any) => (
                       <tr key={ak.id} className="border-b hover:bg-slate-50">
@@ -122,14 +126,16 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                         </td>
                         <td className="p-3 font-black text-blue-700">{ak.hubungan_keluarga === 'Lainnya' ? ak.hubungan_detail : ak.hubungan_keluarga}</td>
                         <td className="p-3 text-xs font-bold text-slate-600">{ak.pekerjaan || '-'}</td>
-                        <td className="p-3 text-center">
-                          {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? (
-                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                            <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} target="_blank" className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
-                          ) : (
-                            <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
-                          )}
-                        </td>
+                        
+                        {FITUR_KTP_AKTIF && (
+                          <td className="p-3 text-center">
+                            {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? (
+                              <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} target="_blank" className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
+                            ) : (
+                              <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}

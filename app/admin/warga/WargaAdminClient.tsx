@@ -3,6 +3,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+const FITUR_KTP_AKTIF = false;
+
 export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: any[], aksiHapus: any }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -160,14 +163,16 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                       </td>
                       <td className="p-4 align-top">
                         <div className="flex flex-col gap-1.5">
-                          {w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
-                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                            <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
-                          ) : (
-                            <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
+                          {/* SAKELAR DEWA BEKERJA DI SINI */}
+                          {FITUR_KTP_AKTIF && (
+                            w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
+                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
+                            ) : (
+                              <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
+                            )
                           )}
+                          
                           {w.kk_path && w.kk_path !== 'MENYUSUL' ? (
-                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
                             <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
                           ) : (
                             <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Fisik/Menyusul</span>
@@ -175,6 +180,9 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                         </div>
                       </td>
                       <td className="p-4 align-top text-center">
+                        <Link href={`/admin/warga/${w.id}`} className="bg-blue-100 hover:bg-blue-500 hover:text-white text-blue-700 border border-blue-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm uppercase tracking-wider w-full mb-2 inline-block">
+                          Detail Warga
+                        </Link>
                         <button onClick={() => handleHapus(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
                           {loadingId === w.id ? 'Memproses...' : 'Hapus Warga'}
                         </button>
