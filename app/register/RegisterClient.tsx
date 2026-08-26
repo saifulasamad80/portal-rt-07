@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
-// INJEKSI MUTLAK: Panggil router dan Link untuk navigasi
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -20,7 +19,7 @@ type AnggotaKeluarga = {
 };
 
 export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) {
-  const router = useRouter(); // Deklarasi radar navigasi
+  const router = useRouter();
 
   const [nik, setNik] = useState("");
   const [nama, setNama] = useState("");
@@ -70,15 +69,24 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     return null; 
   };
 
+  // INJEKSI MUTLAK: Perombakan Mesin Kompresi
   const kompresDanUpload = async (fileOri: File, tipe: string, nikTarget: string) => {
     const amanNik = nikTarget.replace(/[^a-zA-Z0-9]/g, '');
     const amanTipe = tipe.replace(/[^a-zA-Z0-9_]/g, '');
-    const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1024, useWebWorker: true, fileType: "image/jpeg" };
+    
+    // FAKTA: useWebWorker dimatikan paksa agar tidak memicu NetworkError di Vercel
+    const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1024, useWebWorker: false, fileType: "image/jpeg" };
+    
     try {
+      // UX FIX: Beri nafas 100 milidetik agar layar React sempat menggambar info Loading
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const fileKompresi = await imageCompression(fileOri, options);
       const fileName = `${amanNik}_${amanTipe}_${Date.now()}.jpg`;
+      
       const { error } = await supabase.storage.from('dokumen_warga').upload(fileName, fileKompresi, { cacheControl: '3600', upsert: false });
       if (error) throw error;
+      
       return fileName;
     } catch (error: any) {
       throw new Error(`Gagal upload ${amanTipe}: ${error.message}`);
@@ -136,11 +144,14 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       let pathKtpKK = dokumenMenyusul ? "MENYUSUL" : null;
       let pathKkKK = dokumenMenyusul ? "MENYUSUL" : null;
 
-      setProgressTeks("Mengunggah dokumen Kepala Keluarga...");
+      setProgressTeks("Mempersiapkan dokumen Kepala Keluarga...");
+      await new Promise(resolve => setTimeout(resolve, 50)); // Jeda UI
+
       if (!dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUpload(fileKtp, 'KTP_KK', nik);
       if (!dokumenMenyusul && fileKk) pathKkKK = await kompresDanUpload(fileKk, 'KK_FILE', nik);
 
-      setProgressTeks("Mempersiapkan dan mengunggah dokumen anggota keluarga secara paralel...");
+      setProgressTeks("Mempersiapkan dokumen Anggota Keluarga...");
+      await new Promise(resolve => setTimeout(resolve, 50)); // Jeda UI
       
       const anggotaPayload = await Promise.all(
         anggota.map(async (a) => {
@@ -179,8 +190,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       await aksiRegister(payloadKepala, anggotaPayload);
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
-      
-      // INJEKSI MUTLAK: Tendang user ke halaman login setelah sukses agar data form otomatis hangus (UX Fix)
       router.push("/login"); 
       
     } catch (err: any) {
@@ -193,7 +202,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 flex flex-col items-center py-10 font-sans">
       
-      {/* INJEKSI MUTLAK: Tombol Kembali Pembuka Jalan Keluar */}
       <div className="w-full max-w-4xl mb-4 text-left">
         <Link href="/login" className="text-blue-600 font-bold hover:underline inline-flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 transition-all active:scale-95 hover:bg-blue-50">
           <span>&larr;</span> Kembali ke Login
