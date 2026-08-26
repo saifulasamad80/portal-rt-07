@@ -34,19 +34,18 @@ export default async function AdminKasPage() {
     .select("id, nama_lengkap")
     .eq("status_verifikasi", "Disetujui");
 
-  // INJEKSI MUTLAK: Ambil rt_id langsung dari database, BUKAN dari token!
   async function simpanTransaksi(tipe: string, wargaId: string, kategori: string, nominal: number, keterangan: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // MATA DEWA: Lacak rt_id secara real-time dari email pengurus yang sedang aktif
+    // INJEKSI MUTLAK: Gunakan adminAktif.sub (ID) karena email tidak ada di JWT
     const { data: adminData } = await supabase
       .from("pengurus_rt")
       .select("rt_id")
-      .eq("email", adminAktif.email)
+      .eq("id", adminAktif.sub)
       .single();
 
-    const idRt = adminData?.rt_id;
+    const idRt = adminData?.rt_id || adminAktif.rt_id; // Fallback ganda super aman
 
     if (!idRt) {
       return { success: false, message: "Akses Ditolak: Sistem gagal memverifikasi ID RT Anda." };
@@ -65,7 +64,7 @@ export default async function AdminKasPage() {
     const { error: errorKas } = await supabase.from("kas_rt").insert([payload]);
     if (errorKas) return { success: false, message: errorKas.message };
 
-    // Simpan ke Audit Log (Sekarang dijamin aman karena pakai idRt mutlak)
+    // Simpan ke Audit Log
     const { error: errorAudit } = await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
       aksi: `Input Kas: ${tipe}`,

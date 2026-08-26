@@ -8,7 +8,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-export default async function TabunganSampahWarga() {
+export default async function TabunganKurbanWarga() {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
 
@@ -24,28 +24,31 @@ export default async function TabunganSampahWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  // INJEKSI MUTLAK: Mengarahkan tembakan ke tabel tabungan_kurban
   const { data } = await supabaseAdmin
-    .from("transaksi_sampah")
+    .from("tabungan_kurban")
     .select("*")
     .eq("warga_id", wargaAktif.id)
-    .order("created_at", { ascending: false });
+    .order("tanggal_transaksi", { ascending: false });
   
   const riwayat = data || [];
-  const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
-  const totalTarik = riwayat.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
+  
+  // FAKTA: Filter dan kalkulasi disesuaikan dengan skema Kurban
+  const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setoran").reduce((sum, t) => sum + t.nominal, 0);
+  const totalTarik = riwayat.filter(t => t.jenis_transaksi === "Penarikan").reduce((sum, t) => sum + t.nominal, 0);
   const saldo = totalSetor - totalTarik;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-emerald-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-800 p-8 rounded-2xl shadow-xl text-white">
-          <h2 className="text-emerald-100 text-sm font-bold uppercase tracking-widest mb-2">Tabungan Mandiri RT 07</h2>
+        <Link href="/portal" className="text-pink-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
+        <div className="bg-gradient-to-r from-pink-600 to-rose-800 p-8 rounded-2xl shadow-xl text-white">
+          <h2 className="text-pink-100 text-sm font-bold uppercase tracking-widest mb-2">Tabungan Kurban RT 07</h2>
           <div className="text-5xl font-black mb-1">Rp {saldo.toLocaleString("id-ID")}</div>
-          <p className="text-sm text-emerald-200">Saldo tabungan bank sampah Anda.</p>
+          <p className="text-sm text-pink-200">Saldo tabungan persiapan kurban Anda.</p>
         </div>
         <div className="bg-white p-6 rounded-xl shadow border-t-4 border-slate-700">
-          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">📘 Mutasi Tabungan</h2>
+          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">📘 Mutasi Tabungan Kurban</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
@@ -57,17 +60,19 @@ export default async function TabunganSampahWarga() {
               </thead>
               <tbody>
                 {riwayat.length === 0 ? (
-                  <tr><td colSpan={3} className="p-4 text-center text-slate-400 font-bold italic">Belum ada aktivitas tabungan.</td></tr>
+                  <tr><td colSpan={3} className="p-4 text-center text-slate-400 font-bold italic">Belum ada aktivitas tabungan kurban.</td></tr>
                 ) : (
                   riwayat.map((t) => (
                     <tr key={t.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 text-slate-600 whitespace-nowrap">{new Date(t.created_at).toLocaleDateString('id-ID')}</td>
+                      <td className="p-3 text-slate-600 whitespace-nowrap">
+                        {new Date(t.tanggal_transaksi || t.created_at).toLocaleDateString('id-ID')}
+                      </td>
                       <td className="p-3">
                         <div className="font-bold text-slate-800">{t.keterangan}</div>
-                        {t.berat_kg > 0 && <div className="text-xs text-slate-500 font-mono mt-0.5">Berat: {t.berat_kg} Kg</div>}
+                        <div className="text-xs text-slate-500 mt-0.5">Sumber: {t.sumber_dana}</div>
                       </td>
-                      <td className={`p-3 text-right font-black ${t.jenis_transaksi === 'Setor' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {t.jenis_transaksi === 'Setor' ? '+' : '-'} {t.nominal_warga.toLocaleString('id-ID')}
+                      <td className={`p-3 text-right font-black ${t.jenis_transaksi === 'Setoran' ? 'text-pink-600' : 'text-rose-600'}`}>
+                        {t.jenis_transaksi === 'Setoran' ? '+' : '-'} {t.nominal.toLocaleString('id-ID')}
                       </td>
                     </tr>
                   ))
