@@ -24,45 +24,48 @@ export default async function AdminSampahPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tarik transaksi sampah + relasi nama warga
   const { data: transaksiRes } = await supabaseAdmin
     .from("transaksi_sampah")
     .select("*, warga(nama_lengkap)")
     .order("tanggal_transaksi", { ascending: false });
 
-  // FAKTA: Tarik warga terverifikasi untuk dropdown
   const { data: wargaRes } = await supabaseAdmin
     .from("warga")
     .select("id, nama_lengkap")
     .eq("status_verifikasi", "Disetujui")
     .order("nama_lengkap", { ascending: true });
 
-  // FAKTA: Server Action untuk insert data Bank Sampah (Bypass RLS)
+  // INJEKSI MUTLAK: Perbaikan pengembalian error agar React #441 musnah
   async function simpanTransaksiSampah(wargaId: string, jenis: string, keterangan: string, beratKg: number | null, nominalWarga: number, nominalKasRt: number, tanggal: string) {
     "use server";
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
-    const { error } = await supabase.from("transaksi_sampah").insert([{
-      warga_id: wargaId,
-      jenis_transaksi: jenis,
-      keterangan: keterangan,
-      berat_kg: beratKg,
-      nominal_warga: nominalWarga,
-      nominal_kas_rt: nominalKasRt,
-      tanggal_transaksi: tanggal
-    }]);
+    try {
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      
+      const { error } = await supabase.from("transaksi_sampah").insert([{
+        warga_id: wargaId,
+        jenis_transaksi: jenis, // Sekarang dikirim murni sebagai "Setor" atau "Tarik"
+        keterangan: keterangan,
+        berat_kg: beratKg,
+        nominal_warga: nominalWarga,
+        nominal_kas_rt: nominalKasRt,
+        tanggal_transaksi: tanggal
+      }]);
 
-    if (error) throw new Error(error.message);
+      if (error) return { success: false, message: error.message };
 
-    // Dapatkan nama warga untuk log audit
-    const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
+      const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
 
-    await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
-      aksi: `Input Transaksi Sampah: ${jenis}`,
-      tabel_target: "transaksi_sampah",
-      detail: `${targetWarga?.nama_lengkap} - Warga: Rp${nominalWarga} | Kas RT: Rp${nominalKasRt}`
-    }]);
+      await supabase.from("audit_log").insert([{
+        aktor: adminAktif.nama,
+        aksi: `Input Transaksi Sampah: ${jenis}`,
+        tabel_target: "transaksi_sampah",
+        detail: `${targetWarga?.nama_lengkap} - Warga: Rp${nominalWarga} | Kas RT: Rp${nominalKasRt}`
+      }]);
+      
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
   }
 
   return <SampahAdminClient 

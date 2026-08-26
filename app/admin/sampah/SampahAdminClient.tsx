@@ -8,26 +8,29 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
   const [submitLoading, setSubmitLoading] = useState(false);
 
   const [wargaId, setWargaId] = useState("");
-  const [jenis, setJenis] = useState("Setor Sampah");
+  const [jenis, setJenis] = useState("Setor"); 
   const [keterangan, setKeterangan] = useState("");
+  
+  // STAT INPUT KALKULATOR
+  const [hargaPengepul, setHargaPengepul] = useState("");
   const [beratKg, setBeratKg] = useState("");
   const [nominalWarga, setNominalWarga] = useState("");
-  const [nominalKasRt, setNominalKasRt] = useState("");
+  const [nominalKasRt, setNominalKasRt] = useState("0");
+  
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
 
+  // Kalkulasi Statistik Atas
   const totalSaldoWarga = transaksiList.reduce((sum, t) => {
-    if (t.jenis_transaksi === "Setor Sampah") return sum + t.nominal_warga;
-    if (t.jenis_transaksi === "Tarik Saldo") return sum - t.nominal_warga;
+    if (t.jenis_transaksi === "Setor") return sum + t.nominal_warga;
+    if (t.jenis_transaksi === "Tarik") return sum - t.nominal_warga;
     return sum;
   }, 0);
-  
   const totalKasRtMasuk = transaksiList.reduce((sum, t) => sum + (t.nominal_kas_rt || 0), 0);
   const totalBerat = transaksiList.reduce((sum, t) => sum + (t.berat_kg || 0), 0);
 
-  // INJEKSI MUTLAK: Kalkulasi saldo spesifik untuk user yang dipilih (M1 Fix)
   const saldoUserTerpilih = wargaId ? transaksiList.filter(t => t.warga_id === wargaId).reduce((sum, t) => {
-    if (t.jenis_transaksi === "Setor Sampah") return sum + t.nominal_warga;
-    if (t.jenis_transaksi === "Tarik Saldo") return sum - t.nominal_warga;
+    if (t.jenis_transaksi === "Setor") return sum + t.nominal_warga;
+    if (t.jenis_transaksi === "Tarik") return sum - t.nominal_warga;
     return sum;
   }, 0) : 0;
 
@@ -37,18 +40,22 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
 
     const nomWarga = parseInt(nominalWarga);
 
-    // INJEKSI MUTLAK: Cegah penarikan uang yang tidak ada (M1 Fix)
-    if (jenis === "Tarik Saldo" && nomWarga > saldoUserTerpilih) {
+    if (jenis === "Tarik" && nomWarga > saldoUserTerpilih) {
       alert(`GAGAL: Saldo nasabah tidak mencukupi! Saldo maksimal yang dapat ditarik: Rp ${saldoUserTerpilih.toLocaleString('id-ID')}`);
       setSubmitLoading(false);
       return;
     }
 
     try {
-      await aksiSimpan(wargaId, jenis, keterangan, beratKg ? parseFloat(beratKg) : null, nomWarga, nominalKasRt ? parseInt(nominalKasRt) : 0, tanggal);
-      setKeterangan(""); setBeratKg(""); setNominalWarga(""); setNominalKasRt("");
-      alert("Transaksi Bank Sampah berhasil dicatat!");
-      router.refresh();
+      const res = await aksiSimpan(wargaId, jenis, keterangan, beratKg ? parseFloat(beratKg) : null, nomWarga, nominalKasRt ? parseInt(nominalKasRt) : 0, tanggal);
+      
+      if (res && !res.success) {
+        alert("Database menolak transaksi: " + res.message);
+      } else {
+        setKeterangan(""); setBeratKg(""); setNominalWarga(""); setNominalKasRt("0"); setHargaPengepul("");
+        alert("Transaksi Bank Sampah berhasil dicatat!");
+        router.refresh();
+      }
     } catch (error: any) {
       alert("Gagal menyimpan transaksi: " + error.message);
     }
@@ -103,13 +110,12 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
                 <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Jenis Transaksi</label>
                 <select className="w-full border-2 border-slate-200 rounded-lg p-3 font-bold outline-none focus:border-emerald-500" value={jenis} onChange={(e) => {
                   setJenis(e.target.value);
-                  if (e.target.value === "Tarik Saldo") {
-                    setBeratKg("");
-                    setNominalKasRt("");
+                  if (e.target.value === "Tarik") {
+                    setBeratKg(""); setHargaPengepul(""); setNominalKasRt("0"); setNominalWarga("");
                   }
                 }}>
-                  <option value="Setor Sampah" className="text-emerald-600">Setor Sampah (+)</option>
-                  <option value="Tarik Saldo" className="text-rose-600">Tarik Saldo Warga (-)</option>
+                  <option value="Setor" className="text-emerald-600">Setor Sampah (+)</option>
+                  <option value="Tarik" className="text-rose-600">Tarik Saldo Warga (-)</option>
                 </select>
               </div>
 
@@ -120,8 +126,7 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
                   {wargaList.map(w => <option key={w.id} value={w.id}>{w.nama_lengkap}</option>)}
                 </select>
                 
-                {/* Tampilkan sisa saldo langsung di UI jika sedang narik */}
-                {jenis === "Tarik Saldo" && wargaId && (
+                {jenis === "Tarik" && wargaId && (
                   <p className="text-[10px] text-amber-600 font-bold mt-2 bg-amber-50 p-2 rounded border border-amber-200">
                     Sisa Saldo: Rp {saldoUserTerpilih.toLocaleString('id-ID')}
                   </p>
@@ -133,22 +138,57 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
                 <input type="text" required className="w-full border-2 border-slate-200 rounded-lg p-3 outline-none focus:border-emerald-500 text-sm" placeholder="Cth: Kardus & Botol Plastik" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
               </div>
 
-              {jenis === "Setor Sampah" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Berat (Kg)</label>
-                    <input type="number" step="0.1" min="0.1" required className="w-full border-2 border-slate-200 rounded-lg p-3 font-mono text-slate-800 focus:border-emerald-500 outline-none text-sm" placeholder="2.5" value={beratKg} onChange={(e) => setBeratKg(e.target.value)} />
+              {/* INJEKSI MUTLAK: KALKULATOR PENGEPUL */}
+              {jenis === "Setor" && (
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-4 space-y-4">
+                  <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest flex items-center gap-2">
+                    🧮 Kalkulator Valuasi
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-700 mb-1 uppercase">Harga Pengepul / Kg</label>
+                      <input type="number" min="0" className="w-full border border-emerald-300 rounded-lg p-2.5 font-mono text-emerald-900 focus:border-emerald-600 outline-none text-sm" placeholder="Cth: 2500" value={hargaPengepul} onChange={(e) => setHargaPengepul(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-700 mb-1 uppercase">Berat Timbangan (Kg)</label>
+                      <input type="number" step="0.1" min="0.1" className="w-full border border-emerald-300 rounded-lg p-2.5 font-mono text-emerald-900 focus:border-emerald-600 outline-none text-sm" placeholder="Cth: 2.5" value={beratKg} onChange={(e) => setBeratKg(e.target.value)} />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Masuk Kas RT (Rp)</label>
-                    <input type="number" min="0" required className="w-full border-2 border-slate-200 rounded-lg p-3 font-mono text-emerald-600 focus:border-emerald-500 outline-none text-sm" placeholder="1000" value={nominalKasRt} onChange={(e) => setNominalKasRt(e.target.value)} />
-                  </div>
+                  
+                  {hargaPengepul && beratKg && (
+                    <div className="pt-3 border-t border-emerald-200">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-[11px] font-bold text-emerald-700 uppercase">Total Uang Masuk:</span>
+                        <span className="text-lg font-black text-emerald-800">Rp {(parseFloat(hargaPengepul) * parseFloat(beratKg)).toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => {
+                          const total = Math.floor(parseFloat(hargaPengepul) * parseFloat(beratKg));
+                          setNominalWarga(total.toString());
+                          setNominalKasRt("0");
+                        }} className="flex-1 bg-white border border-emerald-400 text-emerald-700 text-[10px] font-bold py-2 rounded-lg hover:bg-emerald-100 transition-colors shadow-sm">100% Hak Warga</button>
+                        <button type="button" onClick={() => {
+                          const total = parseFloat(hargaPengepul) * parseFloat(beratKg);
+                          setNominalWarga(Math.floor(total * 0.8).toString());
+                          setNominalKasRt(Math.floor(total * 0.2).toString());
+                        }} className="flex-1 bg-emerald-600 border border-emerald-600 text-white text-[10px] font-bold py-2 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">Bagi Hasil 80:20</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Nominal Hak Warga (Rp)</label>
-                <input type="number" required min="100" className="w-full border-2 border-slate-200 rounded-lg p-3 font-mono font-black text-lg text-amber-600 outline-none focus:border-emerald-500" placeholder="5000" value={nominalWarga} onChange={(e) => setNominalWarga(e.target.value)} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Hak Warga (Rp)</label>
+                  <input type="number" required min="100" className="w-full border-2 border-slate-200 rounded-lg p-3 font-mono font-black text-lg text-amber-600 outline-none focus:border-emerald-500" placeholder="0" value={nominalWarga} onChange={(e) => setNominalWarga(e.target.value)} />
+                </div>
+                {jenis === "Setor" && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Kas RT (Rp)</label>
+                    <input type="number" min="0" required className="w-full border-2 border-slate-200 rounded-lg p-3 font-mono font-black text-lg text-emerald-600 outline-none focus:border-emerald-500" placeholder="0" value={nominalKasRt} onChange={(e) => setNominalKasRt(e.target.value)} />
+                  </div>
+                )}
               </div>
               
               <button type="submit" disabled={submitLoading} className={`w-full text-white font-black rounded-lg p-3.5 shadow-md mt-4 transition-colors ${submitLoading ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
@@ -183,13 +223,13 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
                           <div className="font-black text-slate-800 mt-1">{t.warga?.nama_lengkap}</div>
                         </td>
                         <td className="p-4 align-top">
-                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-sm shadow-sm inline-block mb-1.5 ${t.jenis_transaksi === 'Setor Sampah' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                            {t.jenis_transaksi} {t.berat_kg ? `(${t.berat_kg} kg)` : ''}
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-sm shadow-sm inline-block mb-1.5 ${t.jenis_transaksi === 'Setor' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {t.jenis_transaksi === 'Setor' ? 'Setor Sampah' : 'Tarik Saldo'} {t.berat_kg ? `(${t.berat_kg} kg)` : ''}
                           </span>
                           <div className="text-slate-600 text-xs">{t.keterangan}</div>
                         </td>
-                        <td className={`p-4 align-top text-right font-mono font-black text-sm ${t.jenis_transaksi === 'Setor Sampah' ? 'text-amber-600' : 'text-rose-600'}`}>
-                          {t.jenis_transaksi === 'Setor Sampah' ? '+' : '-'} Rp {t.nominal_warga.toLocaleString('id-ID')}
+                        <td className={`p-4 align-top text-right font-mono font-black text-sm ${t.jenis_transaksi === 'Setor' ? 'text-amber-600' : 'text-rose-600'}`}>
+                          {t.jenis_transaksi === 'Setor' ? '+' : '-'} Rp {t.nominal_warga.toLocaleString('id-ID')}
                         </td>
                         <td className="p-4 align-top text-right font-mono font-bold text-sm text-emerald-600">
                           {t.nominal_kas_rt > 0 ? `+ Rp ${t.nominal_kas_rt.toLocaleString('id-ID')}` : '-'}
