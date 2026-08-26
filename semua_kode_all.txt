@@ -1291,16 +1291,10 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get("warga_session")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
-    }
-
-    // PERBAIKAN MUTLAK: Pemanggilan jwtVerify yang bersih, no hack.
+    if (!token) return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
     const { payload } = await jwtVerify(token, JWT_SECRET); 
     return NextResponse.json({ success: true, warga: payload });
   } catch (error) {
-    console.error("JWT Error:", error);
     return NextResponse.json({ error: "Sesi tidak valid atau kedaluwarsa" }, { status: 401 });
   }
 }
@@ -1310,52 +1304,54 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { nik, password } = body;
 
-    const { data, error } = await supabaseAdmin.rpc("verifikasi_login_warga", {
-      p_nik: nik,
-      p_password: password
-    });
+    // 1. Tarik data warga secara langsung (Bypass RPC)
+    const { data: warga, error: errWarga } = await supabaseAdmin
+      .from("warga")
+      .select("id, nama_lengkap, nik, pin, rt_id, percobaan_gagal, terkunci_sampai")
+      .eq("nik", nik)
+      .maybeSingle();
 
-    if (error) throw error;
-
-    if (!data || data.length === 0 || !data[0].login_valid) {
-      return NextResponse.json({ success: false, error: "NIK atau Password salah!" }, { status: 401 });
+    if (errWarga || !warga) {
+      return NextResponse.json({ success: false, error: "Akses Ditolak! NIK tidak terdaftar." }, { status: 401 });
     }
 
-    const warga = data[0];
+    // 2. CEK TAMENG BRUTE FORCE (Apakah sedang dikunci?)
+    if (warga.terkunci_sampai && new Date(warga.terkunci_sampai) > new Date()) {
+      return NextResponse.json({ success: false, error: "🚨 AKUN TERKUNCI: Anda telah gagal 5x. Silakan coba lagi dalam 15 menit untuk mencegah peretasan." }, { status: 429 });
+    }
 
-    // INJEKSI MULTI-TENANT: Ambil rt_id warga langsung dari tabel warga
-    const { data: wargaData } = await supabaseAdmin
-      .from("warga")
-      .select("rt_id")
-      .eq("id", warga.id)
-      .single();
+    // 3. VALIDASI PIN
+    if (warga.pin !== password) {
+      const gagalSekarang = (warga.percobaan_gagal || 0) + 1;
+      let updateData: any = { percobaan_gagal: gagalSekarang };
+      let pesanError = `PIN salah! (Percobaan ${gagalSekarang}/5)`;
+      
+      // Jika nyampe 5x, cor pintunya 15 Menit ke depan
+      if (gagalSekarang >= 5) {
+        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
+        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
+      }
+      
+      await supabaseAdmin.from("warga").update(updateData).eq("id", warga.id);
+      return NextResponse.json({ success: false, error: pesanError }, { status: 401 });
+    }
 
-    if (!wargaData || !wargaData.rt_id) {
+    // 4. JIKA LOGIN SUKSES - Hancurkan jejak kegagalan & gembok
+    await supabaseAdmin.from("warga").update({ percobaan_gagal: 0, terkunci_sampai: null }).eq("id", warga.id);
+
+    if (!warga.rt_id) {
       return NextResponse.json({ success: false, error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
     }
 
-    const token = await new SignJWT({
-      id: warga.id,
-      nama: warga.nama_lengkap,
-      nik: warga.nik,
-      role: "warga",
-      rt_id: wargaData.rt_id // DNA TENANT MASUK KE TOKEN WARGA
-    })
+    // 5. Cetak Tiket JWT
+    const token = await new SignJWT({ id: warga.id, nama: warga.nama_lengkap, nik: warga.nik, role: "warga", rt_id: warga.rt_id })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("24h")
       .sign(JWT_SECRET);
 
     const response = NextResponse.json({ success: true, warga: warga });
-
-    response.cookies.set("warga_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", 
-      maxAge: 60 * 60 * 24,
-      path: "/",
-    });
-
+    response.cookies.set("warga_session", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" });
     return response;
 
   } catch (err: any) {
@@ -1365,13 +1361,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const response = NextResponse.json({ success: true });
-  response.cookies.set("warga_session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
+  response.cookies.set("warga_session", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0, path: "/" });
   return response;
 }
 === FILE: app/api/admin/warga/route.ts ===
@@ -1427,15 +1417,8 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production";
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables in server-side.");
-}
-
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
+  auth: { persistSession: false, autoRefreshToken: false },
 });
 
 export async function POST(request: Request) {
@@ -1444,114 +1427,64 @@ export async function POST(request: Request) {
     const { username, password } = body;
 
     if (!username || !password) {
-      return NextResponse.json(
-        { error: "Username dan Password wajib diisi!" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Username dan Password wajib diisi!" }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin.rpc("verifikasi_login_admin", {
-      p_username: username,
-      p_password: password,
-    });
-
-    // ==========================================
-    // MATA DEWA: CETAK ERROR ASLI KE TERMINAL!
-    // ==========================================
-    if (error) {
-      console.error("\n[X] SUPABASE RPC ERROR BUNG:", error);
-    }
-
-    if (error || !data || data.length === 0) {
-      return NextResponse.json(
-        { error: "Terjadi kesalahan internal pada server database." },
-        { status: 500 }
-      );
-    }
-
-    const hasilLogin = data[0];
-
-    if (!hasilLogin.login_valid) {
-      return NextResponse.json(
-        { error: "Akses Ditolak! Username atau Password salah." },
-        { status: 401 }
-      );
-    }
-
-    // INJEKSI MULTI-TENANT: Ambil rt_id pengurus langsung dari tabel pengurus_rt
-    const { data: pengurusData, error: errPengurus } = await supabaseAdmin
+    // 1. Tarik data admin (Bypass RPC)
+    const { data: admin, error: errAdmin } = await supabaseAdmin
       .from("pengurus_rt")
-      .select("rt_id")
-      .eq("id", hasilLogin.id)
-      .single();
+      .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai")
+      .or(`username.eq.${username},email.eq.${username}`)
+      .maybeSingle();
 
-    if (errPengurus) {
-      console.error("\n[X] ERROR GET PENGURUS RT:", errPengurus);
+    if (errAdmin || !admin) {
+      return NextResponse.json({ error: "Akses Ditolak! Username atau Email tidak terdaftar." }, { status: 401 });
     }
 
-    if (!pengurusData || !pengurusData.rt_id) {
-      return NextResponse.json(
-        { error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." },
-        { status: 403 }
-      );
+    // 2. CEK TAMENG BRUTE FORCE
+    if (admin.terkunci_sampai && new Date(admin.terkunci_sampai) > new Date()) {
+      return NextResponse.json({ error: "🚨 SYSTEM LOCKDOWN: Akun dikunci karena aktivitas mencurigakan. Coba lagi 15 menit ke depan." }, { status: 429 });
     }
 
-    // Buat Payload JWT Sesi Kustom dengan rt_id tersemat aman
-    const jwtPayload = {
-      sub: hasilLogin.id,
-      nama: hasilLogin.nama_lengkap,
-      jabatan: hasilLogin.jabatan,
-      role: "admin",
-      rt_id: pengurusData.rt_id, // DNA TENANT RESMI MASUK KE JWT
-    };
+    // 3. VALIDASI PASSWORD
+    if (admin.password !== password) {
+      const gagalSekarang = (admin.percobaan_gagal || 0) + 1;
+      let updateData: any = { percobaan_gagal: gagalSekarang };
+      let pesanError = `Password salah! (Percobaan ${gagalSekarang}/5)`;
+      
+      if (gagalSekarang >= 5) {
+        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
+        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
+      }
+      
+      await supabaseAdmin.from("pengurus_rt").update(updateData).eq("id", admin.id);
+      return NextResponse.json({ error: pesanError }, { status: 401 });
+    }
 
+    // 4. JIKA LOGIN SUKSES - Buka gembok
+    await supabaseAdmin.from("pengurus_rt").update({ percobaan_gagal: 0, terkunci_sampai: null }).eq("id", admin.id);
+
+    if (!admin.rt_id) {
+      return NextResponse.json({ error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
+    }
+
+    const jwtPayload = { sub: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, role: "admin", rt_id: admin.rt_id };
     const secretKey = new TextEncoder().encode(JWT_SECRET);
-    const token = await new SignJWT(jwtPayload)
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("2h")
-      .sign(secretKey);
+    const token = await new SignJWT(jwtPayload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("2h").sign(secretKey);
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 2,
-      path: "/",
-    } as const;
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: hasilLogin.id,
-        nama: hasilLogin.nama_lengkap,
-        jabatan: hasilLogin.jabatan,
-        rt_id: pengurusData.rt_id,
-      },
-    });
-
+    const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 60 * 60 * 2, path: "/" } as const;
+    const response = NextResponse.json({ success: true, user: { id: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, rt_id: admin.rt_id } });
     response.cookies.set("admin_session", token, cookieOptions);
-
     return response;
+
   } catch (err: any) {
-    console.error("\n[X] FATAL SERVER ERROR:", err);
-    return NextResponse.json(
-      { error: "Server Error: " + err.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server Error: " + err.message }, { status: 500 });
   }
 }
 
 export async function DELETE() {
   const response = NextResponse.json({ success: true, message: "Berhasil keluar sesi." });
-  
-  response.cookies.set("admin_session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 0,
-    path: "/",
-  });
+  response.cookies.set("admin_session", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 0, path: "/" });
   return response;
 }
 === FILE: app/layout.tsx ===
@@ -2303,6 +2236,9 @@ export default function WargaLogin() {
   const [nik, setNik] = useState("");
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  
+  // INJEKSI MUTLAK: Radar Ikon Mata
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (wargaAktif) {
@@ -2332,22 +2268,21 @@ export default function WargaLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
       <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] w-full max-w-md border-t-4 border-blue-600 relative overflow-hidden">
         <div className="absolute top-0 right-0 bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-bl-lg">WARGA PORTAL</div>
         <div className="text-5xl mb-6 text-center">🏡</div>
         <h2 className="text-2xl font-black text-slate-800 mb-2 text-center">Portal Warga RT 07</h2>
         <p className="text-slate-500 text-sm mb-8 text-center">Silakan masuk menggunakan NIK dan Password Anda.</p>
         
-        {/* REVISI UX: Jarak absolut (mb-6), padding 12px 16px (py-3 px-4), radius 8px */}
-        <div className="space-y-4 mb-6">
+        <div className="space-y-4 mb-6 text-left">
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
             <input 
               type="text" 
               required 
               maxLength={16} 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono" 
+              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono text-slate-800 bg-slate-50 focus:bg-white" 
               placeholder="Masukkan 16 digit NIK..." 
               value={nik} 
               onChange={(e) => setNik(e.target.value.replace(/\D/g, ''))} 
@@ -2355,18 +2290,30 @@ export default function WargaLogin() {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
-            <input 
-              type="password" 
-              required 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" 
-              placeholder="••••••••" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
+            
+            {/* INJEKSI MUTLAK: Sistem Wrapper Relative untuk Ikon Mata */}
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-800 bg-slate-50 focus:bg-white pr-12" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none text-lg transition-colors cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? "👁️" : "🙈"}
+              </button>
+            </div>
+
           </div>
         </div>
 
-        {/* REVISI UX: Tombol setinggi 48px (h-12) menghindari fat-finger */}
         <button type="submit" disabled={loginLoading} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-md active:scale-[0.98] flex justify-center items-center gap-2">
           {loginLoading ? "Memverifikasi..." : "Masuk ke Portal"}
         </button>
@@ -4167,6 +4114,127 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
     </div>
   );
 }
+=== FILE: app/admin/lupa-sandi/LupaSandiClient.tsx ===
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+
+export default function LupaSandiClient({ aksiKirim }: { aksiKirim: any }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sukses, setSukses] = useState(false);
+
+  const handleKirim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await aksiKirim(email);
+      if (res && !res.success) alert(res.message);
+      else setSukses(true);
+    } catch (error: any) {
+      alert("Kesalahan Sistem: " + error.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-6 font-sans">
+      <div className="bg-white p-8 md:p-10 rounded-2xl shadow-2xl w-full max-w-[400px] text-center border border-slate-200 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-rose-500"></div>
+        
+        <div className="w-16 h-16 bg-rose-50 border border-rose-100 text-rose-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm">🔐</div>
+        <h2 className="text-2xl font-black text-slate-800 mb-1">Lupa Password</h2>
+        <p className="text-slate-500 text-xs font-medium mb-8">Masukkan email admin Anda untuk mendapatkan link pemulihan.</p>
+
+        {sukses ? (
+          <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl">
+            <div className="text-3xl mb-2">✅</div>
+            <h3 className="font-black text-emerald-800 text-sm mb-1">Email Terkirim!</h3>
+            <p className="text-emerald-600 text-xs">Silakan cek kotak masuk (atau folder Spam) Gmail Anda.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleKirim} className="space-y-6 text-left">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Email Terdaftar</label>
+              <input type="email" required className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-rose-500 text-sm text-slate-800 bg-slate-50 focus:bg-white" placeholder="admin@rt07.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <button type="submit" disabled={loading} className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-md active:scale-95 disabled:bg-slate-300 transition-all">
+              {loading ? "Mengirim Radar..." : "Kirim Link Reset"}
+            </button>
+          </form>
+        )}
+        <div className="mt-6 text-center">
+          <Link href="/admin" className="text-xs font-bold text-slate-500 hover:text-slate-800 underline decoration-slate-300">Batal & Kembali ke Login</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+=== FILE: app/admin/lupa-sandi/page.tsx ===
+import { createClient } from "@supabase/supabase-js";
+import { headers } from "next/headers";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import LupaSandiClient from "./LupaSandiClient";
+
+export default async function LupaSandiPage() {
+  
+  async function kirimEmailReset(email: string) {
+    "use server";
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    // 1. Cek eksistensi email pengurus
+    const { data: pengurus } = await supabaseAdmin.from("pengurus_rt").select("id, nama_lengkap").eq("email", email).single();
+    if (!pengurus) return { success: false, message: "Akses Ditolak: Email tidak terdaftar dalam sistem Pusat Komando." };
+
+    // 2. Ciptakan Kunci Enkripsi 32-Byte (Token Reset)
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 3600000).toISOString(); // Masa aktif 1 Jam
+
+    // 3. Kunci token ke dalam brankas database
+    await supabaseAdmin.from("pengurus_rt").update({ reset_token: token, reset_token_expires: expires }).eq("id", pengurus.id);
+
+    // 4. Deteksi otomatis URL / Domain aktif saat ini
+    const headerList = await headers();
+    const host = headerList.get("host");
+    const protocol = host?.includes("localhost") ? "http" : "https";
+    const resetLink = `${protocol}://${host}/admin/reset-sandi?token=${token}`;
+
+    // 5. Eksekusi pengiriman email via Gmail
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+
+    try {
+      await transporter.sendMail({
+        from: `"Pusat Komando RT 07" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "🚨 Otorisasi Ulang: Reset Password Admin RT 07",
+        html: `
+          <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+            <div style="background-color: #0f172a; padding: 20px; text-align: center; color: white;">
+              <h2 style="margin: 0; letter-spacing: 2px;">PUSAT KOMANDO RT 07</h2>
+            </div>
+            <div style="padding: 30px; background-color: #f8fafc; color: #334155;">
+              <p>Halo <b>${pengurus.nama_lengkap}</b>,</p>
+              <p>Sistem mendeteksi permintaan reset password untuk akun admin Anda. Klik tombol darurat di bawah ini untuk merakit ulang kunci akses Anda:</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetLink}" style="background-color: #059669; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">RESET PASSWORD SEKARANG</a>
+              </div>
+              <p style="font-size: 12px; color: #94a3b8; text-align: center;">Tautan ini dienkripsi dan akan hancur sendiri dalam waktu 1 Jam. Jika Anda tidak merasa meminta reset, abaikan email ini.</p>
+            </div>
+          </div>
+        `
+      });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: "Server email gagal mengirim pesan: " + err.message };
+    }
+  }
+
+  return <LupaSandiClient aksiKirim={kirimEmailReset} />;
+}
 === FILE: app/admin/voting/page.tsx ===
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -4913,6 +4981,106 @@ export default function AuditClient({ logs }: { logs: any[] }) {
     </div>
   );
 }
+=== FILE: app/admin/reset-sandi/page.tsx ===
+import { createClient } from "@supabase/supabase-js";
+import { redirect } from "next/navigation";
+import ResetSandiClient from "./ResetSandiClient";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+export default async function ResetSandiPage({ searchParams }: { searchParams: { token?: string } }) {
+  // Peringatan strict dari Next.js 15: searchParams harus di-await jika ada async operations
+  const params = await searchParams;
+  const token = params.token;
+  
+  if (!token) redirect("/admin");
+
+  async function ubahPassword(passwordBaru: string) {
+    "use server";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // 1. Validasi Token Anti-Hacker
+    const { data: pengurus } = await supabase.from("pengurus_rt").select("id, reset_token_expires").eq("reset_token", token).single();
+    if (!pengurus) return { success: false, message: "Token tidak valid atau sudah digunakan." };
+    
+    // 2. Cek apakah waktu sudah lewat 1 Jam
+    if (new Date(pengurus.reset_token_expires) < new Date()) {
+      return { success: false, message: "Token kedaluwarsa. Silakan minta link reset baru." };
+    }
+
+    // 3. Timpa Password & Hanguskan Token agar tidak bisa dipakai 2x
+    const { error } = await supabase.from("pengurus_rt")
+      .update({ password: passwordBaru, reset_token: null, reset_token_expires: null })
+      .eq("id", pengurus.id);
+
+    if (error) return { success: false, message: "Gagal menyimpan password: " + error.message };
+
+    // 4. Catat ke Audit Log
+    await supabase.from("audit_log").insert([{
+      aktor: "SISTEM OTOMATIS", aksi: "Reset Password Berhasil", tabel_target: "pengurus_rt", detail: `Pemulihan akun admin ID: ${pengurus.id}`
+    }]);
+
+    return { success: true };
+  }
+
+  return <ResetSandiClient aksiReset={ubahPassword} />;
+}
+=== FILE: app/admin/reset-sandi/ResetSandiClient.tsx ===
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+
+export default function ResetSandiClient({ aksiReset }: { aksiReset: any }) {
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sukses, setSukses] = useState(false);
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) return alert("Password minimal 6 karakter!");
+    
+    setLoading(true);
+    try {
+      const res = await aksiReset(password);
+      if (res && !res.success) alert(res.message);
+      else setSukses(true);
+    } catch (error: any) {
+      alert("Kesalahan Sistem: " + error.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-6 font-sans">
+      <div className="bg-white p-8 md:p-10 rounded-2xl shadow-2xl w-full max-w-[400px] text-center border border-slate-200 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-emerald-500"></div>
+        
+        <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm">🔑</div>
+        <h2 className="text-2xl font-black text-slate-800 mb-1">Buat Sandi Baru</h2>
+        <p className="text-slate-500 text-xs font-medium mb-8">Kunci akses divalidasi. Silakan rakit password baru Anda.</p>
+
+        {sukses ? (
+          <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl">
+            <h3 className="font-black text-blue-800 text-sm mb-2">Password Berhasil Diubah!</h3>
+            <p className="text-blue-600 text-xs mb-4">Gunakan password baru ini untuk masuk ke Pusat Komando.</p>
+            <Link href="/admin" className="w-full inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition-colors">Login Sekarang</Link>
+          </div>
+        ) : (
+          <form onSubmit={handleReset} className="space-y-6 text-left">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Password Baru</label>
+              <input type="password" required minLength={6} className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 text-sm text-slate-800 bg-slate-50 focus:bg-white" placeholder="Minimal 6 karakter" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+            <button type="submit" disabled={loading} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md active:scale-95 disabled:bg-slate-300 transition-all">
+              {loading ? "Menyandikan..." : "Kunci & Simpan"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
 === FILE: app/admin/AdminLogin.tsx ===
 "use client";
 import { useState } from "react";
@@ -4923,6 +5091,9 @@ export default function AdminLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  
+  // INJEKSI MUTLAK: Radar Ikon Mata
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLoginAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -4937,12 +5108,10 @@ export default function AdminLogin() {
   };
 
   return (
-    // REVISI UX: Pastikan Center Alignment absolut (Sesuai Audit 02:22 - 03:21)
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-6 font-sans">
       
       <form onSubmit={handleLoginAdmin} className="bg-white p-8 md:p-10 rounded-2xl shadow-2xl w-full max-w-[400px] text-center border border-slate-200 relative overflow-hidden transition-all duration-300">
         
-        {/* Hiasan Atas */}
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-400 to-teal-600"></div>
         <div className="absolute top-1.5 right-2 bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-0.5 rounded-b-md uppercase tracking-widest border border-slate-200 border-t-0">
           Admin Portal
@@ -4955,7 +5124,6 @@ export default function AdminLogin() {
         <h2 className="text-2xl font-black text-slate-800 mb-1">Pusat Komando</h2>
         <p className="text-slate-500 text-xs font-medium mb-8">Sistem kendali operasi terenkripsi.</p>
         
-        {/* REVISI UX: Jarak margin absolut mb-8 dan space-y-5 */}
         <div className="space-y-5 mb-8 text-left">
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Username Admin</label>
@@ -4970,18 +5138,30 @@ export default function AdminLogin() {
           </div>
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Password</label>
-            <input 
-              type="password" 
-              required 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm text-slate-800 bg-slate-50 focus:bg-white" 
-              placeholder="••••••••" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
+            
+            {/* INJEKSI MUTLAK: Sistem Wrapper Relative untuk Ikon Mata */}
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm text-slate-800 bg-slate-50 focus:bg-white pr-12" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 focus:outline-none text-lg transition-colors cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? "👁️" : "🙈"}
+              </button>
+            </div>
+
           </div>
         </div>
         
-        {/* REVISI UX: Tombol CTA diubah ke tinggi 48px */}
         <button 
           type="submit" 
           disabled={loginLoading} 
