@@ -3,6 +3,9 @@ import Link from "next/link";
 // INJEKSI MUTLAK: Panggil Client Component untuk Jalur Darurat
 import JalurDaruratClient from "./JalurDaruratClient";
 
+// INJEKSI MUTLAK: Paksa Vercel selalu ambil data terbaru, hancurkan cache statis!
+export const revalidate = 0;
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
