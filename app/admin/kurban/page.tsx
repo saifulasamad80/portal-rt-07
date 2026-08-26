@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
-// INJEKSI MUTLAK: Panggil nama file yang BENAR (KurbanClient.tsx)
+// INJEKSI MUTLAK: Import sudah diarahkan tepat ke nama file lu
 import KurbanAdminClient from "./KurbanClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -36,7 +36,6 @@ export default async function AdminKurbanPage() {
     .eq("status_verifikasi", "Disetujui")
     .order("nama_lengkap", { ascending: true });
 
-  // INJEKSI MUTLAK: Ambil data sampah untuk kalkulasi radar anti-tekor di UI
   const { data: sampahRes } = await supabaseAdmin
     .from("transaksi_sampah")
     .select("warga_id, jenis_transaksi, nominal_warga");
@@ -46,7 +45,7 @@ export default async function AdminKurbanPage() {
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
-      // EFEK DOMINO: Operasi Auto-Debet Lintas Tabel
+      // LOGIKA AUTO-DEBET SAMPAH
       if (sumber === "Saldo Tabungan Sampah" && jenis === "Setoran (+)") {
         const { error: errSampah } = await supabase.from("transaksi_sampah").insert([{
           warga_id: wargaId,
@@ -59,7 +58,6 @@ export default async function AdminKurbanPage() {
         if (errSampah) return { success: false, message: "Gagal memotong saldo sampah: " + errSampah.message };
       }
 
-      // Operasi Normal Kurban
       const { error } = await supabase.from("transaksi_kurban").insert([{
         warga_id: wargaId,
         jenis_transaksi: jenis,
