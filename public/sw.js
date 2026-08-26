@@ -1,13 +1,29 @@
+const CACHE_NAME = 'portal-rt-v2';
+
 self.addEventListener('install', (event) => {
-  console.log('[PWA] Service Worker: Terinstal');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[PWA] Service Worker: Aktif');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
 });
 
+// REM DARURAT CACHE: Jangan pernah simpan rute admin atau API ke dalam memori offline HP!
 self.addEventListener('fetch', (event) => {
-  // Bypass cache, langsung ke network supaya data RT tidak pernah basi
-  event.respondWith(fetch(event.request));
+  if (event.request.url.includes('/admin') || event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+  }
 });

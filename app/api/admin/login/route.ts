@@ -20,9 +20,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username dan Password wajib diisi!" }, { status: 400 });
     }
 
+    // INJEKSI MUTLAK: Sekarang kita narik kolom 'level' dari database
     const { data: admin, error: errAdmin } = await supabaseAdmin
       .from("pengurus_rt")
-      .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai")
+      .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai, level")
       .or(`username.eq.${username},email.eq.${username}`)
       .maybeSingle();
 
@@ -34,7 +35,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "🚨 SYSTEM LOCKDOWN: Akun dikunci karena aktivitas mencurigakan. Coba lagi 15 menit ke depan." }, { status: 429 });
     }
 
-    // INJEKSI MUTLAK: Sistem Validasi & Seamless Upgrade (C1 Fix)
     let isMatch = false;
     let isLegacyPlaintext = false;
 
@@ -61,7 +61,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: pesanError }, { status: 401 });
     }
 
-    // Buka gembok & Upgrade Password diam-diam jika masih plaintext
     const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
     if (isLegacyPlaintext) updatePayload.password = await bcrypt.hash(password, 10);
     await supabaseAdmin.from("pengurus_rt").update(updatePayload).eq("id", admin.id);
@@ -70,12 +69,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
     }
 
-    const jwtPayload = { sub: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, role: "admin", rt_id: admin.rt_id };
+    // EFEK DOMINO: 'role' di JWT sekarang mengambil dari kasta di database (webmaster atau rt)
+    const kastaAdmin = admin.level || "rt";
+    const jwtPayload = { sub: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, role: kastaAdmin, rt_id: admin.rt_id };
+    
     const secretKey = new TextEncoder().encode(JWT_SECRET);
     const token = await new SignJWT(jwtPayload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("2h").sign(secretKey);
 
     const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 60 * 60 * 2, path: "/" } as const;
-    const response = NextResponse.json({ success: true, user: { id: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, rt_id: admin.rt_id } });
+    const response = NextResponse.json({ success: true, user: { id: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, rt_id: admin.rt_id, role: kastaAdmin } });
     response.cookies.set("admin_session", token, cookieOptions);
     return response;
 
