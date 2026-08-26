@@ -58,7 +58,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {/* SEMUA LINK MENU DIBIARKAN SAMA (DIPOTONG DI CONTOH AGAR RINGKAS TAPI ASLINYA PENUH) */}
           <Link href="/admin/warga" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-blue-500">👥</div>
             <h2 className="font-black text-slate-800 text-sm">Buku Induk Warga</h2>
@@ -153,21 +152,22 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                         <div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik}</div>
                         <div className="text-[11px] text-slate-600 font-mono mt-1">WA: {w.no_whatsapp}</div>
                         
-                        {/* TOMBOL KTP MUNCUL/HILANG TERGANTUNG SAKELAR DEWA */}
                         {( (FITUR_KTP_AKTIF && w.ktp_path) || w.kk_path ) && (
                           <div className="mt-3 flex gap-2">
                             {FITUR_KTP_AKTIF && (
                               w.ktp_path === 'MENYUSUL' ? (
                                 <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
                               ) : w.ktp_path ? (
-                                <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
+                                // TARGET BLANK DIHAPUS
+                                <a href={`/api/admin/dokumen?path=${w.ktp_path}`} className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
                               ) : null
                             )}
                             
                             {w.kk_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KK Fisik</span>
                             ) : w.kk_path ? (
-                              <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
+                              // TARGET BLANK DIHAPUS
+                              <a href={`/api/admin/dokumen?path=${w.kk_path}`} className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
                             ) : null}
                           </div>
                         )}

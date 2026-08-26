@@ -163,17 +163,17 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                       </td>
                       <td className="p-4 align-top">
                         <div className="flex flex-col gap-1.5">
-                          {/* SAKELAR DEWA BEKERJA DI SINI */}
                           {FITUR_KTP_AKTIF && (
                             w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
-                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
+                              // TARGET BLANK DIHAPUS
+                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
                             ) : (
                               <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
                             )
                           )}
-                          
                           {w.kk_path && w.kk_path !== 'MENYUSUL' ? (
-                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
+                            // TARGET BLANK DIHAPUS
+                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
                           ) : (
                             <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Fisik/Menyusul</span>
                           )}

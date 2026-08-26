@@ -84,15 +84,16 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
           <div className="bg-slate-800 p-6 rounded-2xl shadow-sm text-white md:col-span-2">
             <h2 className="font-black text-slate-200 border-b border-slate-700 pb-2 mb-4">🔒 Brankas Dokumen Digital</h2>
             <div className="flex flex-wrap gap-4">
-              {/* SAKELAR DEWA BEKERJA DI SINI */}
               {FITUR_KTP_AKTIF && (
                 warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? (
-                  <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
+                  // TARGET BLANK DIHAPUS
+                  <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
                 ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>
               )}
               
               {warga.kk_path && warga.kk_path !== 'MENYUSUL' ? (
-                <a href={`/api/admin/dokumen?path=${warga.kk_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a>
+                // TARGET BLANK DIHAPUS
+                <a href={`/api/admin/dokumen?path=${warga.kk_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a>
               ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KK Menyusul (Fisik)</div>}
             </div>
           </div>
@@ -130,7 +131,8 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                         {FITUR_KTP_AKTIF && (
                           <td className="p-3 text-center">
                             {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? (
-                              <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} target="_blank" className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
+                              // TARGET BLANK DIHAPUS
+                              <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
                             ) : (
                               <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
                             )}
