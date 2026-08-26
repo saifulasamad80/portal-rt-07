@@ -7,6 +7,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const filteredWarga = wargaList.filter(w => 
     w.nama_lengkap.toLowerCase().includes(search.toLowerCase()) || 
@@ -24,6 +25,64 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
       alert("Gagal menghapus warga: " + error.message);
     }
     setLoadingId("");
+  };
+
+  // INJEKSI MUTLAK: Generator PDF Landscape dengan Stempel
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      
+      // Orientasi "landscape" agar tabel lebar muat
+      const doc = new jsPDF("landscape"); 
+      
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("BUKU INDUK DEMOGRAFI RT 07", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 14, 27);
+      doc.text(`Total Warga Terdaftar: ${filteredWarga.length} Kepala Keluarga`, 14, 32);
+
+      const tableData = filteredWarga.map((w, index) => [
+        index + 1,
+        w.nama_lengkap,
+        w.nik,
+        w.no_whatsapp,
+        w.status_tinggal,
+        w.detail_alamat,
+        w.anggota_keluarga ? w.anggota_keluarga.length : 0
+      ]);
+
+      autoTable(doc, {
+        startY: 40,
+        head: [['No', 'Nama Kepala Keluarga', 'NIK', 'WhatsApp', 'Status', 'Alamat', 'Jml Tanggungan']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59] }, // slate-800
+        styles: { fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 10 }, 2: { font: "courier" } }
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 40;
+
+      // Stempel RT Kanan Bawah
+      doc.setTextColor(220, 38, 38); 
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.5);
+      doc.circle(250, finalY + 25, 16); 
+      doc.circle(250, finalY + 25, 15); 
+      doc.setFontSize(9);
+      doc.text("SAH & TERVERIFIKASI", 250, finalY + 23, { align: "center" });
+      doc.text("PENGURUS RT 07", 250, finalY + 28, { align: "center" });
+
+      doc.save(`Buku_Induk_RT07_${Date.now()}.pdf`);
+    } catch (error) {
+      alert("Gagal merakit PDF. Pastikan internet stabil.");
+    }
+    setPdfLoading(false);
   };
 
   return (
@@ -46,14 +105,21 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-blue-500">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-slate-200 pb-4">
             <h2 className="font-black text-xl text-slate-800">Daftar Warga Terdaftar</h2>
-            <div className="w-full md:w-72">
+            <div className="w-full md:w-auto flex flex-col md:flex-row gap-3">
               <input 
                 type="text" 
                 placeholder="🔍 Cari Nama atau NIK..." 
-                className="w-full border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50"
+                className="w-full md:w-72 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              <button 
+                onClick={handleExportPDF} 
+                disabled={pdfLoading || filteredWarga.length === 0}
+                className={`w-full md:w-auto px-5 py-2.5 rounded-lg font-black text-sm shadow-md transition-all flex items-center justify-center gap-2 ${pdfLoading ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+              >
+                {pdfLoading ? "Merakit PDF..." : "📄 Cetak Demografi"}
+              </button>
             </div>
           </div>
 
