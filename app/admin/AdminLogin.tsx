@@ -7,6 +7,9 @@ export default function AdminLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  
+  // INJEKSI MUTLAK: Radar Ikon Mata
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLoginAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,12 +24,10 @@ export default function AdminLogin() {
   };
 
   return (
-    // REVISI UX: Pastikan Center Alignment absolut (Sesuai Audit 02:22 - 03:21)
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-6 font-sans">
       
       <form onSubmit={handleLoginAdmin} className="bg-white p-8 md:p-10 rounded-2xl shadow-2xl w-full max-w-[400px] text-center border border-slate-200 relative overflow-hidden transition-all duration-300">
         
-        {/* Hiasan Atas */}
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-400 to-teal-600"></div>
         <div className="absolute top-1.5 right-2 bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-0.5 rounded-b-md uppercase tracking-widest border border-slate-200 border-t-0">
           Admin Portal
@@ -39,7 +40,6 @@ export default function AdminLogin() {
         <h2 className="text-2xl font-black text-slate-800 mb-1">Pusat Komando</h2>
         <p className="text-slate-500 text-xs font-medium mb-8">Sistem kendali operasi terenkripsi.</p>
         
-        {/* REVISI UX: Jarak margin absolut mb-8 dan space-y-5 */}
         <div className="space-y-5 mb-8 text-left">
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Username Admin</label>
@@ -54,18 +54,30 @@ export default function AdminLogin() {
           </div>
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Password</label>
-            <input 
-              type="password" 
-              required 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm text-slate-800 bg-slate-50 focus:bg-white" 
-              placeholder="••••••••" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
+            
+            {/* INJEKSI MUTLAK: Sistem Wrapper Relative untuk Ikon Mata */}
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm text-slate-800 bg-slate-50 focus:bg-white pr-12" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 focus:outline-none text-lg transition-colors cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? "👁️" : "🙈"}
+              </button>
+            </div>
+
           </div>
         </div>
         
-        {/* REVISI UX: Tombol CTA diubah ke tinggi 48px */}
         <button 
           type="submit" 
           disabled={loginLoading} 

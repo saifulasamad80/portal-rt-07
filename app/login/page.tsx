@@ -11,6 +11,9 @@ export default function WargaLogin() {
   const [nik, setNik] = useState("");
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+  
+  // INJEKSI MUTLAK: Radar Ikon Mata
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (wargaAktif) {
@@ -40,22 +43,21 @@ export default function WargaLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
       <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] w-full max-w-md border-t-4 border-blue-600 relative overflow-hidden">
         <div className="absolute top-0 right-0 bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-bl-lg">WARGA PORTAL</div>
         <div className="text-5xl mb-6 text-center">🏡</div>
         <h2 className="text-2xl font-black text-slate-800 mb-2 text-center">Portal Warga RT 07</h2>
         <p className="text-slate-500 text-sm mb-8 text-center">Silakan masuk menggunakan NIK dan Password Anda.</p>
         
-        {/* REVISI UX: Jarak absolut (mb-6), padding 12px 16px (py-3 px-4), radius 8px */}
-        <div className="space-y-4 mb-6">
+        <div className="space-y-4 mb-6 text-left">
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
             <input 
               type="text" 
               required 
               maxLength={16} 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono" 
+              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono text-slate-800 bg-slate-50 focus:bg-white" 
               placeholder="Masukkan 16 digit NIK..." 
               value={nik} 
               onChange={(e) => setNik(e.target.value.replace(/\D/g, ''))} 
@@ -63,18 +65,30 @@ export default function WargaLogin() {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
-            <input 
-              type="password" 
-              required 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" 
-              placeholder="••••••••" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
+            
+            {/* INJEKSI MUTLAK: Sistem Wrapper Relative untuk Ikon Mata */}
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-800 bg-slate-50 focus:bg-white pr-12" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none text-lg transition-colors cursor-pointer"
+                tabIndex={-1}
+              >
+                {showPassword ? "👁️" : "🙈"}
+              </button>
+            </div>
+
           </div>
         </div>
 
-        {/* REVISI UX: Tombol setinggi 48px (h-12) menghindari fat-finger */}
         <button type="submit" disabled={loginLoading} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-md active:scale-[0.98] flex justify-center items-center gap-2">
           {loginLoading ? "Memverifikasi..." : "Masuk ke Portal"}
         </button>
