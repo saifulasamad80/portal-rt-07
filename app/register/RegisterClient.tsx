@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -69,27 +68,24 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     return null; 
   };
 
-  // INJEKSI MUTLAK: Perombakan Mesin Kompresi
-  const kompresDanUpload = async (fileOri: File, tipe: string, nikTarget: string) => {
-    const amanNik = nikTarget.replace(/[^a-zA-Z0-9]/g, '');
-    const amanTipe = tipe.replace(/[^a-zA-Z0-9_]/g, '');
-    
-    // FAKTA: useWebWorker dimatikan paksa agar tidak memicu NetworkError di Vercel
-    const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1024, useWebWorker: false, fileType: "image/jpeg" };
-    
+  // INJEKSI MUTLAK: Kompres file menjadi sangat kecil (0.1 MB) lalu ubah jadi teks Base64
+  const kompresDanUbahKeBase64 = async (fileOri: File) => {
+    const options = { maxSizeMB: 0.1, maxWidthOrHeight: 1024, useWebWorker: false, fileType: "image/jpeg" };
     try {
-      // UX FIX: Beri nafas 100 milidetik agar layar React sempat menggambar info Loading
-      await new Promise(resolve => setTimeout(resolve, 100));
-
+      // Nafas UI: Biarkan browser nge-render tulisan loading dulu selama 50ms
+      await new Promise(resolve => setTimeout(resolve, 50)); 
+      
       const fileKompresi = await imageCompression(fileOri, options);
-      const fileName = `${amanNik}_${amanTipe}_${Date.now()}.jpg`;
-      
-      const { error } = await supabase.storage.from('dokumen_warga').upload(fileName, fileKompresi, { cacheControl: '3600', upsert: false });
-      if (error) throw error;
-      
-      return fileName;
-    } catch (error: any) {
-      throw new Error(`Gagal upload ${amanTipe}: ${error.message}`);
+
+      // Ubah gambar jadi teks rahasia
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(fileKompresi);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+      });
+    } catch (err: any) {
+      throw new Error("Kompresi gambar gagal: " + err.message);
     }
   };
 
@@ -145,26 +141,21 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       let pathKkKK = dokumenMenyusul ? "MENYUSUL" : null;
 
       setProgressTeks("Mempersiapkan dokumen Kepala Keluarga...");
-      await new Promise(resolve => setTimeout(resolve, 50)); // Jeda UI
-
-      if (!dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUpload(fileKtp, 'KTP_KK', nik);
-      if (!dokumenMenyusul && fileKk) pathKkKK = await kompresDanUpload(fileKk, 'KK_FILE', nik);
+      await new Promise(resolve => setTimeout(resolve, 50)); 
+      
+      // Kirim Base64, BUKAN upload ke Supabase dari browser
+      if (!dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUbahKeBase64(fileKtp);
+      if (!dokumenMenyusul && fileKk) pathKkKK = await kompresDanUbahKeBase64(fileKk);
 
       setProgressTeks("Mempersiapkan dokumen Anggota Keluarga...");
-      await new Promise(resolve => setTimeout(resolve, 50)); // Jeda UI
+      await new Promise(resolve => setTimeout(resolve, 50)); 
       
       const anggotaPayload = await Promise.all(
         anggota.map(async (a) => {
           let pathKtpAnggota = a.ktpMenyusul ? "MENYUSUL" : null;
-          
           if (a.fileKtp && !a.ktpMenyusul) {
-            pathKtpAnggota = await kompresDanUpload(
-              a.fileKtp, 
-              `KTP_ANGGOTA_${a.nama.replace(/\s+/g, '_')}`, 
-              a.nik
-            );
+            pathKtpAnggota = await kompresDanUbahKeBase64(a.fileKtp);
           }
-          
           return {
             nama_lengkap: a.nama,
             nik: a.nik,
@@ -174,7 +165,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             tempat_lahir: a.tempatLahir,
             jenis_kelamin: a.gender,
             pekerjaan: a.pekerjaan,
-            ktp_path: pathKtpAnggota
+            ktp_path: pathKtpAnggota // Berisi teks Base64, bukan URL
           };
         })
       );
@@ -186,7 +177,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
         ktp_path: pathKtpKK, kk_path: pathKkKK
       };
 
-      setProgressTeks("Mendaftarkan ke Pusat Komando (Transaksi Aman)...");
+      setProgressTeks("Mendaftarkan & Mengunggah via Server (Jalur Aman)...");
       await aksiRegister(payloadKepala, anggotaPayload);
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
