@@ -7,8 +7,18 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
 
-  const handleValidasi = async (idWarga: string, status: string, namaWarga: string) => {
-    if (status !== "Menunggu" && !confirm(`Yakin ingin menandai pendaftaran ${namaWarga} sebagai: ${status}?`)) return;
+  // INJEKSI MUTLAK: Tambahan parameter ktpPath dan kkPath untuk radar validasi
+  const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
+    
+    // REM DARURAT ANTI-CEROBOH ADMIN
+    if (status === 'Disetujui' && (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')) {
+      const beraniTanggungJawab = confirm(
+        `⚠️ PERINGATAN FATAL: DOKUMEN DIGITAL KOSONG!\n\nPendaftar atas nama ${namaWarga} BELUM mengunggah file KTP/KK secara digital.\n\nSebagai Pengurus RT, apakah Anda BERANI MENJAMIN bahwa Anda SUDAH MENERIMA DAN MEMERIKSA dokumen fisiknya secara langsung?\n\nKlik OK jika Anda berani bertanggung jawab. Klik Batal jika belum menerima dokumen.`
+      );
+      if (!beraniTanggungJawab) return; // Batalkan operasi jika admin ragu
+    } else if (status !== "Menunggu" && !confirm(`Yakin ingin menandai pendaftaran ${namaWarga} sebagai: ${status}?`)) {
+      return;
+    }
 
     setLoadingId(idWarga);
     try {
@@ -144,14 +154,12 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                             {w.ktp_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
                             ) : w.ktp_path ? (
-                              // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
                               <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
                             ) : null}
                             
                             {w.kk_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KK Fisik</span>
                             ) : w.kk_path ? (
-                              // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
                               <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
                             ) : null}
                           </div>
@@ -182,17 +190,19 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                       <td className="p-4 text-center">
                         {w.status_verifikasi === 'Menunggu' ? (
                           <div className="flex justify-center gap-2">
-                            <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
+                            {/* INJEKSI MUTLAK: Mengirim ktp_path & kk_path ke fungsi handleValidasi */}
+                            <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
                               Sah
                             </button>
-                            <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
+                            {/* INJEKSI MUTLAK: Mengirim ktp_path & kk_path ke fungsi handleValidasi */}
+                            <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
                               Tolak
                             </button>
                           </div>
                         ) : (
                           <div className="flex flex-col items-center gap-1.5">
                             <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Tervalidasi</span>
-                            <button onClick={() => handleValidasi(w.id, 'Menunggu', w.nama_lengkap)} disabled={loadingId === w.id} className="text-[10px] font-bold text-slate-500 hover:text-slate-800 transition-colors underline decoration-slate-300">
+                            <button onClick={() => handleValidasi(w.id, 'Menunggu', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="text-[10px] font-bold text-slate-500 hover:text-slate-800 transition-colors underline decoration-slate-300">
                               Batalkan
                             </button>
                           </div>
