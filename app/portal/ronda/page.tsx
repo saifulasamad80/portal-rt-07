@@ -40,26 +40,11 @@ export default async function RondaPage() {
       .from("jadwal_ronda")
       .update({ status: aksi, alasan_izin: alasan })
       .eq("id", idJadwal)
-      .eq("warga_id", wargaAktif.id); // Lapis keamanan ekstra: Pastikan jadwalnya benar milik warga ini
+      .eq("warga_id", wargaAktif.id);
 
     if (error) throw new Error(error.message);
   }
 
-  // FAKTA: Server Action untuk Tombol Generator Testing
-  async function generateTest() {
-    "use server";
-    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const besok = new Date();
-    besok.setDate(besok.getDate() + 1);
-    
-    const { error } = await supabaseAdmin.from("jadwal_ronda").insert([{
-      warga_id: wargaAktif.id,
-      tanggal_tugas: besok.toISOString().split('T')[0],
-      status: "Menunggu Konfirmasi"
-    }]);
-
-    if (error) throw new Error(error.message);
-  }
-
-  return <RondaClient jadwal={jadwalRes || []} konfirmasiKehadiran={konfirmasiKehadiran} generateTest={generateTest} />;
+  // INJEKSI MUTLAK: generateTest dihapus total dari properti pemanggilan
+  return <RondaClient jadwal={jadwalRes || []} konfirmasiKehadiran={konfirmasiKehadiran} />;
 }
