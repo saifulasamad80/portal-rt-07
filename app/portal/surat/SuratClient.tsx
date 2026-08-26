@@ -1,4 +1,3 @@
-// app/portal/surat/SuratClient.tsx
 "use client";
 import { useState } from "react";
 import Link from "next/link";
@@ -12,9 +11,11 @@ export default function SuratClient({ warga }: { warga: any }) {
   };
 
   const today = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-  const nomorSurat = `0${new Date().getMonth() + 1} / RT.07 / ${new Date().getFullYear()}`;
+  
+  // INJEKSI MUTLAK: Penambalan logika bulan agar tidak cacat di Oktober-Desember (L2 Fix)
+  const bulan = String(new Date().getMonth() + 1).padStart(2, '0');
+  const nomorSurat = `${bulan} / RT.07 / ${new Date().getFullYear()}`;
 
-  // Daftar opsi dipisah untuk di-render jadi tombol interaktif
   const daftarKeperluan = [
     "KTP Baru", "Perpanjangan KTP", "KTP Sementara", 
     "Kartu Keluarga Baru", "Pengantar SKCK", 
@@ -32,8 +33,6 @@ export default function SuratClient({ warga }: { warga: any }) {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-3">Pilih Keperluan Surat</label>
-              
-              {/* TRANSFORMASI UX: Native <select> dibunuh, diganti Grid Tombol (Pills) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {daftarKeperluan.map((item) => (
                   <button
@@ -73,7 +72,6 @@ export default function SuratClient({ warga }: { warga: any }) {
         </div>
       </div>
 
-      {/* AREA CETAK (Hanya tampil penuh di kertas) */}
       <div className="max-w-4xl mx-auto mt-8 bg-white p-12 shadow-2xl print:shadow-none print:m-0 print:p-0 text-black w-full">
          <div className="text-center border-b-[3px] border-black pb-4 mb-8">
            <h2 className="text-2xl font-black uppercase tracking-wide">Rukun Tetangga (RT) 07</h2>

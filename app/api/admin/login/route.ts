@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
+import bcrypt from "bcryptjs";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -19,7 +20,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username dan Password wajib diisi!" }, { status: 400 });
     }
 
-    // 1. Tarik data admin (Bypass RPC)
     const { data: admin, error: errAdmin } = await supabaseAdmin
       .from("pengurus_rt")
       .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai")
@@ -30,13 +30,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Akses Ditolak! Username atau Email tidak terdaftar." }, { status: 401 });
     }
 
-    // 2. CEK TAMENG BRUTE FORCE
     if (admin.terkunci_sampai && new Date(admin.terkunci_sampai) > new Date()) {
       return NextResponse.json({ error: "🚨 SYSTEM LOCKDOWN: Akun dikunci karena aktivitas mencurigakan. Coba lagi 15 menit ke depan." }, { status: 429 });
     }
 
-    // 3. VALIDASI PASSWORD
-    if (admin.password !== password) {
+    // INJEKSI MUTLAK: Sistem Validasi & Seamless Upgrade (C1 Fix)
+    let isMatch = false;
+    let isLegacyPlaintext = false;
+
+    if (admin.password.startsWith("$2a$") || admin.password.startsWith("$2b$")) {
+      isMatch = await bcrypt.compare(password, admin.password);
+    } else {
+      if (admin.password === password) {
+        isMatch = true;
+        isLegacyPlaintext = true;
+      }
+    }
+
+    if (!isMatch) {
       const gagalSekarang = (admin.percobaan_gagal || 0) + 1;
       let updateData: any = { percobaan_gagal: gagalSekarang };
       let pesanError = `Password salah! (Percobaan ${gagalSekarang}/5)`;
@@ -50,8 +61,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: pesanError }, { status: 401 });
     }
 
-    // 4. JIKA LOGIN SUKSES - Buka gembok
-    await supabaseAdmin.from("pengurus_rt").update({ percobaan_gagal: 0, terkunci_sampai: null }).eq("id", admin.id);
+    // Buka gembok & Upgrade Password diam-diam jika masih plaintext
+    const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
+    if (isLegacyPlaintext) updatePayload.password = await bcrypt.hash(password, 10);
+    await supabaseAdmin.from("pengurus_rt").update(updatePayload).eq("id", admin.id);
 
     if (!admin.rt_id) {
       return NextResponse.json({ error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
