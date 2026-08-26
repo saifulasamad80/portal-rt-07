@@ -17,7 +17,8 @@ export default async function AdminPengurusPage() {
   let adminAktif: any;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    adminAktif = payload;
+    // MATA DEWA: Objek bawaan jose punya 'null prototype'. Wajib diubah jadi JSON murni biar React nggak meledak 441!
+    adminAktif = JSON.parse(JSON.stringify(payload));
   } catch (error) {
     redirect("/admin");
   }
@@ -30,21 +31,21 @@ export default async function AdminPengurusPage() {
     .select("id, nama_lengkap, jabatan, email, created_at")
     .order("created_at", { ascending: true });
 
-  // FAKTA: Server Action untuk insert Pengurus Baru
+  // FAKTA: Ubah skema return. Jangan pakai 'throw', Next.js menyensor throw di Production.
   async function tambahPengurus(nama: string, jabatan: string, email: string, pass: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Karena lu pakai raw password di database (sesuai skema lu: kolom 'password' teks biasa)
     const { error } = await supabase.from("pengurus_rt").insert([{
       nama_lengkap: nama,
       jabatan: jabatan,
       email: email,
-      username: email.split('@')[0], // Generate username otomatis dari email
+      username: email.split('@')[0], 
       password: pass
     }]);
 
-    if (error) throw new Error(error.message);
+    // Jika gagal, kembalikan JSON biasa ke Client, bukan throw error
+    if (error) return { success: false, message: error.message };
 
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
@@ -52,6 +53,8 @@ export default async function AdminPengurusPage() {
       tabel_target: "pengurus_rt",
       detail: `Memberikan akses admin kepada ${nama} (${jabatan})`
     }]);
+
+    return { success: true };
   }
 
   return <PengurusAdminClient pengurusList={pengurusRes || []} aksiTambah={tambahPengurus} />;

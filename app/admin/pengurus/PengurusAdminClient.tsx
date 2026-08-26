@@ -16,12 +16,18 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
     e.preventDefault();
     setLoading(true);
     try {
-      await aksiTambah(nama, jabatan, email, password);
-      setNama(""); setJabatan(""); setEmail(""); setPassword("");
-      alert("Akun pengurus baru berhasil dibuat!");
-      router.refresh();
+      // MATA DEWA: Tangkap response JSON, bukan error yang dilempar
+      const res = await aksiTambah(nama, jabatan, email, password);
+      
+      if (res && !res.success) {
+        alert("Gagal membuat akun pengurus: " + res.message);
+      } else {
+        setNama(""); setJabatan(""); setEmail(""); setPassword("");
+        alert("Akun pengurus baru berhasil dibuat!");
+        router.refresh();
+      }
     } catch (error: any) {
-      alert("Gagal membuat akun pengurus: " + error.message);
+      alert("Terjadi kesalahan sistem: " + error.message);
     }
     setLoading(false);
   };
