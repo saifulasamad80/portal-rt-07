@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
+// INJEKSI MUTLAK: Panggil router dan Link untuk navigasi
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type AnggotaKeluarga = {
   nama: string;
@@ -17,6 +20,8 @@ type AnggotaKeluarga = {
 };
 
 export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) {
+  const router = useRouter(); // Deklarasi radar navigasi
+
   const [nik, setNik] = useState("");
   const [nama, setNama] = useState("");
   const [wa, setWa] = useState("");
@@ -137,7 +142,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
 
       setProgressTeks("Mempersiapkan dan mengunggah dokumen anggota keluarga secara paralel...");
       
-      // INJEKSI MUTLAK: Menggunakan Promise.all untuk eksekusi paralel super cepat
       const anggotaPayload = await Promise.all(
         anggota.map(async (a) => {
           let pathKtpAnggota = a.ktpMenyusul ? "MENYUSUL" : null;
@@ -175,17 +179,27 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       await aksiRegister(payloadKepala, anggotaPayload);
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
-      window.location.reload(); 
+      
+      // INJEKSI MUTLAK: Tendang user ke halaman login setelah sukses agar data form otomatis hangus (UX Fix)
+      router.push("/login"); 
+      
     } catch (err: any) {
       alert("TERJADI KESALAHAN: " + err.message);
-    } finally {
       setLoading(false);
       setProgressTeks("");
-    }
+    } 
   };
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 flex flex-col items-center py-10 font-sans">
+      
+      {/* INJEKSI MUTLAK: Tombol Kembali Pembuka Jalan Keluar */}
+      <div className="w-full max-w-4xl mb-4 text-left">
+        <Link href="/login" className="text-blue-600 font-bold hover:underline inline-flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 transition-all active:scale-95 hover:bg-blue-50">
+          <span>&larr;</span> Kembali ke Login
+        </Link>
+      </div>
+
       <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-4xl border-t-[8px] border-t-blue-600">
         <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 text-center tracking-tight">Formulir Lapor Diri RT 07</h1>
         <p className="text-center text-slate-500 text-xs md:text-sm mb-8 font-bold">Terintegrasi dengan sistem Pendataan Sensus & DPT Pemilu</p>
