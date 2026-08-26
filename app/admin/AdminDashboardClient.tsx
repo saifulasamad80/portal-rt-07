@@ -24,7 +24,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* REVISI UX: Hapus border-l-[12px], ganti ke clean shadow & layout */}
         <div className="bg-slate-900 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-xl font-black text-white uppercase shadow-inner">
@@ -42,81 +41,68 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
           </form>
         </div>
 
-        {/* REVISI UX: Hapus border-b-[5px] warna-warni, ganti hover elevasi seragam */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           <Link href="/admin/warga" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-blue-500">👥</div>
             <h2 className="font-black text-slate-800 text-sm">Buku Induk Warga</h2>
             <p className="text-[10px] text-slate-500 mt-1">Data demografi & NIK</p>
           </Link>
-
           <Link href="/admin/pengumuman" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">📢</div>
             <h2 className="font-black text-slate-800 text-sm">Pengumuman RT</h2>
             <p className="text-[10px] text-slate-500 mt-1">Buat edaran ke warga</p>
           </Link>
-
           <Link href="/admin/kas" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-amber-500">💰</div>
             <h2 className="font-black text-slate-800 text-sm">Kas & Keuangan</h2>
             <p className="text-[10px] text-slate-500 mt-1">Rekap iuran bulanan</p>
           </Link>
-
           <Link href="/admin/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-emerald-500">♻️</div>
             <h2 className="font-black text-slate-800 text-sm">Tabungan Sampah</h2>
             <p className="text-[10px] text-slate-500 mt-1">Manajemen bank sampah</p>
           </Link>
-
           <Link href="/admin/kurban" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🐄</div>
             <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
             <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
           </Link>
-
           <Link href="/admin/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🚨</div>
             <h2 className="font-black text-slate-800 text-sm">Laporan Warga</h2>
             <p className="text-[10px] text-slate-500 mt-1">Tindak lanjut tiket keluhan</p>
           </Link>
-
           <Link href="/admin/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🎪</div>
             <h2 className="font-black text-slate-800 text-sm">Inventaris</h2>
             <p className="text-[10px] text-slate-500 mt-1">Setujui peminjaman alat</p>
           </Link>
-
           <Link href="/admin/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">📊</div>
             <h2 className="font-black text-slate-800 text-sm">Manajemen Voting</h2>
             <p className="text-[10px] text-slate-500 mt-1">Buat topik pemilihan warga</p>
           </Link>
-
           <Link href="/admin/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🔦</div>
             <h2 className="font-black text-white text-sm">Jadwal Siskamling</h2>
             <p className="text-[10px] text-slate-400 mt-1">Atur regu ronda malam</p>
           </Link>
-
           <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🔍</div>
             <h2 className="font-black text-white text-sm">Log Audit</h2>
             <p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
           </Link>
-
           <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-indigo-500">👔</div>
             <h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2>
             <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun RT</p>
           </Link>
-
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
             <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
             <div className="text-3xl mb-3 grayscale">📸</div>
             <h2 className="font-black text-slate-500 text-sm">Buku Tamu 1x24 Jam</h2>
             <p className="text-[10px] text-slate-400 mt-1">Sistem lapor tamu dgn E-KTP</p>
           </div>
-
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
             <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
             <div className="text-3xl mb-3 grayscale">🏪</div>
@@ -125,7 +111,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
           </div>
         </div>
 
-        {/* REVISI UX: Tabel dibersihkan shadow-nya */}
         <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
           <h2 className="text-lg font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">Validasi Pendaftaran Warga Baru</h2>
           
@@ -159,13 +144,15 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                             {w.ktp_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
                             ) : w.ktp_path ? (
-                              <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dokumen_warga/${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
+                              // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
+                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
                             ) : null}
                             
                             {w.kk_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KK Fisik</span>
                             ) : w.kk_path ? (
-                              <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dokumen_warga/${w.kk_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
+                              // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
+                              <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
                             ) : null}
                           </div>
                         )}

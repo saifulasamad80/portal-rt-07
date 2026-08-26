@@ -27,14 +27,12 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
     setLoadingId("");
   };
 
-  // INJEKSI MUTLAK: Generator PDF Landscape dengan Stempel
   const handleExportPDF = async () => {
     setPdfLoading(true);
     try {
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
       
-      // Orientasi "landscape" agar tabel lebar muat
       const doc = new jsPDF("landscape"); 
       
       doc.setFontSize(16);
@@ -61,14 +59,13 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
         head: [['No', 'Nama Kepala Keluarga', 'NIK', 'WhatsApp', 'Status', 'Alamat', 'Jml Tanggungan']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59] }, // slate-800
+        headStyles: { fillColor: [30, 41, 59] },
         styles: { fontSize: 8 },
         columnStyles: { 0: { cellWidth: 10 }, 2: { font: "courier" } }
       });
 
       const finalY = (doc as any).lastAutoTable.finalY || 40;
 
-      // Stempel RT Kanan Bawah
       doc.setTextColor(220, 38, 38); 
       doc.setDrawColor(220, 38, 38);
       doc.setLineWidth(0.5);
@@ -93,7 +90,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
           &larr; Kembali ke Pusat Komando
         </Link>
 
-        {/* HEADER BUKU INDUK */}
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Buku Induk Warga</h1>
@@ -165,12 +161,14 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                       <td className="p-4 align-top">
                         <div className="flex flex-col gap-1.5">
                           {w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
-                            <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dokumen_warga/${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
+                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
+                            <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
                           ) : (
                             <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
                           )}
                           {w.kk_path && w.kk_path !== 'MENYUSUL' ? (
-                            <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dokumen_warga/${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
+                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
+                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
                           ) : (
                             <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Fisik/Menyusul</span>
                           )}
