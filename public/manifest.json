@@ -1,7 +1,7 @@
 {
-  "name": "Portal Digital RT 07",
-  "short_name": "Portal RT 07",
-  "description": "Sistem Informasi Terpadu dan Layanan Mandiri Warga RT 07",
+  "name": "Portal Warga",
+  "short_name": "Portal Warga",
+  "description": "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

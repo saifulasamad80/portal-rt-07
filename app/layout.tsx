@@ -12,14 +12,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// INJEKSI MUTLAK: Deklarasi PWA Manifest
+// INJEKSI MUTLAK: Deklarasi PWA Manifest & Perubahan Judul
 export const metadata: Metadata = {
-  title: "Portal Digital RT 07",
-  description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga RT 07",
+  title: "Portal Warga",
+  description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
   manifest: "/manifest.json", 
 };
 
-// INJEKSI MUTLAK: Viewport wajib untuk aplikasi Mobile
 export const viewport: Viewport = {
   themeColor: "#0f172a",
   width: "device-width",
@@ -38,7 +37,6 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        {/* MESIN PWA: Pendaftaran Service Worker */}
         <script
           dangerouslySetInnerHTML={{
             __html: `

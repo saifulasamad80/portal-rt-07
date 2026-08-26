@@ -41,7 +41,8 @@ export default async function PortalWarga() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12 font-sans">
       <nav className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center">
-        <div className="font-bold text-lg ml-2 md:ml-4 tracking-wide">Portal RT 07</div>
+        {/* NAMA APLIKASI DIUBAH DI SINI */}
+        <div className="font-bold text-lg ml-2 md:ml-4 tracking-wide">Portal Warga</div>
         <form action={handleLogout} className="mr-2 md:mr-4">
           <button type="submit" className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-colors shadow">Keluar Sesi</button>
         </form>
