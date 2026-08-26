@@ -3,7 +3,6 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
 
-// Tipe Data Khusus Anggota Keluarga
 type AnggotaKeluarga = {
   nama: string;
   nik: string;
@@ -18,7 +17,6 @@ type AnggotaKeluarga = {
 };
 
 export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) {
-  // --- STATE KEPALA KELUARGA ---
   const [nik, setNik] = useState("");
   const [nama, setNama] = useState("");
   const [wa, setWa] = useState("");
@@ -29,32 +27,23 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
   const [tempatLahir, setTempatLahir] = useState("");
   const [gender, setGender] = useState("");
   const [pekerjaan, setPekerjaan] = useState("");
-  
-  // --- STATE EKONOMI / DESIL ---
   const [pendapatan, setPendapatan] = useState("");
   const [listrik, setListrik] = useState("");
-
-  // --- STATE DOKUMEN & ANGGOTA ---
   const [fileKtp, setFileKtp] = useState<File | null>(null);
   const [fileKk, setFileKk] = useState<File | null>(null);
   const [dokumenMenyusul, setDokumenMenyusul] = useState(false);
-  
   const [anggota, setAnggota] = useState<AnggotaKeluarga[]>([]);
-  
   const [loading, setLoading] = useState(false);
   const [progressTeks, setProgressTeks] = useState("");
 
-  // --- FUNGSI PEMBANTU ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, tipe: 'ktp' | 'kk') => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith("image/")) {
       alert("Hanya boleh mengunggah file gambar (JPG/PNG/JPEG)!");
       e.target.value = "";
       return;
     }
-
     if (tipe === 'ktp') setFileKtp(file);
     if (tipe === 'kk') setFileKk(file);
   };
@@ -77,17 +66,11 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
   };
 
   const kompresDanUpload = async (fileOri: File, tipe: string, nikTarget: string) => {
-    // ANTI PATH TRAVERSAL: Sapu bersih karakter aneh. Hanya izinkan huruf dan angka.
     const amanNik = nikTarget.replace(/[^a-zA-Z0-9]/g, '');
     const amanTipe = tipe.replace(/[^a-zA-Z0-9_]/g, '');
-
     const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1024, useWebWorker: true, fileType: "image/jpeg" };
     try {
-      setProgressTeks(`Mengompres dokumen ${amanTipe}...`);
       const fileKompresi = await imageCompression(fileOri, options);
-      setProgressTeks(`Mengirim dokumen ${amanTipe}...`);
-      
-      // Nama file sekarang dijamin kebal dari injeksi "../"
       const fileName = `${amanNik}_${amanTipe}_${Date.now()}.jpg`;
       const { error } = await supabase.storage.from('dokumen_warga').upload(fileName, fileKompresi, { cacheControl: '3600', upsert: false });
       if (error) throw error;
@@ -97,7 +80,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     }
   };
 
-  // --- HANDLER ANGGOTA ---
   const tambahAnggota = () => {
     setAnggota([...anggota, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", pekerjaan: "", fileKtp: null, ktpMenyusul: false }]);
   };
@@ -119,17 +101,14 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     }
   };
 
-  // --- SUBMIT HANDLER ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 1. Validasi PIN & NIK Kepala
     const pinLemah = ["123456", "111111", "000000", "654321", "121212", "123123"];
     if (pinLemah.includes(pin)) return alert("PIN terlalu gampang ditebak!");
     const errNikKK = validasiNIKLogika(nik, "Kepala Keluarga");
     if (errNikKK) return alert(errNikKK);
 
-    // 2. Validasi Anggota
     for (let i = 0; i < anggota.length; i++) {
       const a = anggota[i];
       const namaLabel = a.nama || `Anggota ${i+1}`;
@@ -152,45 +131,51 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       let pathKtpKK = dokumenMenyusul ? "MENYUSUL" : null;
       let pathKkKK = dokumenMenyusul ? "MENYUSUL" : null;
 
-      // Upload Dokumen Kepala Keluarga
+      setProgressTeks("Mengunggah dokumen Kepala Keluarga...");
       if (!dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUpload(fileKtp, 'KTP_KK', nik);
       if (!dokumenMenyusul && fileKk) pathKkKK = await kompresDanUpload(fileKk, 'KK_FILE', nik);
 
-      // Upload Dokumen Anggota (Sekuensial agar tidak overload memori)
-      setProgressTeks("Mempersiapkan data anggota keluarga...");
-      const anggotaPayload = [];
-      for (const a of anggota) {
-        let pathKtpAnggota = a.ktpMenyusul ? "MENYUSUL" : null;
-        if (a.fileKtp && !a.ktpMenyusul) {
-          pathKtpAnggota = await kompresDanUpload(a.fileKtp, `KTP_ANGGOTA_${a.nama.replace(/\s+/g, '_')}`, a.nik);
-        }
-        
-        anggotaPayload.push({
-          nama_lengkap: a.nama,
-          nik: a.nik,
-          hubungan_keluarga: a.hubungan,
-          hubungan_detail: a.hubungan === "Lainnya" ? a.hubunganDetail : null,
-          tanggal_lahir: a.tglLahir,
-          tempat_lahir: a.tempatLahir,
-          jenis_kelamin: a.gender,
-          pekerjaan: a.pekerjaan,
-          ktp_path: pathKtpAnggota
-        });
-      }
+      setProgressTeks("Mempersiapkan dan mengunggah dokumen anggota keluarga secara paralel...");
+      
+      // INJEKSI MUTLAK: Menggunakan Promise.all untuk eksekusi paralel super cepat
+      const anggotaPayload = await Promise.all(
+        anggota.map(async (a) => {
+          let pathKtpAnggota = a.ktpMenyusul ? "MENYUSUL" : null;
+          
+          if (a.fileKtp && !a.ktpMenyusul) {
+            pathKtpAnggota = await kompresDanUpload(
+              a.fileKtp, 
+              `KTP_ANGGOTA_${a.nama.replace(/\s+/g, '_')}`, 
+              a.nik
+            );
+          }
+          
+          return {
+            nama_lengkap: a.nama,
+            nik: a.nik,
+            hubungan_keluarga: a.hubungan,
+            hubungan_detail: a.hubungan === "Lainnya" ? a.hubunganDetail : null,
+            tanggal_lahir: a.tglLahir,
+            tempat_lahir: a.tempatLahir,
+            jenis_kelamin: a.gender,
+            pekerjaan: a.pekerjaan,
+            ktp_path: pathKtpAnggota
+          };
+        })
+      );
 
-      // Gabung Data Kepala
       const payloadKepala = {
-        nik, nama, wa, pin, statusTinggal, detailAlamat,
-        tglLahir, tempatLahir, gender, pekerjaan,
-        pendapatan, listrik,
-        pathKtp: pathKtpKK, pathKk: pathKkKK
+        nik, nama_lengkap: nama, no_whatsapp: wa, pin, status_tinggal: statusTinggal, detail_alamat: detailAlamat,
+        tanggal_lahir: tglLahir, tempat_lahir: tempatLahir, jenis_kelamin: gender, pekerjaan,
+        pendapatan_bulanan: pendapatan, daya_listrik: listrik,
+        ktp_path: pathKtpKK, kk_path: pathKkKK
       };
 
-      setProgressTeks("Mendaftarkan ke Pusat Komando...");
+      setProgressTeks("Mendaftarkan ke Pusat Komando (Transaksi Aman)...");
       await aksiRegister(payloadKepala, anggotaPayload);
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
-      window.location.reload(); // Hard reset state
+      window.location.reload(); 
     } catch (err: any) {
       alert("TERJADI KESALAHAN: " + err.message);
     } finally {
@@ -207,7 +192,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
         
         <form onSubmit={handleSubmit} className="space-y-8">
           
-          {/* SECTION 1: KEPALA KELUARGA */}
           <div className="space-y-4 pb-6 border-b border-slate-200">
             <h2 className="font-black text-blue-700 uppercase tracking-widest text-sm flex items-center gap-2">👤 Data Kepala Keluarga / Penanggung Jawab</h2>
             
@@ -247,7 +231,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             )}
           </div>
 
-          {/* SECTION 2: DATA EKONOMI (DESIL) */}
           <div className="space-y-4 pb-6 border-b border-slate-200">
             <h2 className="font-black text-emerald-700 uppercase tracking-widest text-sm flex items-center gap-2">📊 Data Profil Ekonomi (Validasi Desil Bansos)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -277,7 +260,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             </div>
           </div>
 
-          {/* SECTION 3: DOKUMEN KEPALA KELUARGA */}
           <div className="space-y-4 pb-6 border-b border-slate-200 bg-slate-100 p-4 md:p-6 rounded-xl shadow-inner">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div>
@@ -306,7 +288,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             )}
           </div>
 
-          {/* SECTION 4: ANGGOTA KELUARGA */}
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-800 p-4 rounded-xl text-white shadow-md">
               <div>
