@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
-import KurbanClient from "./KurbanClient";
+import KurbanAdminClient from "./KurbanAdminClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -24,20 +24,72 @@ export default async function AdminKurbanPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: kurbanRes } = await supabaseAdmin.from("tabungan_kurban").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false });
-  const { data: wargaRes } = await supabaseAdmin.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui").order("nama_lengkap", { ascending: true });
+  const { data: kurbanRes } = await supabaseAdmin
+    .from("transaksi_kurban")
+    .select("*, warga(nama_lengkap)")
+    .order("tanggal_transaksi", { ascending: false });
 
-  async function simpanKurban(wargaId: string, jenis: string, sumberDana: string, nominal: number, keterangan: string, tanggal: string) {
+  const { data: wargaRes } = await supabaseAdmin
+    .from("warga")
+    .select("id, nama_lengkap")
+    .eq("status_verifikasi", "Disetujui")
+    .order("nama_lengkap", { ascending: true });
+
+  // INJEKSI MUTLAK: Ambil data sampah untuk kalkulasi radar anti-tekor di UI
+  const { data: sampahRes } = await supabaseAdmin
+    .from("transaksi_sampah")
+    .select("warga_id, jenis_transaksi, nominal_warga");
+
+  async function simpanTransaksiKurban(wargaId: string, jenis: string, sumber: string, nominal: number, keterangan: string, tanggal: string) {
     "use server";
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { error } = await supabase.from("tabungan_kurban").insert([{
-      warga_id: wargaId, jenis_transaksi: jenis, sumber_dana: sumberDana, nominal, keterangan, tanggal_transaksi: tanggal
-    }]);
-    if (error) throw new Error(error.message);
+    try {
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      
+      // EFEK DOMINO: Operasi Auto-Debet Lintas Tabel
+      if (sumber === "Saldo Tabungan Sampah" && jenis === "Setoran (+)") {
+        const { error: errSampah } = await supabase.from("transaksi_sampah").insert([{
+          warga_id: wargaId,
+          jenis_transaksi: "Tarik",
+          keterangan: `Auto-Debet untuk Tabungan Kurban: ${keterangan}`,
+          nominal_warga: nominal,
+          nominal_kas_rt: 0,
+          tanggal_transaksi: tanggal
+        }]);
+        if (errSampah) return { success: false, message: "Gagal memotong saldo sampah: " + errSampah.message };
+      }
 
-    const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
-    await supabase.from("audit_log").insert([{ aktor: adminAktif.nama, aksi: `Input Tabungan Kurban: ${jenis}`, tabel_target: "tabungan_kurban", detail: `${targetWarga?.nama_lengkap} - Rp ${nominal}` }]);
+      // Operasi Normal Kurban
+      const { error } = await supabase.from("transaksi_kurban").insert([{
+        warga_id: wargaId,
+        jenis_transaksi: jenis,
+        sumber_dana: sumber,
+        nominal: nominal,
+        keterangan: keterangan,
+        tanggal_transaksi: tanggal
+      }]);
+
+      if (error) return { success: false, message: error.message };
+
+      const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
+
+      await supabase.from("audit_log").insert([{
+        aktor: adminAktif.nama,
+        aksi: `Input Transaksi Kurban: ${jenis}`,
+        tabel_target: "transaksi_kurban",
+        detail: `${targetWarga?.nama_lengkap} - Rp${nominal} via ${sumber}`
+      }]);
+      
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
   }
 
-  return <KurbanClient kurbanList={kurbanRes || []} wargaList={wargaRes || []} aksiSimpan={simpanKurban} />;
+  return <KurbanAdminClient 
+            adminAktif={adminAktif} 
+            transaksiList={kurbanRes || []} 
+            wargaList={wargaRes || []} 
+            sampahList={sampahRes || []}
+            aksiSimpan={simpanTransaksiKurban} 
+         />;
 }
