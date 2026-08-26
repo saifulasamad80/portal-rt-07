@@ -18,11 +18,26 @@ export default function KurbanClient({ kurbanList, wargaList, aksiSimpan }: { ku
     return k.jenis_transaksi === "Setoran" ? sum + k.nominal : sum - k.nominal;
   }, 0);
 
+  // INJEKSI MUTLAK: Hitung sisa saldo user (M1 Fix)
+  const saldoUserTerpilih = wargaId ? kurbanList.filter(k => k.warga_id === wargaId).reduce((sum, k) => {
+    return k.jenis_transaksi === "Setoran" ? sum + k.nominal : sum - k.nominal;
+  }, 0) : 0;
+
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    const nom = parseInt(nominal);
+
+    // INJEKSI MUTLAK: Proteksi Saldo Defisit (M1 Fix)
+    if (jenis === "Penarikan" && nom > saldoUserTerpilih) {
+      alert(`GAGAL: Saldo kurban nasabah tidak mencukupi! Saldo maksimal: Rp ${saldoUserTerpilih.toLocaleString('id-ID')}`);
+      setLoading(false);
+      return;
+    }
+
     try {
-      await aksiSimpan(wargaId, jenis, sumberDana, parseInt(nominal), keterangan, tanggal);
+      await aksiSimpan(wargaId, jenis, sumberDana, nom, keterangan, tanggal);
       setNominal(""); setKeterangan("");
       alert("Catatan Kurban berhasil disimpan!");
       router.refresh();
@@ -69,6 +84,12 @@ export default function KurbanClient({ kurbanList, wargaList, aksiSimpan }: { ku
                   <option value="">-- Pilih Nasabah --</option>
                   {wargaList.map(w => <option key={w.id} value={w.id}>{w.nama_lengkap}</option>)}
                 </select>
+                
+                {jenis === "Penarikan" && wargaId && (
+                  <p className="text-[10px] text-pink-600 font-bold mt-2 bg-pink-50 p-2 rounded border border-pink-200">
+                    Sisa Saldo: Rp {saldoUserTerpilih.toLocaleString('id-ID')}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

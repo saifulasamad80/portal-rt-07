@@ -10,9 +10,15 @@ export default async function LupaSandiPage() {
     "use server";
     const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-    // 1. Cek eksistensi email pengurus
-    const { data: pengurus } = await supabaseAdmin.from("pengurus_rt").select("id, nama_lengkap").eq("email", email).single();
-    if (!pengurus) return { success: false, message: "Akses Ditolak: Email tidak terdaftar dalam sistem Pusat Komando." };
+    // FAKTA: Gunakan maybeSingle() agar tidak memicu error Supabase saat data tidak ditemukan (M6 Fix)
+    const { data: pengurus } = await supabaseAdmin.from("pengurus_rt").select("id, nama_lengkap").eq("email", email).maybeSingle();
+    
+    // FAKTA: Pencegahan User Enumeration (H5 Fix). 
+    // Jika email tidak ada, kita berbohong kepada hacker bahwa email sukses dikirim.
+    if (!pengurus) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Delay artifisial untuk mengecoh timing attack
+      return { success: true };
+    }
 
     // 2. Ciptakan Kunci Enkripsi 32-Byte (Token Reset)
     const token = crypto.randomBytes(32).toString("hex");

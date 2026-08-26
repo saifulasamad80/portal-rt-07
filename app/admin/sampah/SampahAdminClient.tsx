@@ -24,12 +24,28 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
   const totalKasRtMasuk = transaksiList.reduce((sum, t) => sum + (t.nominal_kas_rt || 0), 0);
   const totalBerat = transaksiList.reduce((sum, t) => sum + (t.berat_kg || 0), 0);
 
+  // INJEKSI MUTLAK: Kalkulasi saldo spesifik untuk user yang dipilih (M1 Fix)
+  const saldoUserTerpilih = wargaId ? transaksiList.filter(t => t.warga_id === wargaId).reduce((sum, t) => {
+    if (t.jenis_transaksi === "Setor Sampah") return sum + t.nominal_warga;
+    if (t.jenis_transaksi === "Tarik Saldo") return sum - t.nominal_warga;
+    return sum;
+  }, 0) : 0;
+
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitLoading(true);
 
+    const nomWarga = parseInt(nominalWarga);
+
+    // INJEKSI MUTLAK: Cegah penarikan uang yang tidak ada (M1 Fix)
+    if (jenis === "Tarik Saldo" && nomWarga > saldoUserTerpilih) {
+      alert(`GAGAL: Saldo nasabah tidak mencukupi! Saldo maksimal yang dapat ditarik: Rp ${saldoUserTerpilih.toLocaleString('id-ID')}`);
+      setSubmitLoading(false);
+      return;
+    }
+
     try {
-      await aksiSimpan(wargaId, jenis, keterangan, beratKg ? parseFloat(beratKg) : null, parseInt(nominalWarga), nominalKasRt ? parseInt(nominalKasRt) : 0, tanggal);
+      await aksiSimpan(wargaId, jenis, keterangan, beratKg ? parseFloat(beratKg) : null, nomWarga, nominalKasRt ? parseInt(nominalKasRt) : 0, tanggal);
       setKeterangan(""); setBeratKg(""); setNominalWarga(""); setNominalKasRt("");
       alert("Transaksi Bank Sampah berhasil dicatat!");
       router.refresh();
@@ -85,7 +101,6 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
               
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Jenis Transaksi</label>
-                {/* INJEKSI MUTLAK: Fitur reset otomatis saat merubah select (M2 Fix) */}
                 <select className="w-full border-2 border-slate-200 rounded-lg p-3 font-bold outline-none focus:border-emerald-500" value={jenis} onChange={(e) => {
                   setJenis(e.target.value);
                   if (e.target.value === "Tarik Saldo") {
@@ -104,6 +119,13 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
                   <option value="">-- Pilih Nasabah --</option>
                   {wargaList.map(w => <option key={w.id} value={w.id}>{w.nama_lengkap}</option>)}
                 </select>
+                
+                {/* Tampilkan sisa saldo langsung di UI jika sedang narik */}
+                {jenis === "Tarik Saldo" && wargaId && (
+                  <p className="text-[10px] text-amber-600 font-bold mt-2 bg-amber-50 p-2 rounded border border-amber-200">
+                    Sisa Saldo: Rp {saldoUserTerpilih.toLocaleString('id-ID')}
+                  </p>
+                )}
               </div>
 
               <div>
