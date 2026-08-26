@@ -3,7 +3,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-// ARSITEKTUR TIPE LU YANG PRESISI
 type KurbanAdminClientProps = {
   adminAktif: any;
   transaksiList: any[];
@@ -12,7 +11,6 @@ type KurbanAdminClientProps = {
   aksiSimpan: (...args: any[]) => Promise<any>;
 };
 
-// WAJIB PAKAI EXPORT DEFAULT AGAR PAGE.TSX BISA MEMBACA FILE INI
 export default function KurbanAdminClient({
   adminAktif,
   transaksiList,
@@ -31,7 +29,6 @@ export default function KurbanAdminClient({
   const [keterangan, setKeterangan] = useState("");
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
 
-  // Kalkulasi Statistik Kurban
   const totalTerkumpul = transaksiList.reduce((sum, t) => {
     if (t.jenis_transaksi === "Setoran (+)") return sum + t.nominal;
     if (t.jenis_transaksi === "Tarikan (-)") return sum - t.nominal;
@@ -44,7 +41,6 @@ export default function KurbanAdminClient({
     return sum;
   }, 0) : 0;
 
-  // Radar Saldo Sampah secara Real-Time
   const saldoSampahTerpilih = wargaId ? sampahList.filter((s: any) => s.warga_id === wargaId).reduce((sum: number, s: any) => {
     if (s.jenis_transaksi === "Setor") return sum + s.nominal_warga;
     if (s.jenis_transaksi === "Tarik") return sum - s.nominal_warga;
@@ -63,7 +59,6 @@ export default function KurbanAdminClient({
       return;
     }
 
-    // REM DARURAT: Cegah admin narik uang sampah melebihi saldo yang ada!
     if (jenis === "Setoran (+)" && sumberDana === "Saldo Tabungan Sampah" && nom > saldoSampahTerpilih) {
       alert(`GAGAL AUTO-DEBET: Saldo Tabungan Sampah nasabah tidak mencukupi!\nSaldo Sampah saat ini: Rp ${saldoSampahTerpilih.toLocaleString('id-ID')}`);
       setSubmitLoading(false);
@@ -94,7 +89,6 @@ export default function KurbanAdminClient({
           &larr; Kembali ke Pusat Komando
         </Link>
 
-        {/* HEADER KURBAN */}
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-pink-500 mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Tabungan Kurban</h1>
@@ -103,7 +97,6 @@ export default function KurbanAdminClient({
           <div className="text-5xl hidden md:block grayscale brightness-125">🐄</div>
         </div>
 
-        {/* WIDGET STATISTIK */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-pink-600 p-6 rounded-2xl shadow-lg text-white">
             <h3 className="text-xs font-black text-pink-200 uppercase tracking-widest flex justify-between">
@@ -126,7 +119,6 @@ export default function KurbanAdminClient({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
           
-          {/* FORM INPUT TRANSAKSI */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1 h-fit border-t-[6px] border-t-slate-800">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">✍️ Catat Setoran Kurban</h2>
             <form onSubmit={handleSimpan} className="space-y-4">
@@ -188,7 +180,6 @@ export default function KurbanAdminClient({
             </form>
           </div>
 
-          {/* TABEL RIWAYAT TRANSAKSI */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">📒 Buku Besar Kurban</h2>
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-xl border border-slate-200">
