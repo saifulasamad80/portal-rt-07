@@ -1,2 +1,2 @@
 find hooks -type f \( -name "*.tsx" -o -name "*.ts" \) | while read f; do echo -e "\n=== FILE: $f ==="; cat "$f"; done > semua_kode_hooks.txt
-find app lib hooks -type f \( -name "*.tsx" -o -name "*.ts" \) | while read f; do echo -e "\n=== FILE: $f ==="; cat "$f"; done > semua_kode_all.txt
+find app lib hooks public -type f \( -name "*.tsx" -o -name "*.ts" \) | while read f; do echo -e "\n=== FILE: $f ==="; cat "$f"; done > semua_kode_all.txt
