@@ -35,12 +35,19 @@ export default async function AdminKasPage() {
     .select("id, nama_lengkap")
     .eq("status_verifikasi", "Disetujui");
 
-  // INJEKSI MUTLAK: Ubah sistem return, dilarang pakai 'throw error' di Vercel
+  // INJEKSI MUTLAK: Ubah sistem return & pastikan rt_id ikut dikirim!
   async function simpanTransaksi(tipe: string, wargaId: string, kategori: string, nominal: number, keterangan: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    const payload: any = { tipe_transaksi: tipe, kategori, nominal, keterangan };
+    // OBATNYA DI SINI: Tambahkan rt_id dari sesi adminAktif
+    const payload: any = { 
+      tipe_transaksi: tipe, 
+      kategori, 
+      nominal, 
+      keterangan,
+      rt_id: adminAktif.rt_id 
+    };
     if (wargaId) payload.warga_id = wargaId;
 
     const { error } = await supabase.from("kas_rt").insert([payload]);
@@ -50,7 +57,8 @@ export default async function AdminKasPage() {
       aktor: adminAktif.nama,
       aksi: `Input Kas: ${tipe}`,
       tabel_target: "kas_rt",
-      detail: `${kategori} - Rp ${nominal}`
+      detail: `${kategori} - Rp ${nominal}`,
+      rt_id: adminAktif.rt_id // Audit log juga butuh rt_id!
     }]);
 
     return { success: true };
