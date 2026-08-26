@@ -3,19 +3,25 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+const FITUR_KTP_AKTIF = false;
+
 export default function AdminDashboardClient({ adminAktif, wargaList, prosesValidasi, logoutAction }: { adminAktif: any, wargaList: any[], prosesValidasi: any, logoutAction: any }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
 
-  // INJEKSI MUTLAK: Tambahan parameter ktpPath dan kkPath untuk radar validasi
   const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
     
-    // REM DARURAT ANTI-CEROBOH ADMIN
-    if (status === 'Disetujui' && (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')) {
+    // REM DARURAT DIKENDALIKAN OLEH SAKELAR
+    const isDokumenKosong = FITUR_KTP_AKTIF 
+      ? (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')
+      : (kkPath === 'MENYUSUL');
+
+    if (status === 'Disetujui' && isDokumenKosong) {
       const beraniTanggungJawab = confirm(
-        `⚠️ PERINGATAN FATAL: DOKUMEN DIGITAL KOSONG!\n\nPendaftar atas nama ${namaWarga} BELUM mengunggah file KTP/KK secara digital.\n\nSebagai Pengurus RT, apakah Anda BERANI MENJAMIN bahwa Anda SUDAH MENERIMA DAN MEMERIKSA dokumen fisiknya secara langsung?\n\nKlik OK jika Anda berani bertanggung jawab. Klik Batal jika belum menerima dokumen.`
+        `⚠️ PERINGATAN FATAL: DOKUMEN DIGITAL KOSONG!\n\nPendaftar atas nama ${namaWarga} BELUM mengunggah file ${FITUR_KTP_AKTIF ? 'KTP/KK' : 'KK'} secara digital.\n\nSebagai Pengurus RT, apakah Anda BERANI MENJAMIN bahwa Anda SUDAH MENERIMA DAN MEMERIKSA dokumen fisiknya secara langsung?\n\nKlik OK jika Anda berani bertanggung jawab.`
       );
-      if (!beraniTanggungJawab) return; // Batalkan operasi jika admin ragu
+      if (!beraniTanggungJawab) return; 
     } else if (status !== "Menunggu" && !confirm(`Yakin ingin menandai pendaftaran ${namaWarga} sebagai: ${status}?`)) {
       return;
     }
@@ -52,6 +58,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {/* SEMUA LINK MENU DIBIARKAN SAMA (DIPOTONG DI CONTOH AGAR RINGKAS TAPI ASLINYA PENUH) */}
           <Link href="/admin/warga" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-blue-500">👥</div>
             <h2 className="font-black text-slate-800 text-sm">Buku Induk Warga</h2>
@@ -77,11 +84,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
             <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
           </Link>
-          <Link href="/admin/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🚨</div>
-            <h2 className="font-black text-slate-800 text-sm">Laporan Warga</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tindak lanjut tiket keluhan</p>
-          </Link>
+          
+          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 DIGEMBOK</div>
+            <div className="text-3xl mb-3 grayscale">🚨</div>
+            <h2 className="font-black text-slate-500 text-sm">Laporan Warga</h2>
+            <p className="text-[10px] text-slate-400 mt-1">Ditunda instruksi RT</p>
+          </div>
+
           <Link href="/admin/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🎪</div>
             <h2 className="font-black text-slate-800 text-sm">Inventaris</h2>
@@ -113,12 +123,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-500 text-sm">Buku Tamu 1x24 Jam</h2>
             <p className="text-[10px] text-slate-400 mt-1">Sistem lapor tamu dgn E-KTP</p>
           </div>
-          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
-            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
-            <div className="text-3xl mb-3 grayscale">🏪</div>
-            <h2 className="font-black text-slate-500 text-sm">Pasar Warga (Lapak)</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Katalog UMKM warga</p>
-          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
@@ -149,13 +153,16 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                         <div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik}</div>
                         <div className="text-[11px] text-slate-600 font-mono mt-1">WA: {w.no_whatsapp}</div>
                         
-                        {(w.ktp_path || w.kk_path) && (
+                        {/* TOMBOL KTP MUNCUL/HILANG TERGANTUNG SAKELAR DEWA */}
+                        {( (FITUR_KTP_AKTIF && w.ktp_path) || w.kk_path ) && (
                           <div className="mt-3 flex gap-2">
-                            {w.ktp_path === 'MENYUSUL' ? (
-                              <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
-                            ) : w.ktp_path ? (
-                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
-                            ) : null}
+                            {FITUR_KTP_AKTIF && (
+                              w.ktp_path === 'MENYUSUL' ? (
+                                <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
+                              ) : w.ktp_path ? (
+                                <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
+                              ) : null
+                            )}
                             
                             {w.kk_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KK Fisik</span>
@@ -190,11 +197,9 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                       <td className="p-4 text-center">
                         {w.status_verifikasi === 'Menunggu' ? (
                           <div className="flex justify-center gap-2">
-                            {/* INJEKSI MUTLAK: Mengirim ktp_path & kk_path ke fungsi handleValidasi */}
                             <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
                               Sah
                             </button>
-                            {/* INJEKSI MUTLAK: Mengirim ktp_path & kk_path ke fungsi handleValidasi */}
                             <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
                               Tolak
                             </button>

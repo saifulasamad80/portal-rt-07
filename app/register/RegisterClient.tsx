@@ -4,6 +4,10 @@ import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+// Ubah menjadi 'true' jika suatu saat KTP ingin diwajibkan lagi!
+const FITUR_KTP_AKTIF = false; 
+
 type AnggotaKeluarga = {
   nama: string;
   nik: string;
@@ -68,16 +72,11 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     return null; 
   };
 
-  // INJEKSI MUTLAK: Kompres file menjadi sangat kecil (0.1 MB) lalu ubah jadi teks Base64
   const kompresDanUbahKeBase64 = async (fileOri: File) => {
     const options = { maxSizeMB: 0.1, maxWidthOrHeight: 1024, useWebWorker: false, fileType: "image/jpeg" };
     try {
-      // Nafas UI: Biarkan browser nge-render tulisan loading dulu selama 50ms
       await new Promise(resolve => setTimeout(resolve, 50)); 
-      
       const fileKompresi = await imageCompression(fileOri, options);
-
-      // Ubah gambar jadi teks rahasia
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(fileKompresi);
@@ -125,13 +124,23 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       if (errNik) return alert(errNik);
       
       const umur = hitungUmur(a.tglLahir);
-      if (umur >= 17 && !a.fileKtp && !a.ktpMenyusul) {
-        return alert(`${namaLabel} berumur ${umur} tahun. Wajib melampirkan foto KTP atau centang 'KTP Menyusul'.`);
+      // Validasi Umur Wajib KTP dikendalikan oleh Sakelar
+      if (FITUR_KTP_AKTIF) {
+        if (umur >= 17 && !a.fileKtp && !a.ktpMenyusul) {
+          return alert(`${namaLabel} berumur ${umur} tahun. Wajib melampirkan foto KTP atau centang 'KTP Menyusul'.`);
+        }
       }
     }
 
-    if (!dokumenMenyusul && (!fileKtp || !fileKk)) {
-      return alert("Lampirkan KTP dan KK Kepala Keluarga, atau centang 'Dokumen Menyusul'.");
+    // Validasi Kelengkapan Dokumen dikendalikan oleh Sakelar
+    if (FITUR_KTP_AKTIF) {
+      if (!dokumenMenyusul && (!fileKtp || !fileKk)) {
+        return alert("Lampirkan KTP dan KK Kepala Keluarga, atau centang 'Dokumen Menyusul'.");
+      }
+    } else {
+      if (!dokumenMenyusul && !fileKk) {
+        return alert("Lampirkan Foto Kartu Keluarga, atau centang 'Dokumen Menyusul'.");
+      }
     }
 
     setLoading(true);
@@ -143,8 +152,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       setProgressTeks("Mempersiapkan dokumen Kepala Keluarga...");
       await new Promise(resolve => setTimeout(resolve, 50)); 
       
-      // Kirim Base64, BUKAN upload ke Supabase dari browser
-      if (!dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUbahKeBase64(fileKtp);
+      if (FITUR_KTP_AKTIF && !dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUbahKeBase64(fileKtp);
       if (!dokumenMenyusul && fileKk) pathKkKK = await kompresDanUbahKeBase64(fileKk);
 
       setProgressTeks("Mempersiapkan dokumen Anggota Keluarga...");
@@ -153,7 +161,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       const anggotaPayload = await Promise.all(
         anggota.map(async (a) => {
           let pathKtpAnggota = a.ktpMenyusul ? "MENYUSUL" : null;
-          if (a.fileKtp && !a.ktpMenyusul) {
+          if (FITUR_KTP_AKTIF && a.fileKtp && !a.ktpMenyusul) {
             pathKtpAnggota = await kompresDanUbahKeBase64(a.fileKtp);
           }
           return {
@@ -165,7 +173,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             tempat_lahir: a.tempatLahir,
             jenis_kelamin: a.gender,
             pekerjaan: a.pekerjaan,
-            ktp_path: pathKtpAnggota // Berisi teks Base64, bukan URL
+            ktp_path: pathKtpAnggota
           };
         })
       );
@@ -277,21 +285,28 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div>
                 <h2 className="font-black text-slate-800 uppercase text-sm">🔒 Dokumen Kepala Keluarga</h2>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">Dienkripsi dan diamankan khusus untuk verifikasi pengurus RT.</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-1">
+                  {FITUR_KTP_AKTIF ? "Dienkripsi dan diamankan khusus untuk verifikasi pengurus RT." : "Sesuai instruksi RT, saat ini hanya membutuhkan dokumen Kartu Keluarga (KK)."}
+                </p>
               </div>
               <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border-2 border-amber-300 text-amber-900 font-bold text-xs shadow-sm hover:bg-amber-50">
-                <input type="checkbox" checked={dokumenMenyusul} onChange={(e) => { setDokumenMenyusul(e.target.checked); if (e.target.checked) { setFileKtp(null); setFileKk(null); } }} className="w-5 h-5 text-amber-600 rounded" />
-                KTP & KK Menyusul
+                <input type="checkbox" checked={dokumenMenyusul} onChange={(e) => { 
+                  setDokumenMenyusul(e.target.checked); 
+                  if (e.target.checked) { setFileKtp(null); setFileKk(null); } 
+                }} className="w-5 h-5 text-amber-600 rounded" />
+                {FITUR_KTP_AKTIF ? "KTP & KK Menyusul" : "KK Menyusul / Fisik"}
               </label>
             </div>
             
             {!dokumenMenyusul && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                  <label className="block text-xs font-black uppercase text-slate-700 mb-2">📸 Foto E-KTP (Kepala Keluarga)</label>
-                  <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'ktp')} className="w-full text-xs" />
-                  {fileKtp && <div className="text-[10px] text-emerald-600 font-black mt-2 bg-emerald-50 px-2 py-1 rounded w-fit">✓ File terlampir</div>}
-                </div>
+              <div className={`grid grid-cols-1 ${FITUR_KTP_AKTIF ? 'md:grid-cols-2' : ''} gap-4`}>
+                {FITUR_KTP_AKTIF && (
+                  <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                    <label className="block text-xs font-black uppercase text-slate-700 mb-2">📸 Foto E-KTP (Kepala Keluarga)</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'ktp')} className="w-full text-xs" />
+                    {fileKtp && <div className="text-[10px] text-emerald-600 font-black mt-2 bg-emerald-50 px-2 py-1 rounded w-fit">✓ File terlampir</div>}
+                  </div>
+                )}
                 <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                   <label className="block text-xs font-black uppercase text-slate-700 mb-2">📸 Foto Kartu Keluarga</label>
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'kk')} className="w-full text-xs" />
@@ -305,7 +320,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             <div className="flex justify-between items-center bg-slate-800 p-4 rounded-xl text-white shadow-md">
               <div>
                 <h2 className="font-black text-sm uppercase tracking-widest">👥 Data Anggota Keluarga</h2>
-                <p className="text-[10px] text-slate-400 mt-1">Wajib KTP jika umur ≥ 17 Tahun (Sistem Sensus).</p>
+                {FITUR_KTP_AKTIF && <p className="text-[10px] text-slate-400 mt-1">Wajib KTP jika umur ≥ 17 Tahun (Sistem Sensus).</p>}
               </div>
               <button type="button" onClick={tambahAnggota} className="bg-blue-500 text-white font-black uppercase tracking-widest px-4 py-2.5 rounded-lg hover:bg-blue-600 text-xs">+ Tambah Warga</button>
             </div>
@@ -354,7 +369,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
                     </div>
                   )}
 
-                  {wajibKtp && (
+                  {FITUR_KTP_AKTIF && wajibKtp && (
                     <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg flex flex-col md:flex-row justify-between items-start gap-4">
                       <div className="w-full">
                         <label className="block text-xs font-black uppercase text-blue-800 mb-1">⚠️ Wajib Upload KTP (Usia ≥ 17 thn)</label>
