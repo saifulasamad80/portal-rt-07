@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
-// INJEKSI MUTLAK: Import sudah diarahkan tepat ke nama file lu
 import KurbanAdminClient from "./KurbanClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -45,19 +44,24 @@ export default async function AdminKurbanPage() {
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
-      // LOGIKA AUTO-DEBET SAMPAH
+      let idSampahTerpotong = null; // Menyimpan ID potongan sampah untuk dibatalkan jika kurban gagal
+
+      // 1. LOGIKA AUTO-DEBET SAMPAH
       if (sumber === "Saldo Tabungan Sampah" && jenis === "Setoran (+)") {
-        const { error: errSampah } = await supabase.from("transaksi_sampah").insert([{
+        const { data: dataSampah, error: errSampah } = await supabase.from("transaksi_sampah").insert([{
           warga_id: wargaId,
           jenis_transaksi: "Tarik",
           keterangan: `Auto-Debet untuk Tabungan Kurban: ${keterangan}`,
           nominal_warga: nominal,
           nominal_kas_rt: 0,
           tanggal_transaksi: tanggal
-        }]);
+        }]).select('id').single(); // Ambil ID transaksi ini segera setelah dibuat
+
         if (errSampah) return { success: false, message: "Gagal memotong saldo sampah: " + errSampah.message };
+        idSampahTerpotong = dataSampah.id; // Amankan ID-nya
       }
 
+      // 2. OPERASI UTAMA KURBAN
       const { error } = await supabase.from("transaksi_kurban").insert([{
         warga_id: wargaId,
         jenis_transaksi: jenis,
@@ -67,10 +71,17 @@ export default async function AdminKurbanPage() {
         tanggal_transaksi: tanggal
       }]);
 
-      if (error) return { success: false, message: error.message };
+      // 3. REM ROLLBACK (TARIK MUNDUR JIKA GAGAL)
+      if (error) {
+        if (idSampahTerpotong) {
+          // Batalin (hapus) potongan sampah karena kurbannya gagal masuk database!
+          await supabase.from("transaksi_sampah").delete().eq("id", idSampahTerpotong);
+        }
+        return { success: false, message: error.message };
+      }
 
+      // 4. CATAT LOG AUDIT (Jika semua sukses)
       const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
-
       await supabase.from("audit_log").insert([{
         aktor: adminAktif.nama,
         aksi: `Input Transaksi Kurban: ${jenis}`,
