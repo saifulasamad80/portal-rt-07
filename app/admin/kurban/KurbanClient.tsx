@@ -3,7 +3,24 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList, sampahList, aksiSimpan }: { adminAktif: any, transaksiList: any[], wargaList: any[], sampahList: any[], aksiSimpan: any }) {
+// ARSITEKTUR TIPE LU YANG PRESISI
+type KurbanAdminClientProps = {
+  adminAktif: any;
+  transaksiList: any[];
+  wargaList: any[];
+  sampahList: any[];
+  aksiSimpan: (...args: any[]) => Promise<any>;
+};
+
+// WAJIB PAKAI EXPORT DEFAULT AGAR PAGE.TSX BISA MEMBACA FILE INI
+export default function KurbanAdminClient({
+  adminAktif,
+  transaksiList,
+  wargaList,
+  sampahList,
+  aksiSimpan,
+}: KurbanAdminClientProps) {
+  
   const router = useRouter();
   const [submitLoading, setSubmitLoading] = useState(false);
 
@@ -27,7 +44,7 @@ export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList
     return sum;
   }, 0) : 0;
 
-  // INJEKSI MUTLAK: Hitung Saldo Sampah secara Real-Time
+  // Radar Saldo Sampah secara Real-Time
   const saldoSampahTerpilih = wargaId ? sampahList.filter((s: any) => s.warga_id === wargaId).reduce((sum: number, s: any) => {
     if (s.jenis_transaksi === "Setor") return sum + s.nominal_warga;
     if (s.jenis_transaksi === "Tarik") return sum - s.nominal_warga;
@@ -150,7 +167,6 @@ export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList
                   <select className="w-full border-2 border-slate-200 rounded-lg p-3 text-sm font-bold outline-none focus:border-pink-500" value={sumberDana} onChange={(e) => setSumberDana(e.target.value)}>
                     <option value="Transfer Bank">Transfer Bank</option>
                     <option value="Tunai">Tunai</option>
-                    {/* INJEKSI MUTLAK: Opsi Auto-Debet dari Bank Sampah */}
                     <option value="Saldo Tabungan Sampah" className="text-amber-600 font-black">Tabungan Sampah</option>
                   </select>
                 </div>
