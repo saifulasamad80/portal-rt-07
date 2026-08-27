@@ -22,7 +22,6 @@ export default function WargaLogin() {
     setLoading(true);
 
     try {
-      // Jika mode Ganti PIN aktif, payload-nya nambah newPin
       const payload = requirePinChange ? { nik, pin, newPin } : { nik, pin };
 
       const res = await fetch("/api/warga/login", {
@@ -37,15 +36,13 @@ export default function WargaLogin() {
         throw new Error(data.message || "Akses Ditolak: Terjadi kesalahan sistem.");
       }
 
-      // Deteksi Jebakan dari Server
       if (data.requirePinChange) {
         setRequirePinChange(true);
-        // Tampilkan notifikasi peringatan
         alert(data.message);
       } else if (data.success) {
         if (requirePinChange) alert("Pembaruan Keamanan Sukses! Selamat datang di Portal Warga.");
-        router.push("/portal");
-        router.refresh();
+        // INJEKSI MUTLAK: Gunakan window.location agar cache reset dan langsung lompat instan
+        window.location.href = "/portal"; 
       }
     } catch (error: any) {
       alert(error.message);

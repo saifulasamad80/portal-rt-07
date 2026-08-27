@@ -33,7 +33,8 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
     
     setLoading(true);
     try {
-      const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800, useWebWorker: true, fileType: "image/jpeg" };
+      // FIX: useWebWorker: false (Mencegah Corrupted Blob di HP kentang)
+      const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800, useWebWorker: false, fileType: "image/jpeg" };
       const fileKompresi = await imageCompression(fileFoto, options);
       
       const fotoBase64 = await new Promise<string>((resolve, reject) => {
@@ -43,7 +44,15 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
         reader.onerror = error => reject(error);
       });
 
-      await aksiBuat(namaUsaha, kategori, deskripsi, formatWA(wa), fotoBase64);
+      // FIX: Payload dibungkus Object
+      await aksiBuat({
+        namaUsaha: namaUsaha,
+        kategori: kategori,
+        deskripsi: deskripsi,
+        wa: formatWA(wa),
+        fotoBase64: fotoBase64
+      });
+
       alert("Lapak berhasil diajukan! Menunggu persetujuan Pengurus RT.");
       
       setNamaUsaha(""); setKategori(""); setDeskripsi(""); setWa(""); setFileFoto(null);

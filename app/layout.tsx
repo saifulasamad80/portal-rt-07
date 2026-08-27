@@ -19,11 +19,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.json", 
 };
 
-// REFACTOR MUTLAK: maximumScale: 1 DIHAPUS agar warga lansia bisa melakukan Zoom-In di HP!
+// REFACTOR MUTLAK: Kunci Tema Terang (Anti-Dark Mode Inversion)
 export const viewport: Viewport = {
   themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
+  colorScheme: "light", // MENCEGAH HP ME-REVERSE WARNA SECARA PAKSA!
 };
 
 export default function RootLayout({
