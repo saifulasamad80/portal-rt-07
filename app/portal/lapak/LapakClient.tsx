@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
 
-export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, aksiHapus }: { wargaAktif: any, katalog: any[], lapakKu: any[], aksiBuat: any, aksiHapus: any }) {
+export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapakKu, aksiBuat, aksiHapus }: { wargaAktif: any, nomorWaDefault: string, katalog: any[], lapakKu: any[], aksiBuat: any, aksiHapus: any }) {
   const router = useRouter();
   const [tab, setTab] = useState<"katalog" | "lapak_saya">("katalog");
   const [loading, setLoading] = useState(false);
@@ -12,10 +12,12 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
   const [namaUsaha, setNamaUsaha] = useState("");
   const [kategori, setKategori] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [wa, setWa] = useState("");
+  
+  // INJEKSI MUTLAK: State WA langsung diisi oleh data dari database
+  const [wa, setWa] = useState(nomorWaDefault);
+  
   const [fileFoto, setFileFoto] = useState<File | null>(null);
 
-  // INJEKSI MUTLAK: Hitung jumlah lapak milik warga ini
   const jumlahLapakKu = lapakKu.length;
   const MAKSIMAL_LAPAK = 2;
   const kuotaHabis = jumlahLapakKu >= MAKSIMAL_LAPAK;
@@ -33,7 +35,6 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
     
     setLoading(true);
     try {
-      // FIX: useWebWorker: false (Mencegah Corrupted Blob di HP kentang)
       const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800, useWebWorker: false, fileType: "image/jpeg" };
       const fileKompresi = await imageCompression(fileFoto, options);
       
@@ -44,7 +45,6 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
         reader.onerror = error => reject(error);
       });
 
-      // FIX: Payload dibungkus Object
       await aksiBuat({
         namaUsaha: namaUsaha,
         kategori: kategori,
@@ -55,7 +55,7 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
 
       alert("Lapak berhasil diajukan! Menunggu persetujuan Pengurus RT.");
       
-      setNamaUsaha(""); setKategori(""); setDeskripsi(""); setWa(""); setFileFoto(null);
+      setNamaUsaha(""); setKategori(""); setDeskripsi(""); setWa(nomorWaDefault); setFileFoto(null);
       setTab("lapak_saya");
       router.refresh();
     } catch (error: any) {
@@ -123,7 +123,7 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             <div className="space-y-6 h-fit">
-              {/* PANEL ATURAN MAIN (INJEKSI MUTLAK) */}
+              {/* PANEL ATURAN MAIN */}
               <div className="bg-orange-50 border border-orange-200 p-6 rounded-2xl shadow-sm">
                 <h3 className="font-black text-orange-800 text-sm mb-3 uppercase tracking-widest flex items-center gap-2">
                   <span>📜</span> Aturan Pasar Warga
@@ -172,7 +172,6 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
             {/* FORM PENDAFTARAN LAPAK */}
             <div className={`bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] ${kuotaHabis ? 'border-t-slate-400 opacity-80' : 'border-t-orange-500'} h-fit relative overflow-hidden`}>
               
-              {/* OVERLAY JIKA KUOTA HABIS */}
               {kuotaHabis && (
                 <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
                   <div className="text-4xl mb-3">🔒</div>
@@ -196,7 +195,12 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
                   </select>
                 </div>
                 <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Deskripsi & Harga Singkat</label><textarea required disabled={kuotaHabis} rows={3} className="w-full border border-slate-300 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="Jual risol mayo isi daging. Menerima pesanan arisan..." value={deskripsi} onChange={e => setDeskripsi(e.target.value)} /></div>
-                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nomor WhatsApp Aktif</label><input type="tel" required disabled={kuotaHabis} className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="081234567890" value={wa} onChange={e => setWa(e.target.value.replace(/\D/g, ''))} /></div>
+                
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nomor WhatsApp Aktif</label>
+                  <input type="tel" required disabled={kuotaHabis} className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="081234567890" value={wa} onChange={e => setWa(e.target.value.replace(/\D/g, ''))} />
+                  <p className="text-[9px] text-slate-400 mt-1.5">*Otomatis diisi dari nomor Anda yang terdaftar.</p>
+                </div>
                 
                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
                   <label className="block text-[11px] font-black text-orange-800 mb-2 uppercase">📸 Upload 1 Foto Andalan</label>

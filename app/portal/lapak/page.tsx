@@ -35,6 +35,13 @@ export default async function PortalLapakPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  // INJEKSI MUTLAK: Tarik detail warga untuk mendapatkan Nomor WA aslinya
+  const { data: profilWarga } = await supabaseAdmin
+    .from("warga")
+    .select("no_whatsapp")
+    .eq("id", wargaAktif.id)
+    .single();
+
   const { data: katalogRes } = await supabaseAdmin
     .from("lapak_warga")
     .select("*, warga(nama_lengkap)")
@@ -48,7 +55,6 @@ export default async function PortalLapakPage() {
     .eq("warga_id", wargaAktif.id)
     .order("created_at", { ascending: false });
 
-  // REFACTOR: ARGUMEN DIBUNGKUS DALAM 1 OBJEK (Membunuh React Error 441)
   async function buatLapak(payloadLapak: any) {
     "use server";
     const sesi = await pastikanOtentikasiWarga(); 
@@ -99,5 +105,14 @@ export default async function PortalLapakPage() {
     if (error) throw new Error(error.message);
   }
 
-  return <LapakClient wargaAktif={wargaAktif} katalog={katalogRes || []} lapakKu={lapakKuRes || []} aksiBuat={buatLapak} aksiHapus={hapusLapakKu} />;
+  return (
+    <LapakClient 
+      wargaAktif={wargaAktif} 
+      nomorWaDefault={profilWarga?.no_whatsapp || ""} 
+      katalog={katalogRes || []} 
+      lapakKu={lapakKuRes || []} 
+      aksiBuat={buatLapak} 
+      aksiHapus={hapusLapakKu} 
+    />
+  );
 }
