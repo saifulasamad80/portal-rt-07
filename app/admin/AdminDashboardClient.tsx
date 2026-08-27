@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 // INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
@@ -10,8 +10,45 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
 
-  const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
+  // ------------------------------------------------------------------
+  // INJEKSI MUTLAK: MESIN PEMBUNUH SESI OTOMATIS (IDLE TIMEOUT)
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    const BATAS_WAKTU_IDLE = 10 * 60 * 1000; // 10 Menit tanpa sentuhan
+    let waktuTerakhirAktif = Date.now();
+
+    const perbaruiAktivitas = () => {
+      waktuTerakhirAktif = Date.now();
+    };
+
+    const cekKematianSesi = async () => {
+      if (Date.now() - waktuTerakhirAktif > BATAS_WAKTU_IDLE) {
+        alert("🔒 SISTEM TERKUNCI OTOMATIS!\n\nTidak ada aktivitas selama 10 Menit. Demi keamanan, Anda telah dikeluarkan. Silakan login kembali.");
+        await fetch('/api/admin/login', { method: 'DELETE' });
+        window.location.href = '/admin';
+      }
+    };
+
+    // Radar pendeteksi sentuhan, ketikan, dan scroll
+    const daftarEvent = ['touchstart', 'mousemove', 'keypress', 'scroll', 'click'];
+    daftarEvent.forEach(event => document.addEventListener(event, perbaruiAktivitas));
     
+    // Cek setiap 1 menit di belakang layar
+    const intervalId = setInterval(cekKematianSesi, 60000);
+    
+    // Cek instan saat aplikasi PWA baru dibuka kembali dari background (Layar Nyala)
+    const handleLayarNyala = () => { if (document.visibilityState === 'visible') cekKematianSesi(); };
+    document.addEventListener('visibilitychange', handleLayarNyala);
+
+    return () => {
+      daftarEvent.forEach(event => document.removeEventListener(event, perbaruiAktivitas));
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleLayarNyala);
+    };
+  }, []);
+  // ------------------------------------------------------------------
+
+  const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
     const isDokumenKosong = FITUR_KTP_AKTIF 
       ? (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')
       : (kkPath === 'MENYUSUL');
@@ -70,7 +107,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <p className="text-[10px] text-slate-500 mt-1">Buat edaran ke warga</p>
           </Link>
           
-          {/* INJEKSI MUTLAK: MENU LAPAK DIBUKA GEMBOKNYA */}
           <Link href="/admin/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-orange-500">🏪</div>
             <h2 className="font-black text-slate-800 text-sm">Pasar Warga (UMKM)</h2>
@@ -156,7 +192,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
           </div>
         </div>
 
-        {/* BAGIAN VALIDASI WARGA DIBIARKAN SAMA (Sudah ada di file asli lu) */}
         <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
           <h2 className="text-lg font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">Validasi Pendaftaran Warga Baru</h2>
           
