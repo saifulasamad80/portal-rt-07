@@ -153,14 +153,22 @@ export default async function WargaAdminPage() {
 
     const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", idTarget).single();
 
-    const { error } = await supabase.from("warga").update({ pin: hashedPin }).eq("id", idTarget);
+    // -------------------------------------------------------------------------
+    // INJEKSI MUTLAK: Reset PIN sekaligus mencabut status Lockdown & Dosa Login
+    // -------------------------------------------------------------------------
+    const { error } = await supabase.from("warga").update({ 
+      pin: hashedPin,
+      percobaan_gagal: 0,
+      terkunci_sampai: null 
+    }).eq("id", idTarget);
+    
     if (error) throw new Error(error.message);
 
     await supabase.from("audit_log").insert([{
       aktor: sesi.nama,
-      aksi: "Reset PIN Warga",
+      aksi: "Reset PIN & Cabut Lockdown Warga",
       tabel_target: "warga",
-      detail: `Mereset paksa PIN akses milik: ${target?.nama_lengkap}`
+      detail: `Mereset paksa PIN & membuka kunci akses milik: ${target?.nama_lengkap}`
     }]);
   }
 
