@@ -6,7 +6,6 @@ export default function SuratClient({ warga }: { warga: any }) {
   const [keperluan, setKeperluan] = useState("");
   const [keterangan, setKeterangan] = useState("");
   
-  // INJEKSI MUTLAK: State tambahan untuk data fisik yang tidak ada di database
   const [agama, setAgama] = useState("Islam");
   const [pendidikan, setPendidikan] = useState("SLTA");
   const [statusKawin, setStatusKawin] = useState("Kawin");
@@ -28,9 +27,9 @@ export default function SuratClient({ warga }: { warga: any }) {
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 print:p-0 print:bg-white flex flex-col items-center font-sans">
       
       {/* --------------------------------------------------------- */}
-      {/* PANEL LAYAR HP/LAPTOP (DISEMBUNYIKAN SAAT PRINT)          */}
+      {/* PANEL FORM (DISEMBUNYIKAN SECARA OTOMATIS SAAT NGE-PRINT) */}
       {/* --------------------------------------------------------- */}
-      <div className="w-full max-w-4xl print:hidden space-y-6">
+      <div className="w-full max-w-4xl print:hidden space-y-6 mb-10">
         <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block">&larr; Kembali ke Dasbor</Link>
         <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-200">
           <h1 className="text-2xl font-black text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
@@ -47,8 +46,13 @@ export default function SuratClient({ warga }: { warga: any }) {
             <div>
               <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Pendidikan Terakhir</label>
               <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={pendidikan} onChange={e => setPendidikan(e.target.value)}>
-                <option value="SD">SD</option><option value="SLTP">SLTP / SMP</option>
-                <option value="SLTA">SLTA / SMA</option><option value="S1">S1 / Diploma</option>
+                <option value="SD">SD</option>
+                <option value="SLTP">SLTP / SMP</option>
+                <option value="SLTA">SLTA / SMA</option>
+                <option value="S1">S1 / Diploma</option>
+                {/* INJEKSI MUTLAK: Tambahan S2 dan S3 */}
+                <option value="S2">S2 / Magister</option>
+                <option value="S3">S3 / Doktoral</option>
               </select>
             </div>
             <div>
@@ -108,9 +112,10 @@ export default function SuratClient({ warga }: { warga: any }) {
       </div>
 
       {/* --------------------------------------------------------- */}
-      {/* PANEL CETAK (KERTAS A4) - KLONING MUTLAK MODEL AA. 04       */}
+      {/* PANEL PREVIEW & CETAK - KLONING MUTLAK MODEL AA. 04       */}
       {/* --------------------------------------------------------- */}
-      <div className="hidden print:block w-full max-w-[210mm] min-h-[297mm] mx-auto bg-white text-black font-sans text-[13px] leading-snug">
+      {/* PERUBAHAN MUTLAK: 'hidden print:block' dicabut, diganti shadow & border untuk layar monitor */}
+      <div className="w-full max-w-[210mm] min-h-[297mm] bg-white text-black font-sans text-[13px] leading-snug shadow-2xl print:shadow-none border border-slate-300 print:border-none p-8 sm:p-12 print:p-0 relative">
         
         {/* KOP SURAT */}
         <div className="flex justify-between items-start mb-1">
