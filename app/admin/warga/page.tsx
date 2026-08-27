@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
-import bcrypt from "bcryptjs"; // WAJIB untuk enkripsi PIN default
+import bcrypt from "bcryptjs"; // WAJIB untuk enkripsi PIN default dan Reset PIN
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -67,7 +67,6 @@ export default async function WargaAdminPage() {
     }
   }
 
-  // INJEKSI MUTLAK: Mesin Import CSV Server-Side
   async function importWargaMassal(dataWarga: any[]) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -75,14 +74,12 @@ export default async function WargaAdminPage() {
     const rtId = adminAktif.rt_id;
     if (!rtId) throw new Error("Akses Ditolak: Gagal mengidentifikasi ID RT Anda.");
 
-    // Enkripsi PIN Default "123456" untuk semua warga yang di-import
     const defaultPinHash = await bcrypt.hash("123456", 10);
     
     let berhasil = 0;
     let gagal = 0;
 
     for (const w of dataWarga) {
-      // Lewati baris kosong atau tanpa NIK/Nama
       if (!w.nik || !w.nama_lengkap) {
         gagal++;
         continue;
@@ -98,7 +95,7 @@ export default async function WargaAdminPage() {
         tempat_lahir: String(w.tempat_lahir || "").trim(),
         jenis_kelamin: String(w.jenis_kelamin || "Laki-laki").trim(),
         pekerjaan: String(w.pekerjaan || "").trim(),
-        status_verifikasi: "Disetujui", // Langsung sah karena admin yang masukin
+        status_verifikasi: "Disetujui", 
         pin: defaultPinHash,
         rt_id: rtId
       };
@@ -122,5 +119,36 @@ export default async function WargaAdminPage() {
     return { berhasil, gagal };
   }
 
-  return <WargaAdminClient wargaList={wargaRes || []} aksiHapus={hapusWarga} aksiUbahStatus={ubahStatusWarga} aksiImportMassal={importWargaMassal} />;
+  // ------------------------------------------------------------------
+  // INJEKSI MUTLAK: Mesin Reset PIN Warga 
+  // (Bagian ini yang tadi hilang dan bikin TypeScript menjerit)
+  // ------------------------------------------------------------------
+  async function resetPinWarga(idTarget: string, pinBaru: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Hancurkan PIN baru menjadi Hash sebelum masuk DB
+    const hashedPin = await bcrypt.hash(pinBaru, 10);
+
+    const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", idTarget).single();
+
+    const { error } = await supabase.from("warga").update({ pin: hashedPin }).eq("id", idTarget);
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama,
+      aksi: "Reset PIN Warga",
+      tabel_target: "warga",
+      detail: `Mereset paksa PIN akses milik: ${target?.nama_lengkap}`
+    }]);
+  }
+
+  // INJEKSI MUTLAK: aksiResetPin disematkan ke dalam return komponen
+  return <WargaAdminClient 
+            wargaList={wargaRes || []} 
+            aksiHapus={hapusWarga} 
+            aksiUbahStatus={ubahStatusWarga} 
+            aksiImportMassal={importWargaMassal} 
+            aksiResetPin={resetPinWarga} 
+         />;
 }
