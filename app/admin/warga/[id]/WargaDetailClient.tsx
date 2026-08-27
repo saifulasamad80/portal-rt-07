@@ -36,7 +36,10 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-black text-slate-800">{warga.nama_lengkap}</h1>
-            <p className="text-sm text-slate-500 font-mono font-bold mt-1">NIK: {warga.nik}</p>
+            {/* INJEKSI MUTLAK: MASKING NIK KEPALA KELUARGA */}
+            <p className="text-sm text-slate-500 font-mono font-bold mt-1">
+              NIK: {warga.nik ? `${warga.nik.slice(0, 4)}********${warga.nik.slice(-4)}` : '-'}
+            </p>
           </div>
           <div className="flex items-center gap-3 w-full md:w-auto">
             <span className={`px-4 py-2 rounded-lg font-black text-xs uppercase tracking-widest ${
@@ -62,7 +65,15 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
               <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">TTL</span><span className="col-span-2 font-black text-slate-800">{warga.tempat_lahir}, {warga.tanggal_lahir}</span></div>
               <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">Gender</span><span className="col-span-2 font-black text-slate-800">{warga.jenis_kelamin}</span></div>
               <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">Pekerjaan</span><span className="col-span-2 font-black text-slate-800">{warga.pekerjaan}</span></div>
-              <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">WhatsApp</span><span className="col-span-2 font-mono font-bold text-blue-600">{warga.no_whatsapp}</span></div>
+              
+              {/* INJEKSI MUTLAK: MASKING NOMOR WHATSAPP KEPALA KELUARGA */}
+              <div className="grid grid-cols-3">
+                <span className="text-slate-500 font-bold">WhatsApp</span>
+                <span className="col-span-2 font-mono font-bold text-blue-600">
+                  {warga.no_whatsapp ? `${warga.no_whatsapp.slice(0, 4)}****${warga.no_whatsapp.slice(-4)}` : '-'}
+                </span>
+              </div>
+              
               <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">Tempat Tinggal</span><span className="col-span-2 font-black text-slate-800">{warga.status_tinggal} <br/><span className="text-xs text-slate-500">{warga.detail_alamat}</span></span></div>
             </div>
           </div>
@@ -119,7 +130,10 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                       <tr key={ak.id} className="border-b hover:bg-slate-50">
                         <td className="p-3">
                           <div className="font-black text-slate-800">{ak.nama_lengkap}</div>
-                          <div className="font-mono text-[10px] text-slate-500">{ak.nik}</div>
+                          {/* INJEKSI MUTLAK: MASKING NIK ANGGOTA KELUARGA */}
+                          <div className="font-mono text-[10px] text-slate-500">
+                            {ak.nik ? `${ak.nik.slice(0, 4)}********${ak.nik.slice(-4)}` : '-'}
+                          </div>
                         </td>
                         <td className="p-3 text-xs">
                           <div className="font-bold">{ak.tempat_lahir}, {ak.tanggal_lahir}</div>

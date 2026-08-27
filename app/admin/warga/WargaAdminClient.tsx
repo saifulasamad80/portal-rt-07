@@ -207,8 +207,16 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                     <tr key={w.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                       <td className="p-4 align-top">
                         <div className="font-black text-slate-800 text-base mb-1">{w.nama_lengkap}</div>
-                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-slate-200 px-2 py-0.5 rounded w-fit mb-1">NIK: {w.nik}</div>
-                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit mb-2">WA: {w.no_whatsapp}</div>
+                        
+                        {/* INJEKSI MUTLAK: UU PDP Data Masking (Menyembunyikan 8 digit tengah NIK) */}
+                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-slate-200 px-2 py-0.5 rounded w-fit mb-1">
+                          NIK: {w.nik ? `${w.nik.slice(0, 4)}********${w.nik.slice(-4)}` : '-'}
+                        </div>
+                        
+                        {/* INJEKSI MUTLAK: Menyembunyikan 4 digit tengah WA */}
+                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit mb-2">
+                          WA: {w.no_whatsapp ? `${w.no_whatsapp.slice(0, 4)}****${w.no_whatsapp.slice(-4)}` : '-'}
+                        </div>  
                         
                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm inline-block ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                           Login: {w.status_verifikasi === 'Disetujui' ? 'SAH' : 'DIBLOKIR'}
