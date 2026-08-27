@@ -24,9 +24,9 @@ export default async function TabunganKurbanWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // INJEKSI MUTLAK: Mengarahkan tembakan ke tabel tabungan_kurban
+  // INJEKSI MUTLAK: Mengarahkan tembakan ke tabel transaksi_kurban (Sesuai Admin)
   const { data } = await supabaseAdmin
-    .from("tabungan_kurban")
+    .from("transaksi_kurban")
     .select("*")
     .eq("warga_id", wargaAktif.id)
     .order("tanggal_transaksi", { ascending: false });

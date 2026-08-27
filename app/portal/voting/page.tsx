@@ -24,13 +24,16 @@ export default async function PortalVotingPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: votingAktif } = await supabaseAdmin
+  // INJEKSI MUTLAK: maybeSingle() DIBUNUH. Diganti dengan penarikan Array aman.
+  const { data: votingAktifList } = await supabaseAdmin
     .from("voting_rt")
     .select("*")
     .eq("status", "Aktif")
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  // Ambil data pertama jika ada (Anti-Crash meskipun Admin bikin 10 voting aktif)
+  const votingAktif = votingAktifList && votingAktifList.length > 0 ? votingAktifList[0] : null;
 
   let suaraKu = null;
   if (votingAktif) {
@@ -38,9 +41,10 @@ export default async function PortalVotingPage() {
       .from("suara_voting")
       .select("*")
       .eq("voting_id", votingAktif.id)
-      .eq("warga_id", wargaAktif.id)
-      .maybeSingle();
-    suaraKu = cekSuara;
+      .eq("warga_id", wargaAktif.id);
+      
+    // Penyesuaian aman untuk pencarian suara
+    suaraKu = cekSuara && cekSuara.length > 0 ? cekSuara[0] : null;
   }
 
   async function kirimSuara(votingId: string, pilihanTeks: string) {
@@ -48,8 +52,8 @@ export default async function PortalVotingPage() {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
     // Validasi Ganda di Server (Anti Cheat)
-    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", wargaAktif.id).maybeSingle();
-    if (validasi) throw new Error("Suara Anda sudah terekam sebelumnya. Dilarang memilih ganda!");
+    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", wargaAktif.id);
+    if (validasi && validasi.length > 0) throw new Error("Suara Anda sudah terekam sebelumnya. Dilarang memilih ganda!");
 
     const { error } = await supabase.from("suara_voting").insert([{
       voting_id: votingId,
