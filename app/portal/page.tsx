@@ -24,11 +24,21 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
+  // 1. Tarik Data Utama Warga
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
     .select("*")
     .eq("id", wargaAktif.id)
     .single();
+
+  // 2. INJEKSI MUTLAK: Pengecekan Status Sensus Kesejahteraan (Anti-Crash)
+  const { data: sensusWarga } = await supabaseAdmin
+    .from("sensus_kesejahteraan")
+    .select("id")
+    .eq("warga_id", wargaAktif.id)
+    .maybeSingle();
+
+  const isSensusLengkap = !!sensusWarga;
 
   const handleLogout = async () => {
     "use server";
@@ -48,6 +58,7 @@ export default async function PortalWarga() {
 
       <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6 mt-6">
         
+        {/* KARTU SAMBUTAN */}
         <div className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <h1 className="text-2xl font-black text-slate-800">Halo, {profilWarga?.nama_lengkap || wargaAktif.nama}!</h1>
@@ -59,6 +70,29 @@ export default async function PortalWarga() {
           </div>
         </div>
 
+        {/* INJEKSI MUTLAK: BLOK UI FOMO SENSUS (Hanya muncul jika belum mengisi) */}
+        {!isSensusLengkap && (
+          <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-rose-300">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
+            <div className="flex items-start md:items-center gap-4 w-full">
+              <div className="text-3xl animate-pulse hidden md:block">⚠️</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <h2 className="font-black text-rose-800 text-sm uppercase tracking-widest">Sensus Profil Keluarga</h2>
+                  <span className="bg-rose-200 text-rose-800 text-[9px] px-2 py-0.5 rounded font-black shadow-sm">BELUM LENGKAP (0%)</span>
+                </div>
+                <p className="text-xs text-rose-700 font-medium leading-relaxed max-w-2xl">
+                  Segera lengkapi Sensus Demografi ini untuk membuka kunci kelayakan Anda dalam menerima <strong>Bantuan Sosial (Bansos), Fasilitas Posyandu, dan Program Kelurahan</strong>.
+                </p>
+              </div>
+            </div>
+            <Link href="/portal/sensus" className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] px-6 py-3.5 rounded-lg shadow-md transition-all active:scale-95 text-center shrink-0 uppercase tracking-widest">
+              Isi Sensus Sekarang
+            </Link>
+          </div>
+        )}
+
+        {/* MENU DASHBOARD UTAMA */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link href="/portal/keuangan" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
             <h2 className="font-bold text-slate-800 mb-2">💰 Transparansi & Iuran</h2><p className="text-xs text-slate-500 leading-relaxed">Cek saldo kas RT dan riwayat pembayaran.</p>
@@ -67,7 +101,6 @@ export default async function PortalWarga() {
             <h2 className="font-bold text-slate-800 mb-2">📄 Layanan Surat</h2><p className="text-xs text-slate-500 leading-relaxed">Cetak surat pengantar RT secara mandiri.</p>
           </Link>
           
-          {/* INJEKSI MUTLAK: MENU PASAR WARGA DI BUKA DI SINI */}
           <Link href="/portal/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-orange-300 hover:shadow-lg hover:-translate-y-1 block">
             <h2 className="font-bold text-slate-800 mb-2">🏪 Pasar Warga (UMKM)</h2><p className="text-xs text-slate-500 leading-relaxed">Katalog jasa & dagangan tetangga. Pesan langsung via WhatsApp.</p>
           </Link>
