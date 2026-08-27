@@ -6,7 +6,12 @@ import Link from "next/link";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+// SECURITY FIX: Hapus fallback string. Paksa server melempar error jika ENV bocor!
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+
+// INJEKSI MUTLAK: FEATURE FLAG (Sakelar Fitur)
+// Ubah menjadi 'true' jika Pak RT sudah mengizinkan fitur ini rilis.
+const FITUR_LAPOR_AKTIF = false;
 
 export default async function PortalWarga() {
   const cookieStore = await cookies();
@@ -31,7 +36,7 @@ export default async function PortalWarga() {
     .eq("id", wargaAktif.id)
     .single();
 
-  // 2. INJEKSI MUTLAK: Pengecekan Status Sensus Kesejahteraan (Anti-Crash)
+  // 2. Pengecekan Status Sensus Kesejahteraan (Anti-Crash)
   const { data: sensusWarga } = await supabaseAdmin
     .from("sensus_kesejahteraan")
     .select("id")
@@ -70,7 +75,7 @@ export default async function PortalWarga() {
           </div>
         </div>
 
-        {/* INJEKSI MUTLAK: BLOK UI FOMO SENSUS (Hanya muncul jika belum mengisi) */}
+        {/* BLOK UI FOMO SENSUS */}
         {!isSensusLengkap && (
           <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-rose-300">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
@@ -120,9 +125,12 @@ export default async function PortalWarga() {
             <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
           </Link>
 
-          <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
-            <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Buat tiket laporan fasilitas rusak dengan sistem tracking otomatis.</p>
-          </Link>
+          {/* LOGIKA SAKELAR: Render UI hanya jika FITUR_LAPOR_AKTIF bernilai true */}
+          {FITUR_LAPOR_AKTIF && (
+            <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
+              <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Buat tiket laporan fasilitas rusak dengan sistem tracking otomatis.</p>
+            </Link>
+          )}
           
           <Link href="/portal/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
             <h2 className="font-bold text-white mb-2 flex items-center gap-2">🔦 Jadwal Siskamling</h2><p className="text-xs text-slate-400 leading-relaxed">Cek jadwal tugas ronda malam Anda dan konfirmasi kehadiran.</p>
