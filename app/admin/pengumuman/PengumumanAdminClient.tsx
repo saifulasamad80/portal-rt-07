@@ -3,13 +3,37 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksiSimpan }: { adminAktif: any, pengumumanList: any[], aksiSimpan: any }) {
+export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksiSimpan, aksiEdit, aksiHapus }: { adminAktif: any, pengumumanList: any[], aksiSimpan: any, aksiEdit: any, aksiHapus: any }) {
+  const router = useRouter();
+  
+  // STATE UNTUK FORM
   const [judul, setJudul] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [linkDokumen, setLinkDokumen] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
-  const router = useRouter();
+  
+  // STATE UNTUK MODE EDIT & HAPUS
+  const [modeEditId, setModeEditId] = useState<string | null>(null);
+  const [loadingHapusId, setLoadingHapusId] = useState<string | null>(null);
 
+  // Memicu Form masuk ke Mode Edit
+  const handleKlikEdit = (p: any) => {
+    setModeEditId(p.id);
+    setJudul(p.judul);
+    setDeskripsi(p.deskripsi);
+    setLinkDokumen(p.link_dokumen || "");
+    // Scroll otomatis ke atas agar user melihat form
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const batalkanEdit = () => {
+    setModeEditId(null);
+    setJudul("");
+    setDeskripsi("");
+    setLinkDokumen("");
+  };
+
+  // EKSEKUSI SIMPAN / UPDATE
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -20,25 +44,35 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
 
     setSubmitLoading(true);
     try {
-      await aksiSimpan(judul, deskripsi, linkDokumen);
-      alert("Sempurna! Pengumuman berhasil dipublikasikan.");
-      setJudul(""); setDeskripsi(""); setLinkDokumen(""); 
+      if (modeEditId) {
+        await aksiEdit(modeEditId, judul, deskripsi, linkDokumen);
+        alert("Sempurna! Pengumuman berhasil diperbarui.");
+      } else {
+        await aksiSimpan(judul, deskripsi, linkDokumen);
+        alert("Sempurna! Pengumuman baru berhasil dipublikasikan.");
+      }
+      
+      batalkanEdit(); // Bersihkan form
       router.refresh();
     } catch (error: any) {
-      alert("Gagal mempublikasikan: " + error.message);
+      alert("Terjadi kesalahan: " + error.message);
     }
     setSubmitLoading(false);
   };
 
-  // INJEKSI MUTLAK: Generator Pesan Clickbait ke WhatsApp
-  const handleShareWA = (judulPengumuman: string) => {
-    // Otomatis mengambil domain vercel lu saat ini
-    const domainPortal = window.location.origin; 
+  // EKSEKUSI HAPUS
+  const handleHapus = async (id: string, judulPengumuman: string) => {
+    if (!confirm(`YAKIN INGIN MENGHAPUS PERMANEN pengumuman "${judulPengumuman}"? Siaran ini akan hilang dari halaman warga.`)) return;
     
-    const pesanClickbait = `📢 *INFORMASI TERBARU RT 07* 📢\n\n*${judulPengumuman}*\n\nBapak/Ibu warga RT 07, terdapat edaran/informasi resmi terbaru dari pengurus lingkungan kita.\n\nSilakan cek detail selengkapnya di Portal Warga:\n👉 ${domainPortal}\n\n_Dimohon kerjasamanya untuk selalu mengecek portal. Terima kasih._`;
-    
-    const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(pesanClickbait)}`;
-    window.open(waLink, '_blank');
+    setLoadingHapusId(id);
+    try {
+      await aksiHapus(id);
+      if (modeEditId === id) batalkanEdit(); // Kalau kebetulan yang dihapus lagi diedit, tutup formnya
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal menghapus: " + error.message);
+    }
+    setLoadingHapusId(null);
   };
 
   return (
@@ -51,13 +85,25 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
 
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] mb-8 border border-slate-800">
           <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Pusat Informasi RT 07</h1>
-          <p className="text-slate-400 text-sm font-medium">Sebarkan surat edaran, undangan, dan galeri resmi ke portal warga.</p>
+          <p className="text-slate-400 text-sm font-medium">Sebarkan, edit, atau tarik siaran edaran resmi dari portal warga.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-1 h-fit">
-            <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2">📢 Buat Siaran Baru</h2>
+          {/* PANEL KIRI: FORM DINAMIS (CREATE/EDIT) */}
+          <div className={`bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-1 h-fit transition-all duration-300 ${modeEditId ? 'ring-2 ring-amber-400 shadow-amber-100/50' : ''}`}>
+            
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+              <h2 className="font-black text-lg text-slate-800 flex items-center gap-2">
+                {modeEditId ? "✏️ Edit Siaran" : "📢 Buat Siaran Baru"}
+              </h2>
+              {modeEditId && (
+                <button type="button" onClick={batalkanEdit} className="text-[10px] bg-rose-50 text-rose-600 font-bold px-3 py-1.5 rounded hover:bg-rose-100 transition-colors uppercase tracking-widest">
+                  Batal Edit
+                </button>
+              )}
+            </div>
+
             <form onSubmit={handleSimpan} className="space-y-5">
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Judul Pengumuman</label>
@@ -72,12 +118,14 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                 <input type="url" className="w-full border border-slate-300 rounded-lg p-3 text-slate-900 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50 focus:bg-white" placeholder="https://drive.google.com/..." value={linkDokumen} onChange={(e) => setLinkDokumen(e.target.value)} />
                 <p className="text-[10px] text-slate-400 mt-2 font-medium">*Link GDrive akan otomatis menjadi Ikon Folder 📂 di halaman depan warga.</p>
               </div>
-              <button type="submit" disabled={submitLoading} className={`w-full h-12 flex items-center justify-center text-white font-bold rounded-lg shadow-md mt-6 transition-all active:scale-95 ${submitLoading ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {submitLoading ? "Mempublikasikan..." : "Sebarkan Sekarang"}
+              
+              <button type="submit" disabled={submitLoading} className={`w-full h-12 flex items-center justify-center text-white font-bold rounded-lg shadow-md mt-6 transition-all active:scale-95 ${submitLoading ? 'bg-slate-300 cursor-not-allowed shadow-none' : (modeEditId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700')}`}>
+                {submitLoading ? "Memproses..." : (modeEditId ? "Update Siaran" : "Sebarkan Sekarang")}
               </button>
             </form>
           </div>
 
+          {/* PANEL KANAN: DAFTAR PENGUMUMAN */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-2">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2">📋 Riwayat Siaran Anda</h2>
             <div className="space-y-5">
@@ -85,26 +133,40 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                 <div className="p-10 text-center text-slate-400 font-medium italic border border-dashed border-slate-300 rounded-xl bg-slate-50">Belum ada pengumuman yang disebarkan.</div>
               ) : (
                 pengumumanList.map((p) => (
-                  <div key={p.id} className="p-6 border border-slate-100 rounded-xl bg-slate-50 hover:bg-white hover:border-blue-200 transition-all shadow-sm hover:shadow-md">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
-                      <h3 className="font-black text-slate-800 text-lg leading-tight">{p.judul}</h3>
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full font-black uppercase tracking-widest shrink-0">
-                        {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-                      </span>
-                    </div>
+                  <div key={p.id} className={`p-6 border rounded-xl transition-all shadow-sm flex flex-col md:flex-row gap-6 ${modeEditId === p.id ? 'border-amber-400 bg-amber-50/30' : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-blue-200 hover:shadow-md'}`}>
                     
-                    <p className="text-slate-600 text-sm whitespace-pre-wrap mb-5 leading-relaxed">{p.deskripsi}</p>
-                    
-                    {/* INJEKSI MUTLAK: Baris Tombol Aksi (Link Lampiran & Share WA) */}
-                    <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-200">
+                    {/* KONTEN PENGUMUMAN */}
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <h3 className="font-black text-slate-800 text-lg leading-tight">{p.judul}</h3>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full font-black uppercase tracking-widest shrink-0">
+                          {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-sm whitespace-pre-wrap mb-5 leading-relaxed">{p.deskripsi}</p>
+                      
                       {p.link_dokumen && (
                         <a href={p.link_dokumen} target="_blank" rel="noopener noreferrer" className="text-xs bg-white border border-slate-200 text-blue-700 px-5 py-2.5 rounded-lg font-bold hover:bg-blue-50 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
-                          <span>{p.link_dokumen.includes("drive.google.com") ? '📂 Buka Folder Galeri' : '📄 Buka Dokumen'}</span>
+                          <span>{p.link_dokumen.includes("drive.google.com") ? '📂 Buka Folder Galeri' : '📄 Buka Dokumen Lampiran'}</span>
                         </a>
                       )}
-                      
-                      <button onClick={() => handleShareWA(p.judul)} className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-2.5 rounded-lg font-bold hover:bg-emerald-100 hover:border-emerald-300 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
-                        <span className="text-emerald-500 text-base">💬</span> Beri Tahu di Grup WA
+                    </div>
+
+                    {/* TOMBOL AKSI (EDIT & HAPUS) */}
+                    <div className="flex flex-row md:flex-col gap-2 shrink-0 md:border-l md:border-slate-200 md:pl-6 pt-4 md:pt-0 border-t border-slate-200 md:border-t-0 justify-end md:justify-start">
+                      <button 
+                        onClick={() => handleKlikEdit(p)} 
+                        disabled={loadingHapusId === p.id}
+                        className="bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-600 text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider disabled:opacity-50 flex-1 md:flex-none text-center"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button 
+                        onClick={() => handleHapus(p.id, p.judul)} 
+                        disabled={loadingHapusId === p.id}
+                        className="bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider disabled:opacity-50 flex-1 md:flex-none text-center"
+                      >
+                        {loadingHapusId === p.id ? "⌛" : "🗑️ Hapus"}
                       </button>
                     </div>
 
