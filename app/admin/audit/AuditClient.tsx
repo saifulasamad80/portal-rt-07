@@ -7,6 +7,14 @@ import autoTable from "jspdf-autotable";
 export default function AuditClient({ logs }: { logs: any[] }) {
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  // INJEKSI MUTLAK: Mesin Pembunuh Emoji & Unicode
+  // Fungsinya menyapu bersih karakter aneh yang bikin jsPDF meledak
+  const sanitasiTeks = (str: string) => {
+    if (!str) return "-";
+    // Regex ini HANYA mengizinkan huruf, angka, dan simbol standar keyboard
+    return str.replace(/[^\x20-\x7E]/g, '');
+  };
+
   const handleExportPDF = () => {
     setPdfLoading(true);
     try {
@@ -21,12 +29,13 @@ export default function AuditClient({ logs }: { logs: any[] }) {
       doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 27);
       doc.text(`Total Log Terekam: ${logs.length} Aktivitas Terbaru`, 14, 32);
 
+      // FAKTA: Semua data disaring oleh sanitasiTeks sebelum masuk PDF
       const tableData = logs.map(l => [
         new Date(l.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }),
-        l.aktor,
-        l.aksi,
-        l.tabel_target,
-        l.detail || "-"
+        sanitasiTeks(l.aktor),
+        sanitasiTeks(l.aksi),
+        sanitasiTeks(l.tabel_target),
+        sanitasiTeks(l.detail)
       ]);
 
       autoTable(doc, {
