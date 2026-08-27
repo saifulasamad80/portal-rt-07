@@ -5,6 +5,12 @@ import Link from "next/link";
 export default function SuratClient({ warga }: { warga: any }) {
   const [keperluan, setKeperluan] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  
+  // INJEKSI MUTLAK: State tambahan untuk data fisik yang tidak ada di database
+  const [agama, setAgama] = useState("Islam");
+  const [pendidikan, setPendidikan] = useState("SLTA");
+  const [statusKawin, setStatusKawin] = useState("Kawin");
+  const [kewarganegaraan, setKewarganegaraan] = useState("WNI");
 
   const handlePrint = () => {
     window.print();
@@ -12,10 +18,6 @@ export default function SuratClient({ warga }: { warga: any }) {
 
   const today = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
   
-  // INJEKSI MUTLAK: Penambalan logika bulan agar tidak cacat di Oktober-Desember (L2 Fix)
-  const bulan = String(new Date().getMonth() + 1).padStart(2, '0');
-  const nomorSurat = `${bulan} / RT.07 / ${new Date().getFullYear()}`;
-
   const daftarKeperluan = [
     "KTP Baru", "Perpanjangan KTP", "KTP Sementara", 
     "Kartu Keluarga Baru", "Pengantar SKCK", 
@@ -23,25 +25,58 @@ export default function SuratClient({ warga }: { warga: any }) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 print:p-0 print:bg-white flex flex-col items-center">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6 print:p-0 print:bg-white flex flex-col items-center font-sans">
+      
+      {/* --------------------------------------------------------- */}
+      {/* PANEL LAYAR HP/LAPTOP (DISEMBUNYIKAN SAAT PRINT)          */}
+      {/* --------------------------------------------------------- */}
       <div className="w-full max-w-4xl print:hidden space-y-6">
-        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
-          <p className="text-sm text-slate-500 mb-8">Pilih keperluan Anda di bawah ini, lalu cetak surat secara instan.</p>
+        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block">&larr; Kembali ke Dasbor</Link>
+        <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-200">
+          <h1 className="text-2xl font-black text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
+          <p className="text-sm text-slate-500 mb-6 border-b border-slate-100 pb-6">Lengkapi data tambahan di bawah ini, lalu cetak surat secara instan untuk dibawa ke rumah RT.</p>
           
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-3">Pilih Keperluan Surat</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Agama</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={agama} onChange={e => setAgama(e.target.value)}>
+                <option value="Islam">Islam</option><option value="Kristen">Kristen</option>
+                <option value="Katholik">Katholik</option><option value="Hindu">Hindu</option><option value="Budha">Budha</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Pendidikan Terakhir</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={pendidikan} onChange={e => setPendidikan(e.target.value)}>
+                <option value="SD">SD</option><option value="SLTP">SLTP / SMP</option>
+                <option value="SLTA">SLTA / SMA</option><option value="S1">S1 / Diploma</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Status Perkawinan</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={statusKawin} onChange={e => setStatusKawin(e.target.value)}>
+                <option value="Kawin">Kawin</option><option value="Belum Kawin">Belum Kawin</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Kewarganegaraan</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={kewarganegaraan} onChange={e => setKewarganegaraan(e.target.value)}>
+                <option value="WNI">WNI</option><option value="WNA">WNA</option><option value="Keturunan">Keturunan</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-6 pt-2 border-t border-slate-100">
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-3 uppercase tracking-widest">Pilih Keperluan Surat</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {daftarKeperluan.map((item) => (
                   <button
                     key={item}
                     onClick={() => setKeperluan(item)}
-                    className={`p-3 rounded-lg border text-sm font-semibold transition-all duration-200 text-left ${
+                    className={`p-3 rounded-lg border text-xs font-bold transition-all duration-200 text-center active:scale-95 ${
                       keperluan === item
                         ? "bg-blue-600 text-white border-blue-600 shadow-md transform -translate-y-0.5"
-                        : "bg-white text-slate-600 border-slate-300 hover:border-blue-400 hover:bg-blue-50"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:bg-blue-50"
                     }`}
                   >
                     {item}
@@ -51,11 +86,11 @@ export default function SuratClient({ warga }: { warga: any }) {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Keterangan Tambahan (Opsional)</label>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Detail Keperluan (Opsional)</label>
               <input 
                 type="text" 
-                className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                placeholder="Tulis detail tambahan jika diperlukan..." 
+                className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium" 
+                placeholder="Tuliskan spesifikasi detail dari keperluan di atas..." 
                 value={keterangan} 
                 onChange={e => setKeterangan(e.target.value)} 
               />
@@ -64,42 +99,154 @@ export default function SuratClient({ warga }: { warga: any }) {
             <button 
               onClick={handlePrint} 
               disabled={!keperluan} 
-              className="w-full bg-blue-600 text-white font-bold px-6 py-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none transition-all mt-4 text-lg"
+              className="w-full bg-slate-900 text-white font-black uppercase tracking-widest px-6 py-4 rounded-lg shadow-xl hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none transition-all mt-4 text-sm flex items-center justify-center gap-2"
             >
-              Cetak Kertas Sekarang
+              🖨️ Cetak Kertas Pengantar
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto mt-8 bg-white p-12 shadow-2xl print:shadow-none print:m-0 print:p-0 text-black w-full">
-         <div className="text-center border-b-[3px] border-black pb-4 mb-8">
-           <h2 className="text-2xl font-black uppercase tracking-wide">Rukun Tetangga (RT) 07</h2>
-         </div>
-         <div className="text-center mb-10">
-           <h1 className="text-xl font-bold underline">SURAT PENGANTAR</h1>
-           <p className="text-sm mt-1 font-semibold">Nomor: {nomorSurat}</p>
-         </div>
-         <div className="space-y-4 text-justify leading-relaxed text-[15px]">
-           <p>Yang bertanda tangan di bawah ini Ketua RT 07 menerangkan bahwa:</p>
-           <table className="w-full ml-8 my-4">
-             <tbody>
-               <tr><td className="w-56 py-1.5">Nama Lengkap</td><td className="w-4">:</td><td className="font-bold">{warga.nama_lengkap}</td></tr>
-               <tr><td className="py-1.5">NIK</td><td>:</td><td className="font-mono font-bold">{warga.nik}</td></tr>
-               <tr><td className="py-1.5">Alamat</td><td>:</td><td>{warga.detail_alamat}, RT 07</td></tr>
-             </tbody>
-           </table>
-           <p>Adalah benar warga kami untuk keperluan: <b>{keperluan} {keterangan && `- ${keterangan}`}</b></p>
-         </div>
-         <div className="mt-20 flex justify-end">
-           <div className="text-center w-64">
-             <p>{today}</p>
-             <p className="font-bold">Ketua RT 07</p>
-             <br/><br/><br/>
-             <p className="font-bold underline">_________________________</p>
-           </div>
-         </div>
+      {/* --------------------------------------------------------- */}
+      {/* PANEL CETAK (KERTAS A4) - KLONING MUTLAK MODEL AA. 04       */}
+      {/* --------------------------------------------------------- */}
+      <div className="hidden print:block w-full max-w-[210mm] min-h-[297mm] mx-auto bg-white text-black font-sans text-[13px] leading-snug">
+        
+        {/* KOP SURAT */}
+        <div className="flex justify-between items-start mb-1">
+          <div className="uppercase font-bold tracking-wide">
+            <div>Kecamatan : Kramat Jati</div>
+            <div>Kelurahan : Tengah</div>
+            <div>RT. 07 / RW. 09</div>
+            <div>Jakarta Timur</div>
+          </div>
+          <div className="font-bold">
+            Model AA. 04.
+          </div>
+        </div>
+        
+        {/* GARIS GANDA */}
+        <div className="border-t-2 border-black w-1/3 mb-[2px]"></div>
+        <div className="border-t-[1px] border-black w-1/3 mb-8"></div>
+
+        {/* JUDUL SURAT */}
+        <div className="text-center mb-8">
+          <h1 className="text-xl font-bold tracking-[0.2em] mb-1">SURAT - PENGANTAR</h1>
+          <p className="text-lg font-bold">No. ........................................</p>
+        </div>
+
+        {/* KALIMAT PEMBUKA */}
+        <div className="mb-4 text-justify">
+          Yang bertanda tangan di bawah ini, Pengurus RT. 07 / 09 Kelurahan Tengah Kecamatan Kramat Jati dengan ini menerangkan bahwa :
+        </div>
+
+        {/* TABEL ISIAN */}
+        <div className="ml-0 mb-6">
+          <table className="w-full text-left">
+            <tbody className="align-top">
+              <tr>
+                <td className="w-[30%] py-1">Nama</td>
+                <td className="w-[3%] py-1">:</td>
+                <td className="py-1 font-bold">{warga.nama_lengkap}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Jenis Kelamin</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{warga.jenis_kelamin}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Tempat / Tgl. Lahir</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{warga.tempat_lahir}, {new Date(warga.tanggal_lahir).toLocaleDateString('id-ID', {day: '2-digit', month: 'long', year: 'numeric'})}</td>
+              </tr>
+              <tr>
+                <td className="py-1">No. KTP. KK</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold font-mono text-sm">{warga.nik}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Kewarganegaraan</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{kewarganegaraan} <span className="font-normal text-gray-500 line-through decoration-black">/ {kewarganegaraan === 'WNI' ? 'WNA / Keturunan' : kewarganegaraan === 'WNA' ? 'WNI / Keturunan' : 'WNI / WNA'}</span></td>
+              </tr>
+              <tr>
+                <td className="py-1">Pendidikan</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{pendidikan}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Agama</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{agama}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Status</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{statusKawin} <span className="font-normal text-gray-500 line-through decoration-black">/ {statusKawin === 'Kawin' ? 'Belum Kawin' : 'Kawin'}</span></td>
+              </tr>
+              <tr>
+                <td className="py-1">Pekerjaan</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{warga.pekerjaan}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Alamat</td>
+                <td className="py-1">:</td>
+                <td className="py-1">
+                  <span className="font-bold">{warga.detail_alamat}</span> RT. 07 / RW. 09<br/>
+                  Kel. <span className="font-bold">Tengah</span> Kec. <span className="font-bold">Kramat Jati</span>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-3">Maksud / Keperluan</td>
+                <td className="py-3">:</td>
+                <td className="py-3">
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] font-bold">
+                    {keperluan} {keterangan ? `- ${keterangan}` : ''}
+                  </div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* BAGIAN TANDA TANGAN */}
+        <div className="flex justify-between items-start mt-10">
+          <div className="text-center w-[40%]">
+            <div className="text-left mb-2">Nomor : .................................</div>
+            <div className="mb-20">
+              Mengetahui<br/>
+              Pengurus Rw. 09<br/>
+              Ketua
+            </div>
+            <div>( ......................................... )</div>
+            <div className="text-[9px] text-left mt-4 leading-tight">
+              Lembar Putih Untuk Kelurahan<br/>
+              Lembar Biru Untuk Arsip RW<br/>
+              Lembar Kuning Untuk Arsip RT
+            </div>
+          </div>
+          
+          <div className="text-center w-[40%]">
+            <div className="text-left mb-2">Jakarta, .................................</div>
+            <div className="mb-20">
+              Pengurus Rt. 07 / 09<br/>
+              Kel. Tengah
+            </div>
+            <div>( ......................................... )</div>
+            <div className="text-[9px] text-left mt-4">
+              Catatan :<br/>
+              BAWALAH KTP / KK serta surat-surat lain
+            </div>
+          </div>
+        </div>
+
       </div>
+
     </div>
   );
 }

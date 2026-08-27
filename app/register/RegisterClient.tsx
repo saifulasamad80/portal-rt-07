@@ -124,7 +124,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       if (errNik) return alert(errNik);
       
       const umur = hitungUmur(a.tglLahir);
-      // Validasi Umur Wajib KTP dikendalikan oleh Sakelar
       if (FITUR_KTP_AKTIF) {
         if (umur >= 17 && !a.fileKtp && !a.ktpMenyusul) {
           return alert(`${namaLabel} berumur ${umur} tahun. Wajib melampirkan foto KTP atau centang 'KTP Menyusul'.`);
@@ -132,7 +131,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       }
     }
 
-    // Validasi Kelengkapan Dokumen dikendalikan oleh Sakelar
     if (FITUR_KTP_AKTIF) {
       if (!dokumenMenyusul && (!fileKtp || !fileKk)) {
         return alert("Lampirkan KTP dan KK Kepala Keluarga, atau centang 'Dokumen Menyusul'.");
