@@ -242,12 +242,36 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
                 <option value="Warga Tetap">Warga Tetap (Rumah Pribadi)</option><option value="Penyewa Kos">Penyewa Kos</option><option value="Penyewa Kontrakan">Penyewa Kontrakan</option>
               </select>
             </div>
+            
+            {/* INJEKSI MUTLAK UX BUNGLON DIMULAI */}
             {statusTinggal && (
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg shadow-inner">
-                <label className="block text-xs font-black uppercase tracking-wider text-blue-800 mb-2">{statusTinggal === "Warga Tetap" ? "Blok / Nomor Rumah" : "Nama Properti & No. Kamar"}</label>
-                <input type="text" required className="w-full border-2 border-blue-200 rounded-lg p-3 font-bold" value={detailAlamat} onChange={(e) => setDetailAlamat(e.target.value)} />
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-inner animate-in fade-in slide-in-from-top-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-blue-900 mb-1">
+                  {statusTinggal === "Penyewa Kos" 
+                    ? "Nama Kos, Kamar & Alamat Lengkap" 
+                    : "Nama Gang / Komplek & Nomor Rumah"}
+                </label>
+                
+                <p className="text-[10px] text-blue-700 font-medium mb-3 leading-relaxed">
+                  *Tuliskan patokan jalan, nama komplek/kos, dan nomor. <strong className="text-rose-600 bg-rose-100 px-1 rounded">DILARANG</strong> menulis RT/RW dan Kelurahan karena akan otomatis tercetak di surat.
+                </p>
+
+                <input 
+                  type="text" 
+                  required 
+                  className="w-full border-2 border-blue-300 rounded-lg p-3 font-bold text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all placeholder:font-normal placeholder:text-slate-400" 
+                  placeholder={
+                    statusTinggal === "Penyewa Kos" 
+                      ? "Cth: Kos Ibu Budi Kamar 03, Gang Pelita No. 10" 
+                      : "Cth: Gang Pelita, Komplek Griya Awalin No. 28"
+                  }
+                  value={detailAlamat} 
+                  onChange={(e) => setDetailAlamat(e.target.value)} 
+                />
               </div>
             )}
+            {/* INJEKSI MUTLAK UX BUNGLON SELESAI */}
+
           </div>
 
           <div className="space-y-4 pb-6 border-b border-slate-200">
