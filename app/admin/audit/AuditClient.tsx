@@ -38,12 +38,13 @@ export default function AuditClient({ logs }: { logs: any[] }) {
         theme: 'grid',
         headStyles: { fillColor: [225, 29, 72] },
         styles: { fontSize: 8, font: "courier", overflow: 'linebreak', cellPadding: 3 }, 
+        // INJEKSI MUTLAK: Lebar absolut untuk kertas Landscape A4 (297mm)
         columnStyles: { 
           0: { cellWidth: 35 }, 
-          1: { cellWidth: 40 }, 
+          1: { cellWidth: 35 }, 
           2: { cellWidth: 50 }, 
           3: { cellWidth: 35 }, 
-          4: { cellWidth: 'auto' } // Memaksa teks bungkus otomatis
+          4: { cellWidth: 100 } // Dipaku 100mm. Total = 255mm (Aman dari margin)
         }
       });
 

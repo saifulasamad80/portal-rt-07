@@ -93,12 +93,22 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
 
         <div className="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
           <div><h1 className="text-2xl md:text-3xl font-black text-white mb-1">Manajemen Kas RT</h1><p className="text-slate-300 text-sm">Rekapitulasi iuran warga dan biaya operasional.</p></div>
-          <button onClick={handleExportPDF} disabled={pdfLoading || transaksiList.length === 0} className={`hidden md:flex items-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all ${pdfLoading ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
+          {/* TOMBOL DESKTOP */}
+          <button 
+            onClick={handleExportPDF} 
+            disabled={pdfLoading || transaksiList.length === 0}
+            className={`hidden md:flex items-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all ${pdfLoading || transaksiList.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+          >
             {pdfLoading ? "Merakit PDF..." : "📄 Cetak Laporan PDF"}
           </button>
         </div>
 
-        <button onClick={handleExportPDF} disabled={pdfLoading || transaksiList.length === 0} className={`w-full md:hidden flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all mb-4 ${pdfLoading ? 'bg-slate-600 text-slate-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
+        {/* TOMBOL MOBILE */}
+        <button 
+            onClick={handleExportPDF} 
+            disabled={pdfLoading || transaksiList.length === 0}
+            className={`w-full md:hidden flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all mb-4 ${pdfLoading || transaksiList.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
+          >
             {pdfLoading ? "Merakit PDF..." : "📄 Cetak Laporan PDF"}
         </button>
 
