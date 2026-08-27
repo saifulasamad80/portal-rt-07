@@ -24,7 +24,6 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  // HANYA narik data profil user.
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
     .select("*")
@@ -41,7 +40,6 @@ export default async function PortalWarga() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12 font-sans">
       <nav className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center">
-        {/* NAMA APLIKASI DIUBAH DI SINI */}
         <div className="font-bold text-lg ml-2 md:ml-4 tracking-wide">Portal Warga</div>
         <form action={handleLogout} className="mr-2 md:mr-4">
           <button type="submit" className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-colors shadow">Keluar Sesi</button>
@@ -69,6 +67,15 @@ export default async function PortalWarga() {
             <h2 className="font-bold text-slate-800 mb-2">📄 Layanan Surat</h2><p className="text-xs text-slate-500 leading-relaxed">Cetak surat pengantar RT secara mandiri.</p>
           </Link>
           
+          {/* INJEKSI MUTLAK: MENU PASAR WARGA DI BUKA DI SINI */}
+          <Link href="/portal/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-orange-300 hover:shadow-lg hover:-translate-y-1 block">
+            <h2 className="font-bold text-slate-800 mb-2">🏪 Pasar Warga (UMKM)</h2><p className="text-xs text-slate-500 leading-relaxed">Katalog jasa & dagangan tetangga. Pesan langsung via WhatsApp.</p>
+          </Link>
+          
+          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
+            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2><p className="text-xs text-slate-500 leading-relaxed">Booking tenda, kursi, atau perlengkapan RT.</p>
+          </Link>
+
           <Link href="/portal/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
             <h2 className="font-bold text-slate-800 mb-2">♻️ Tabungan Sampah</h2><p className="text-xs text-slate-500 leading-relaxed">Pantau saldo hasil setor sampah anorganik.</p>
           </Link>
@@ -76,15 +83,12 @@ export default async function PortalWarga() {
             <h2 className="font-bold text-slate-800 mb-2">🐄 Tabungan Kurban</h2><p className="text-xs text-slate-500 leading-relaxed">Pantau persiapan dana kurban Idul Adha.</p>
           </Link>
           
+          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
+            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
+          </Link>
+
           <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
             <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Buat tiket laporan fasilitas rusak dengan sistem tracking otomatis.</p>
-          </Link>
-          
-          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2><p className="text-xs text-slate-500 leading-relaxed">Booking tenda, kursi, atau perlengkapan RT.</p>
-          </Link>
-          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
           </Link>
           
           <Link href="/portal/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">

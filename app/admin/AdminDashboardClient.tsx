@@ -12,7 +12,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
 
   const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
     
-    // REM DARURAT DIKENDALIKAN OLEH SAKELAR
     const isDokumenKosong = FITUR_KTP_AKTIF 
       ? (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')
       : (kkPath === 'MENYUSUL');
@@ -47,7 +46,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-white mb-1">Pusat Komando RT 07</h1>
-              {/* Menampilkan kasta admin sebagai status */}
               <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded w-fit mt-1 border border-slate-700">
                 Akses: {adminAktif.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
               </p>
@@ -71,6 +69,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-800 text-sm">Pengumuman RT</h2>
             <p className="text-[10px] text-slate-500 mt-1">Buat edaran ke warga</p>
           </Link>
+          
+          {/* INJEKSI MUTLAK: MENU LAPAK DIBUKA GEMBOKNYA */}
+          <Link href="/admin/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-orange-500">🏪</div>
+            <h2 className="font-black text-slate-800 text-sm">Pasar Warga (UMKM)</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Validasi lapak dagangan</p>
+          </Link>
+
           <Link href="/admin/kas" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-amber-500">💰</div>
             <h2 className="font-black text-slate-800 text-sm">Kas & Keuangan</h2>
@@ -86,11 +92,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
             <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
           </Link>
-          <Link href="/admin/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🚨</div>
-            <h2 className="font-black text-slate-800 text-sm">Laporan Warga</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tindak lanjut tiket keluhan</p>
-          </Link>
+          
+          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 DIGEMBOK</div>
+            <div className="text-3xl mb-3 grayscale">🚨</div>
+            <h2 className="font-black text-slate-500 text-sm">Laporan Warga</h2>
+            <p className="text-[10px] text-slate-400 mt-1">Ditunda instruksi RT</p>
+          </div>
+
           <Link href="/admin/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🎪</div>
             <h2 className="font-black text-slate-800 text-sm">Inventaris</h2>
@@ -99,7 +108,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
           <Link href="/admin/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">📊</div>
             <h2 className="font-black text-slate-800 text-sm">Manajemen Voting</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Buat topik pemilihan warga</p>
+            <p className="text-[10px] text-slate-500 mt-1">Buat topik pemilihan</p>
           </Link>
           <Link href="/admin/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🔦</div>
@@ -128,7 +137,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
               <div className="text-3xl mb-3 text-indigo-500">👔</div>
               <h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2>
-              <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun RT</p>
+              <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun</p>
             </Link>
           ) : (
             <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
@@ -147,6 +156,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
           </div>
         </div>
 
+        {/* BAGIAN VALIDASI WARGA DIBIARKAN SAMA (Sudah ada di file asli lu) */}
         <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
           <h2 className="text-lg font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">Validasi Pendaftaran Warga Baru</h2>
           
