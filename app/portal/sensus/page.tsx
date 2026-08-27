@@ -8,6 +8,20 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
+// INJEKSI MUTLAK: Mesin Gembok Zero-Trust Anti-IDOR
+async function pastikanOtentikasiWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
+  if (!token) throw new Error("Akses Ditolak: Sesi Anda tidak valid.");
+  
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; // Lolos, identitas asli dikembalikan
+  } catch (error) {
+    throw new Error("Akses Ditolak: Token keamanan rusak atau dimanipulasi.");
+  }
+}
+
 export default async function SensusPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
@@ -24,7 +38,6 @@ export default async function SensusPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  // PROTEKSI GANDA: Jika sudah pernah isi sensus, usir kembali ke Dasbor!
   const { data: cekSensus } = await supabaseAdmin
     .from("sensus_kesejahteraan")
     .select("id")
@@ -35,17 +48,19 @@ export default async function SensusPage() {
     redirect("/portal"); 
   }
 
-  // SERVER ACTION: Menerima muntahan data dari form Warga
+  // REFACTOR: Injeksi Eksekusi Validasi Lapis Baja
   async function submitSensus(payloadData: any) {
     "use server";
+    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF: Tolak akses tanpa token valid!
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Verifikasi ulang di backend sebelum insert
-    const { data: verifikasi } = await supabase.from("sensus_kesejahteraan").select("id").eq("warga_id", wargaAktif.id).maybeSingle();
+    // Gunakan sesi.id MURNI dari Token, BUKAN dari closure halaman
+    const { data: verifikasi } = await supabase.from("sensus_kesejahteraan").select("id").eq("warga_id", sesi.id).maybeSingle();
     if (verifikasi) throw new Error("SISTEM MENOLAK: Anda sudah pernah mengirimkan data sensus!");
 
     const { error } = await supabase.from("sensus_kesejahteraan").insert([{
-      warga_id: wargaAktif.id,
+      warga_id: sesi.id, // Amankan relasi ID
       ...payloadData,
       status_validasi: "Menunggu"
     }]);

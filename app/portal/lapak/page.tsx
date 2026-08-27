@@ -8,6 +8,17 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
+// INJEKSI MUTLAK: Mesin Gembok Zero-Trust Anti-IDOR
+async function pastikanOtentikasiWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
+  if (!token) throw new Error("Akses Ditolak: Sesi Anda tidak valid.");
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; 
+  } catch (error) { throw new Error("Akses Ditolak: Token dimanipulasi."); }
+}
+
 export default async function PortalLapakPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
@@ -24,41 +35,47 @@ export default async function PortalLapakPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Tarik semua lapak yang sudah divalidasi RT (Etalase)
   const { data: katalogRes } = await supabaseAdmin
     .from("lapak_warga")
     .select("*, warga(nama_lengkap)")
     .eq("status", "Aktif")
     .order("created_at", { ascending: false });
 
-  // Tarik lapak milik warga ini sendiri
   const { data: lapakKuRes } = await supabaseAdmin
     .from("lapak_warga")
     .select("*")
     .eq("warga_id", wargaAktif.id)
     .order("created_at", { ascending: false });
 
+  // REFACTOR: Validasi Endpoint Bikin Lapak
   async function buatLapak(namaUsaha: string, kategori: string, deskripsi: string, wa: string, fotoBase64: string) {
     "use server";
+    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
     const { error } = await supabase.from("lapak_warga").insert([{
-      warga_id: wargaAktif.id,
+      warga_id: sesi.id, // ID Asli dari JWT
       nama_usaha: namaUsaha,
       kategori: kategori,
       deskripsi: deskripsi,
       nomor_wa: wa,
-      foto_url: fotoBase64, // Disimpan murni sebagai teks Base64
-      rt_id: wargaAktif.rt_id
+      foto_url: fotoBase64, 
+      rt_id: sesi.rt_id // Ambil RT ID dari JWT
     }]);
 
     if (error) throw new Error(error.message);
   }
 
+  // REFACTOR: Validasi Endpoint Hapus Lapak (Super Kritis agar tidak bisa hapus lapak orang)
   async function hapusLapakKu(idLapak: string) {
     "use server";
+    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { error } = await supabase.from("lapak_warga").delete().eq("id", idLapak).eq("warga_id", wargaAktif.id);
+    
+    // Pastikan lapak yang dihapus BENAR-BENAR milik ID warga yang terotorisasi
+    const { error } = await supabase.from("lapak_warga").delete().eq("id", idLapak).eq("warga_id", sesi.id);
     if (error) throw new Error(error.message);
   }
 
