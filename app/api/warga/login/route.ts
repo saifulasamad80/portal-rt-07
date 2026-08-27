@@ -5,23 +5,31 @@ import bcrypt from "bcryptjs";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+// SECURITY FIX: Hapus string fallback!
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 export async function POST(req: Request) {
   try {
-    // INJEKSI MUTLAK: Terima parameter newPin jika dikirim oleh frontend
     const { nik, pin, newPin } = await req.json();
     
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
+    // REFACTOR: Tarik juga kolom percobaan_gagal dan terkunci_sampai
     const { data: warga, error } = await supabase
       .from("warga")
-      .select("*")
+      .select("id, nik, nama_lengkap, rt_id, pin, status_verifikasi, percobaan_gagal, terkunci_sampai")
       .eq("nik", nik)
       .single();
 
     if (error || !warga) {
       return NextResponse.json({ success: false, message: "NIK tidak terdaftar di sistem kami." }, { status: 401 });
+    }
+
+    // -------------------------------------------------------------
+    // INJEKSI MUTLAK: SISTEM LOCKDOWN (ANTI BRUTE-FORCE)
+    // -------------------------------------------------------------
+    if (warga.terkunci_sampai && new Date(warga.terkunci_sampai) > new Date()) {
+      return NextResponse.json({ success: false, message: "🚨 SYSTEM LOCKDOWN: Akun dikunci karena aktivitas mencurigakan. Coba lagi 15 menit ke depan." }, { status: 429 });
     }
 
     if (warga.status_verifikasi === "Menunggu") {
@@ -44,25 +52,36 @@ export async function POST(req: Request) {
       }
     }
 
+    // LOGIKA PENJEBAK: JIKA PIN SALAH
     if (!isMatch) {
-      return NextResponse.json({ success: false, message: "PIN yang Anda masukkan salah!" }, { status: 401 });
+      const gagalSekarang = (warga.percobaan_gagal || 0) + 1;
+      let updateData: any = { percobaan_gagal: gagalSekarang };
+      let pesanError = `PIN salah! (Percobaan ${gagalSekarang}/5)`;
+      
+      if (gagalSekarang >= 5) {
+        // Kunci selama 15 Menit
+        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
+        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
+      }
+      
+      await supabase.from("warga").update(updateData).eq("id", warga.id);
+      return NextResponse.json({ success: false, message: pesanError }, { status: 401 });
     }
 
-    // -------------------------------------------------------------
-    // INJEKSI MUTLAK: PROTOKOL PEMAKSAAN GANTI PIN (FORCE CHANGE)
-    // -------------------------------------------------------------
     const pinLemah = ["123456", "111111", "000000", "654321", "121212", "123123"];
 
-    // 1. Jika PIN yang dipakai terdeteksi Lemah/Default, DAN warga BELUM masukin PIN Baru
     if (pinLemah.includes(pin) && !newPin) {
       return NextResponse.json({ 
         success: false, 
-        requirePinChange: true, // FLAG PENJEBAK FRONTEND
+        requirePinChange: true, 
         message: "SISTEM KEAMANAN: Anda sedang menggunakan PIN Default. Wajib membuat PIN Baru sebelum mengakses portal." 
       });
     }
 
-    // 2. Jika warga mengirim PIN Baru
+    // LOGIKA PEMULIHAN: JIKA LOGIN SUKSES
+    // Hancurkan status gagal sebelumnya & perbarui PIN jika ada
+    const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
+
     if (newPin) {
       if (pinLemah.includes(newPin)) {
         return NextResponse.json({ success: false, message: "PIN Baru Anda terlalu mudah ditebak! Hindari angka berurutan/berulang." }, { status: 400 });
@@ -70,19 +89,14 @@ export async function POST(req: Request) {
       if (newPin.length !== 6) {
         return NextResponse.json({ success: false, message: "PIN Baru harus tepat 6 digit angka." }, { status: 400 });
       }
-
-      // Hancurkan PIN Baru jadi Bcrypt dan simpan ke DB
-      const hashedNewPin = await bcrypt.hash(newPin, 10);
-      await supabase.from("warga").update({ pin: hashedNewPin }).eq("id", warga.id);
-    } 
-    // 3. Jika aman-aman saja tapi kebetulan DB masih nyimpen plaintext, upgrade diam-diam.
-    else if (isLegacyPlaintext) {
-      const hashedPin = await bcrypt.hash(pin, 10);
-      await supabase.from("warga").update({ pin: hashedPin }).eq("id", warga.id);
+      updatePayload.pin = await bcrypt.hash(newPin, 10);
+    } else if (isLegacyPlaintext) {
+      updatePayload.pin = await bcrypt.hash(pin, 10);
     }
-    // -------------------------------------------------------------
 
-    // Tiket JWT baru diterbitkan jika berhasil melewati semua jebakan di atas
+    // Eksekusi Update ke Database Warga
+    await supabase.from("warga").update(updatePayload).eq("id", warga.id);
+
     const token = await new SignJWT({ id: warga.id, nik: warga.nik, nama: warga.nama_lengkap, rt_id: warga.rt_id })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("7d") 
