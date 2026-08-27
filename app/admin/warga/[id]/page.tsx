@@ -8,7 +8,12 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-export default async function AdminWargaDetailPage({ params }: { params: { id: string } }) {
+// REFACTOR MUTLAK: Mengubah params menjadi Promise sesuai standar Next.js 15+
+export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // FAKTA: Wajib di-await sebelum ID bisa digunakan!
+  const resolvedParams = await params;
+  const idWarga = resolvedParams.id;
+
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
@@ -21,14 +26,13 @@ export default async function AdminWargaDetailPage({ params }: { params: { id: s
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tarik detail 1 warga beserta seluruh keluarganya
+  // FAKTA: Gunakan idWarga yang sudah di-resolve
   const { data: wargaRes } = await supabaseAdmin
     .from("warga")
     .select("*, anggota_keluarga(*)")
-    .eq("id", params.id)
+    .eq("id", idWarga)
     .single();
 
-  // FAKTA: Server Action Verifikasi Lapor Diri
   async function verifikasiWarga(wargaId: string, statusBaru: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

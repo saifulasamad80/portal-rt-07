@@ -6,13 +6,11 @@ import Link from "next/link";
 export default function WargaLogin() {
   const router = useRouter();
   
-  // State Input Normal
   const [nik, setNik] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // INJEKSI MUTLAK: State Jebakan Force Change PIN
   const [requirePinChange, setRequirePinChange] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [showNewPin, setShowNewPin] = useState(false);
@@ -41,8 +39,10 @@ export default function WargaLogin() {
         alert(data.message);
       } else if (data.success) {
         if (requirePinChange) alert("Pembaruan Keamanan Sukses! Selamat datang di Portal Warga.");
-        // INJEKSI MUTLAK: Gunakan window.location agar cache reset dan langsung lompat instan
-        window.location.href = "/portal"; 
+        
+        // INJEKSI MUTLAK: Menggunakan SPA Routing murni Next.js 
+        // Sangat instan, tidak ada hard-reload browser.
+        router.push("/portal");
       }
     } catch (error: any) {
       alert(error.message);
@@ -62,7 +62,6 @@ export default function WargaLogin() {
       <div className="flex-1 flex flex-col justify-center items-center p-4">
         <div className="w-full max-w-sm">
           
-          {/* LOGIKA TRANSFORMASI UI */}
           {!requirePinChange ? (
             <div className="text-center mb-8">
               <div className="text-5xl mb-2">🏡</div>
@@ -81,7 +80,6 @@ export default function WargaLogin() {
 
           <form onSubmit={handleLogin} className="space-y-6">
             
-            {/* INPUT NIK & PIN LAMA (Akan di-hide kalau masuk mode Ganti PIN) */}
             <div className={requirePinChange ? "hidden" : "space-y-6"}>
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
@@ -115,7 +113,6 @@ export default function WargaLogin() {
               </div>
             </div>
 
-            {/* FORM INPUT PIN BARU (Hanya muncul jika trigger aktif) */}
             {requirePinChange && (
               <div className="relative animate-in fade-in slide-in-from-bottom-2">
                 <label className="block text-xs font-bold text-rose-700 mb-1.5 uppercase tracking-widest">Masukkan PIN Baru Anda</label>
