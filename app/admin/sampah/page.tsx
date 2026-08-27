@@ -18,60 +18,46 @@ export default async function AdminSampahPage() {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     adminAktif = payload;
-  } catch (error) {
-    redirect("/admin");
-  }
+  } catch (error) { redirect("/admin"); }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: transaksiRes } = await supabaseAdmin
-    .from("transaksi_sampah")
-    .select("*, warga(nama_lengkap)")
-    .order("tanggal_transaksi", { ascending: false });
+  const { data: transaksiRes } = await supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false });
+  const { data: wargaRes } = await supabaseAdmin.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui").order("nama_lengkap", { ascending: true });
 
-  const { data: wargaRes } = await supabaseAdmin
-    .from("warga")
-    .select("id, nama_lengkap")
-    .eq("status_verifikasi", "Disetujui")
-    .order("nama_lengkap", { ascending: true });
-
-  // INJEKSI MUTLAK: Perbaikan pengembalian error agar React #441 musnah
   async function simpanTransaksiSampah(wargaId: string, jenis: string, keterangan: string, beratKg: number | null, nominalWarga: number, nominalKasRt: number, tanggal: string) {
     "use server";
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
-      const { error } = await supabase.from("transaksi_sampah").insert([{
-        warga_id: wargaId,
-        jenis_transaksi: jenis, // Sekarang dikirim murni sebagai "Setor" atau "Tarik"
-        keterangan: keterangan,
-        berat_kg: beratKg,
-        nominal_warga: nominalWarga,
-        nominal_kas_rt: nominalKasRt,
-        tanggal_transaksi: tanggal
-      }]);
+      // INJEKSI MUTLAK: Validasi Saldo Murni di Server
+      if (jenis === "Tarik") {
+        const { data: riwayat } = await supabase.from("transaksi_sampah").select("jenis_transaksi, nominal_warga").eq("warga_id", wargaId);
+        let saldoAktual = 0;
+        riwayat?.forEach(r => {
+          if (r.jenis_transaksi === "Setor") saldoAktual += r.nominal_warga;
+          if (r.jenis_transaksi === "Tarik") saldoAktual -= r.nominal_warga;
+        });
+        
+        if (nominalWarga > saldoAktual) {
+          return { success: false, message: `SERVER BLOCKED: Saldo tidak mencukupi. Saldo aktual: Rp${saldoAktual}` };
+        }
+      }
 
+      const { error } = await supabase.from("transaksi_sampah").insert([{
+        warga_id: wargaId, jenis_transaksi: jenis, keterangan, berat_kg: beratKg, nominal_warga: nominalWarga, nominal_kas_rt: nominalKasRt, tanggal_transaksi: tanggal
+      }]);
       if (error) return { success: false, message: error.message };
 
       const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
-
       await supabase.from("audit_log").insert([{
-        aktor: adminAktif.nama,
-        aksi: `Input Transaksi Sampah: ${jenis}`,
-        tabel_target: "transaksi_sampah",
+        aktor: adminAktif.nama, aksi: `Input Transaksi Sampah: ${jenis}`, tabel_target: "transaksi_sampah",
         detail: `${targetWarga?.nama_lengkap} - Warga: Rp${nominalWarga} | Kas RT: Rp${nominalKasRt}`
       }]);
       
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
-    }
+    } catch (err: any) { return { success: false, message: err.message }; }
   }
 
-  return <SampahAdminClient 
-            adminAktif={adminAktif} 
-            transaksiList={transaksiRes || []} 
-            wargaList={wargaRes || []} 
-            aksiSimpan={simpanTransaksiSampah} 
-         />;
+  return <SampahAdminClient adminAktif={adminAktif} transaksiList={transaksiRes || []} wargaList={wargaRes || []} aksiSimpan={simpanTransaksiSampah} />;
 }

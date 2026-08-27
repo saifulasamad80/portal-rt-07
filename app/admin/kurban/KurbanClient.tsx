@@ -26,7 +26,7 @@ export default function KurbanAdminClient({
   const [sumberDana, setSumberDana] = useState("Transfer Bank");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
+  const [tanggal, setTanggal] = useState(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]);
 
   const totalTerkumpul = transaksiList.reduce((sum, t) => {
     if (t.jenis_transaksi === "Setoran (+)") return sum + t.nominal;

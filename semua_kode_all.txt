@@ -113,7 +113,6 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  // HANYA narik data profil user.
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
     .select("*")
@@ -130,7 +129,6 @@ export default async function PortalWarga() {
   return (
     <div className="min-h-screen bg-slate-50 pb-12 font-sans">
       <nav className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center">
-        {/* NAMA APLIKASI DIUBAH DI SINI */}
         <div className="font-bold text-lg ml-2 md:ml-4 tracking-wide">Portal Warga</div>
         <form action={handleLogout} className="mr-2 md:mr-4">
           <button type="submit" className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-colors shadow">Keluar Sesi</button>
@@ -158,6 +156,15 @@ export default async function PortalWarga() {
             <h2 className="font-bold text-slate-800 mb-2">📄 Layanan Surat</h2><p className="text-xs text-slate-500 leading-relaxed">Cetak surat pengantar RT secara mandiri.</p>
           </Link>
           
+          {/* INJEKSI MUTLAK: MENU PASAR WARGA DI BUKA DI SINI */}
+          <Link href="/portal/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-orange-300 hover:shadow-lg hover:-translate-y-1 block">
+            <h2 className="font-bold text-slate-800 mb-2">🏪 Pasar Warga (UMKM)</h2><p className="text-xs text-slate-500 leading-relaxed">Katalog jasa & dagangan tetangga. Pesan langsung via WhatsApp.</p>
+          </Link>
+          
+          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
+            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2><p className="text-xs text-slate-500 leading-relaxed">Booking tenda, kursi, atau perlengkapan RT.</p>
+          </Link>
+
           <Link href="/portal/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
             <h2 className="font-bold text-slate-800 mb-2">♻️ Tabungan Sampah</h2><p className="text-xs text-slate-500 leading-relaxed">Pantau saldo hasil setor sampah anorganik.</p>
           </Link>
@@ -165,15 +172,12 @@ export default async function PortalWarga() {
             <h2 className="font-bold text-slate-800 mb-2">🐄 Tabungan Kurban</h2><p className="text-xs text-slate-500 leading-relaxed">Pantau persiapan dana kurban Idul Adha.</p>
           </Link>
           
+          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
+            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
+          </Link>
+
           <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
             <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Buat tiket laporan fasilitas rusak dengan sistem tracking otomatis.</p>
-          </Link>
-          
-          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2><p className="text-xs text-slate-500 leading-relaxed">Booking tenda, kursi, atau perlengkapan RT.</p>
-          </Link>
-          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
           </Link>
           
           <Link href="/portal/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
@@ -924,6 +928,247 @@ export default function RondaClient({ jadwal, konfirmasiKehadiran }: { jadwal: a
     </div>
   );
 }
+=== FILE: app/portal/lapak/LapakClient.tsx ===
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import imageCompression from "browser-image-compression";
+
+export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, aksiHapus }: { wargaAktif: any, katalog: any[], lapakKu: any[], aksiBuat: any, aksiHapus: any }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<"katalog" | "lapak_saya">("katalog");
+  const [loading, setLoading] = useState(false);
+
+  // Form State
+  const [namaUsaha, setNamaUsaha] = useState("");
+  const [kategori, setKategori] = useState("");
+  const [deskripsi, setDeskripsi] = useState("");
+  const [wa, setWa] = useState("");
+  const [fileFoto, setFileFoto] = useState<File | null>(null);
+
+  const formatWA = (nomor: string) => {
+    let bersih = nomor.replace(/\D/g, '');
+    if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1);
+    return bersih;
+  };
+
+  const handleSimpanLapak = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fileFoto) return alert("Pilih satu foto brosur/produk andalan Anda!");
+    
+    setLoading(true);
+    try {
+      // Kompres ekstrem jadi max 100KB agar database ringan
+      const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800, useWebWorker: true, fileType: "image/jpeg" };
+      const fileKompresi = await imageCompression(fileFoto, options);
+      
+      const fotoBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(fileKompresi);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+      });
+
+      await aksiBuat(namaUsaha, kategori, deskripsi, formatWA(wa), fotoBase64);
+      alert("Lapak berhasil diajukan! Menunggu persetujuan Pengurus RT.");
+      
+      setNamaUsaha(""); setKategori(""); setDeskripsi(""); setWa(""); setFileFoto(null);
+      setTab("lapak_saya");
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal membuka lapak: " + error.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6 font-sans">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <Link href="/portal" className="text-orange-600 font-bold hover:underline mb-2 inline-block text-sm">&larr; Kembali ke Dasbor</Link>
+
+        {/* HEADER */}
+        <div className="bg-gradient-to-r from-orange-500 to-amber-600 p-6 md:p-8 rounded-2xl shadow-lg text-white flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black mb-1">Pasar Warga RT 07</h1>
+            <p className="text-orange-100 text-xs md:text-sm font-medium">Katalog Etalase UMKM. Pesan jasa & makanan langsung ke tetangga.</p>
+          </div>
+          <div className="text-5xl hidden md:block grayscale brightness-200">🏪</div>
+        </div>
+
+        {/* NAVIGATION TABS */}
+        <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-1">
+          <button onClick={() => setTab("katalog")} className={`flex-1 py-3 text-sm font-black rounded-lg transition-all ${tab === "katalog" ? "bg-orange-100 text-orange-700" : "text-slate-500 hover:bg-slate-50"}`}>🛒 Katalog Lapak</button>
+          <button onClick={() => setTab("lapak_saya")} className={`flex-1 py-3 text-sm font-black rounded-lg transition-all ${tab === "lapak_saya" ? "bg-orange-100 text-orange-700" : "text-slate-500 hover:bg-slate-50"}`}>🏪 Lapak Saya</button>
+        </div>
+
+        {/* TAB 1: KATALOG PASAR */}
+        {tab === "katalog" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {katalog.length === 0 ? (
+              <div className="col-span-full bg-white p-12 text-center rounded-2xl border border-dashed border-slate-300">
+                <div className="text-4xl grayscale opacity-40 mb-3">🛍️</div>
+                <p className="text-slate-500 font-bold">Belum ada lapak warga yang buka.</p>
+              </div>
+            ) : (
+              katalog.map(k => (
+                <div key={k.id} className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden flex flex-col hover:-translate-y-1 transition-transform">
+                  <div className="h-48 bg-slate-100 relative overflow-hidden">
+                    <img src={k.foto_url} alt={k.nama_usaha} className="w-full h-full object-cover" />
+                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded">
+                      {k.kategori}
+                    </div>
+                  </div>
+                  <div className="p-5 flex flex-col flex-1">
+                    <h3 className="text-lg font-black text-slate-800 leading-tight mb-1">{k.nama_usaha}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mb-3 uppercase tracking-wider">Milik: {k.warga?.nama_lengkap}</p>
+                    <p className="text-xs text-slate-600 mb-6 flex-1">{k.deskripsi}</p>
+                    
+                    <a href={`https://wa.me/${k.nomor_wa}?text=Halo%20tetangga,%20saya%20warga%20RT%2007%20melihat%20lapak%20*${encodeURIComponent(k.nama_usaha)}*%20di%20Portal.%20Saya%20ingin%20bertanya/memesan...`} 
+                       target="_blank" rel="noopener noreferrer" 
+                       className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs py-3.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
+                      <span>💬</span> Hubungi Penjual
+                    </a>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: LAPAK SAYA */}
+        {tab === "lapak_saya" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-orange-500 h-fit">
+              <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-3">Daftarkan Lapak UMKM</h2>
+              <form onSubmit={handleSimpanLapak} className="space-y-4">
+                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nama Usaha / Toko</label><input type="text" required className="w-full border border-slate-300 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-orange-500" placeholder="Cth: Katering Bu RT" value={namaUsaha} onChange={e => setNamaUsaha(e.target.value)} /></div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Kategori</label>
+                  <select required className="w-full border border-slate-300 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 bg-white" value={kategori} onChange={e => setKategori(e.target.value)}>
+                    <option value="" disabled>Pilih Kategori...</option>
+                    <option value="Makanan & Minuman">Makanan & Minuman</option>
+                    <option value="Jasa & Servis">Jasa & Servis (AC, Pipa, dll)</option>
+                    <option value="Sembako & Kebutuhan Harian">Sembako & Kebutuhan Harian</option>
+                    <option value="Pakaian & Fashion">Pakaian & Fashion</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Deskripsi & Harga Singkat</label><textarea required rows={3} className="w-full border border-slate-300 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-orange-500" placeholder="Jual risol mayo isi daging. Harga Rp 5.000/pcs. Menerima pesanan arisan..." value={deskripsi} onChange={e => setDeskripsi(e.target.value)} /></div>
+                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nomor WhatsApp Aktif</label><input type="tel" required className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-800 outline-none focus:border-orange-500" placeholder="081234567890" value={wa} onChange={e => setWa(e.target.value.replace(/\D/g, ''))} /></div>
+                
+                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                  <label className="block text-[11px] font-black text-orange-800 mb-2 uppercase">📸 Upload 1 Foto Andalan</label>
+                  <input type="file" accept="image/*" required onChange={e => setFileFoto(e.target.files?.[0] || null)} className="w-full text-xs text-orange-900 font-medium" />
+                  <p className="text-[9px] text-orange-600 mt-2 font-bold leading-relaxed">*Sistem hanya mengizinkan 1 foto brosur/produk. Pembeli yang tertarik akan meminta foto lainnya via WhatsApp.</p>
+                </div>
+
+                <button type="submit" disabled={loading} className={`w-full text-white font-black uppercase tracking-widest text-xs rounded-lg p-4 shadow-md transition-colors mt-2 ${loading ? 'bg-slate-400' : 'bg-orange-600 hover:bg-orange-700'}`}>
+                  {loading ? "Menyimpan & Mengompresi Foto..." : "Ajukan Buka Lapak"}
+                </button>
+              </form>
+            </div>
+
+            <div className="space-y-4">
+              {lapakKu.length === 0 ? (
+                <div className="bg-slate-100 p-8 text-center rounded-2xl border border-dashed border-slate-300">
+                  <p className="text-slate-400 text-sm font-bold">Anda belum mendaftarkan usaha apapun.</p>
+                </div>
+              ) : (
+                lapakKu.map(k => (
+                  <div key={k.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center md:items-start">
+                    <img src={k.foto_url} alt={k.nama_usaha} className="w-24 h-24 object-cover rounded-xl shadow-sm shrink-0" />
+                    <div className="flex-1 w-full">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-black text-slate-800 text-base">{k.nama_usaha}</h3>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shrink-0 ${k.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : k.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {k.status}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold mb-2 uppercase">{k.kategori}</p>
+                      <button onClick={async () => {
+                        if(confirm('Yakin ingin menghapus lapak ini?')) {
+                          try { await aksiHapus(k.id); router.refresh(); } catch(e:any) { alert(e.message); }
+                        }
+                      }} className="text-[10px] font-bold text-rose-500 hover:bg-rose-50 px-3 py-1.5 rounded border border-rose-200 transition-colors w-full md:w-auto text-center mt-2">Tutup / Hapus Lapak</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+=== FILE: app/portal/lapak/page.tsx ===
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
+import LapakClient from "./LapakClient";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+
+export default async function PortalLapakPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
+
+  if (!token) redirect("/login");
+
+  let wargaAktif: any;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    wargaAktif = payload;
+  } catch (error) {
+    redirect("/login");
+  }
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Tarik semua lapak yang sudah divalidasi RT (Etalase)
+  const { data: katalogRes } = await supabaseAdmin
+    .from("lapak_warga")
+    .select("*, warga(nama_lengkap)")
+    .eq("status", "Aktif")
+    .order("created_at", { ascending: false });
+
+  // Tarik lapak milik warga ini sendiri
+  const { data: lapakKuRes } = await supabaseAdmin
+    .from("lapak_warga")
+    .select("*")
+    .eq("warga_id", wargaAktif.id)
+    .order("created_at", { ascending: false });
+
+  async function buatLapak(namaUsaha: string, kategori: string, deskripsi: string, wa: string, fotoBase64: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    const { error } = await supabase.from("lapak_warga").insert([{
+      warga_id: wargaAktif.id,
+      nama_usaha: namaUsaha,
+      kategori: kategori,
+      deskripsi: deskripsi,
+      nomor_wa: wa,
+      foto_url: fotoBase64, // Disimpan murni sebagai teks Base64
+      rt_id: wargaAktif.rt_id
+    }]);
+
+    if (error) throw new Error(error.message);
+  }
+
+  async function hapusLapakKu(idLapak: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { error } = await supabase.from("lapak_warga").delete().eq("id", idLapak).eq("warga_id", wargaAktif.id);
+    if (error) throw new Error(error.message);
+  }
+
+  return <LapakClient wargaAktif={wargaAktif} katalog={katalogRes || []} lapakKu={lapakKuRes || []} aksiBuat={buatLapak} aksiHapus={hapusLapakKu} />;
+}
 === FILE: app/portal/surat/page.tsx ===
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -971,6 +1216,11 @@ import Link from "next/link";
 export default function SuratClient({ warga }: { warga: any }) {
   const [keperluan, setKeperluan] = useState("");
   const [keterangan, setKeterangan] = useState("");
+  
+  const [agama, setAgama] = useState("Islam");
+  const [pendidikan, setPendidikan] = useState("SLTA");
+  const [statusKawin, setStatusKawin] = useState("Kawin");
+  const [kewarganegaraan, setKewarganegaraan] = useState("WNI");
 
   const handlePrint = () => {
     window.print();
@@ -978,10 +1228,6 @@ export default function SuratClient({ warga }: { warga: any }) {
 
   const today = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
   
-  // INJEKSI MUTLAK: Penambalan logika bulan agar tidak cacat di Oktober-Desember (L2 Fix)
-  const bulan = String(new Date().getMonth() + 1).padStart(2, '0');
-  const nomorSurat = `${bulan} / RT.07 / ${new Date().getFullYear()}`;
-
   const daftarKeperluan = [
     "KTP Baru", "Perpanjangan KTP", "KTP Sementara", 
     "Kartu Keluarga Baru", "Pengantar SKCK", 
@@ -989,25 +1235,63 @@ export default function SuratClient({ warga }: { warga: any }) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 print:p-0 print:bg-white flex flex-col items-center">
-      <div className="w-full max-w-4xl print:hidden space-y-6">
-        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200">
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
-          <p className="text-sm text-slate-500 mb-8">Pilih keperluan Anda di bawah ini, lalu cetak surat secara instan.</p>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6 print:p-0 print:bg-white flex flex-col items-center font-sans">
+      
+      {/* --------------------------------------------------------- */}
+      {/* PANEL FORM (DISEMBUNYIKAN SECARA OTOMATIS SAAT NGE-PRINT) */}
+      {/* --------------------------------------------------------- */}
+      <div className="w-full max-w-4xl print:hidden space-y-6 mb-10">
+        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block">&larr; Kembali ke Dasbor</Link>
+        <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-200">
+          <h1 className="text-2xl font-black text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
+          <p className="text-sm text-slate-500 mb-6 border-b border-slate-100 pb-6">Lengkapi data tambahan di bawah ini, lalu cetak surat secara instan untuk dibawa ke rumah RT.</p>
           
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-3">Pilih Keperluan Surat</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Agama</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={agama} onChange={e => setAgama(e.target.value)}>
+                <option value="Islam">Islam</option><option value="Kristen">Kristen</option>
+                <option value="Katholik">Katholik</option><option value="Hindu">Hindu</option><option value="Budha">Budha</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Pendidikan Terakhir</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={pendidikan} onChange={e => setPendidikan(e.target.value)}>
+                <option value="SD">SD</option>
+                <option value="SLTP">SLTP / SMP</option>
+                <option value="SLTA">SLTA / SMA</option>
+                <option value="S1">S1 / Diploma</option>
+                {/* INJEKSI MUTLAK: Tambahan S2 dan S3 */}
+                <option value="S2">S2 / Magister</option>
+                <option value="S3">S3 / Doktoral</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Status Perkawinan</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={statusKawin} onChange={e => setStatusKawin(e.target.value)}>
+                <option value="Kawin">Kawin</option><option value="Belum Kawin">Belum Kawin</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Kewarganegaraan</label>
+              <select className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 font-bold outline-none focus:border-blue-500" value={kewarganegaraan} onChange={e => setKewarganegaraan(e.target.value)}>
+                <option value="WNI">WNI</option><option value="WNA">WNA</option><option value="Keturunan">Keturunan</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-6 pt-2 border-t border-slate-100">
+            <div>
+              <label className="block text-[11px] font-black text-slate-500 mb-3 uppercase tracking-widest">Pilih Keperluan Surat</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {daftarKeperluan.map((item) => (
                   <button
                     key={item}
                     onClick={() => setKeperluan(item)}
-                    className={`p-3 rounded-lg border text-sm font-semibold transition-all duration-200 text-left ${
+                    className={`p-3 rounded-lg border text-xs font-bold transition-all duration-200 text-center active:scale-95 ${
                       keperluan === item
                         ? "bg-blue-600 text-white border-blue-600 shadow-md transform -translate-y-0.5"
-                        : "bg-white text-slate-600 border-slate-300 hover:border-blue-400 hover:bg-blue-50"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:bg-blue-50"
                     }`}
                   >
                     {item}
@@ -1017,11 +1301,11 @@ export default function SuratClient({ warga }: { warga: any }) {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Keterangan Tambahan (Opsional)</label>
+              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-widest">Detail Keperluan (Opsional)</label>
               <input 
                 type="text" 
-                className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
-                placeholder="Tulis detail tambahan jika diperlukan..." 
+                className="w-full border border-slate-300 p-3 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium" 
+                placeholder="Tuliskan spesifikasi detail dari keperluan di atas..." 
                 value={keterangan} 
                 onChange={e => setKeterangan(e.target.value)} 
               />
@@ -1030,144 +1314,234 @@ export default function SuratClient({ warga }: { warga: any }) {
             <button 
               onClick={handlePrint} 
               disabled={!keperluan} 
-              className="w-full bg-blue-600 text-white font-bold px-6 py-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none transition-all mt-4 text-lg"
+              className="w-full bg-slate-900 text-white font-black uppercase tracking-widest px-6 py-4 rounded-lg shadow-xl hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none transition-all mt-4 text-sm flex items-center justify-center gap-2"
             >
-              Cetak Kertas Sekarang
+              🖨️ Cetak Kertas Pengantar
             </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto mt-8 bg-white p-12 shadow-2xl print:shadow-none print:m-0 print:p-0 text-black w-full">
-         <div className="text-center border-b-[3px] border-black pb-4 mb-8">
-           <h2 className="text-2xl font-black uppercase tracking-wide">Rukun Tetangga (RT) 07</h2>
-         </div>
-         <div className="text-center mb-10">
-           <h1 className="text-xl font-bold underline">SURAT PENGANTAR</h1>
-           <p className="text-sm mt-1 font-semibold">Nomor: {nomorSurat}</p>
-         </div>
-         <div className="space-y-4 text-justify leading-relaxed text-[15px]">
-           <p>Yang bertanda tangan di bawah ini Ketua RT 07 menerangkan bahwa:</p>
-           <table className="w-full ml-8 my-4">
-             <tbody>
-               <tr><td className="w-56 py-1.5">Nama Lengkap</td><td className="w-4">:</td><td className="font-bold">{warga.nama_lengkap}</td></tr>
-               <tr><td className="py-1.5">NIK</td><td>:</td><td className="font-mono font-bold">{warga.nik}</td></tr>
-               <tr><td className="py-1.5">Alamat</td><td>:</td><td>{warga.detail_alamat}, RT 07</td></tr>
-             </tbody>
-           </table>
-           <p>Adalah benar warga kami untuk keperluan: <b>{keperluan} {keterangan && `- ${keterangan}`}</b></p>
-         </div>
-         <div className="mt-20 flex justify-end">
-           <div className="text-center w-64">
-             <p>{today}</p>
-             <p className="font-bold">Ketua RT 07</p>
-             <br/><br/><br/>
-             <p className="font-bold underline">_________________________</p>
-           </div>
-         </div>
+      {/* --------------------------------------------------------- */}
+      {/* PANEL PREVIEW & CETAK - KLONING MUTLAK MODEL AA. 04       */}
+      {/* --------------------------------------------------------- */}
+      {/* PERUBAHAN MUTLAK: 'hidden print:block' dicabut, diganti shadow & border untuk layar monitor */}
+      <div className="w-full max-w-[210mm] min-h-[297mm] bg-white text-black font-sans text-[13px] leading-snug shadow-2xl print:shadow-none border border-slate-300 print:border-none p-8 sm:p-12 print:p-0 relative">
+        
+        {/* KOP SURAT */}
+        <div className="flex justify-between items-start mb-1">
+          <div className="uppercase font-bold tracking-wide">
+            <div>Kecamatan : Kramat Jati</div>
+            <div>Kelurahan : Tengah</div>
+            <div>RT. 07 / RW. 09</div>
+            <div>Jakarta Timur</div>
+          </div>
+          <div className="font-bold">
+            Model AA. 04.
+          </div>
+        </div>
+        
+        {/* GARIS GANDA */}
+        <div className="border-t-2 border-black w-1/3 mb-[2px]"></div>
+        <div className="border-t-[1px] border-black w-1/3 mb-8"></div>
+
+        {/* JUDUL SURAT */}
+        <div className="text-center mb-8">
+          <h1 className="text-xl font-bold tracking-[0.2em] mb-1">SURAT - PENGANTAR</h1>
+          <p className="text-lg font-bold">No. ........................................</p>
+        </div>
+
+        {/* KALIMAT PEMBUKA */}
+        <div className="mb-4 text-justify">
+          Yang bertanda tangan di bawah ini, Pengurus RT. 07 / 09 Kelurahan Tengah Kecamatan Kramat Jati dengan ini menerangkan bahwa :
+        </div>
+
+        {/* TABEL ISIAN */}
+        <div className="ml-0 mb-6">
+          <table className="w-full text-left">
+            <tbody className="align-top">
+              <tr>
+                <td className="w-[30%] py-1">Nama</td>
+                <td className="w-[3%] py-1">:</td>
+                <td className="py-1 font-bold">{warga.nama_lengkap}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Jenis Kelamin</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{warga.jenis_kelamin}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Tempat / Tgl. Lahir</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{warga.tempat_lahir}, {new Date(warga.tanggal_lahir).toLocaleDateString('id-ID', {day: '2-digit', month: 'long', year: 'numeric'})}</td>
+              </tr>
+              <tr>
+                <td className="py-1">No. KTP. KK</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold font-mono text-sm">{warga.nik}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Kewarganegaraan</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{kewarganegaraan} <span className="font-normal text-gray-500 line-through decoration-black">/ {kewarganegaraan === 'WNI' ? 'WNA / Keturunan' : kewarganegaraan === 'WNA' ? 'WNI / Keturunan' : 'WNI / WNA'}</span></td>
+              </tr>
+              <tr>
+                <td className="py-1">Pendidikan</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{pendidikan}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Agama</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{agama}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Status</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{statusKawin} <span className="font-normal text-gray-500 line-through decoration-black">/ {statusKawin === 'Kawin' ? 'Belum Kawin' : 'Kawin'}</span></td>
+              </tr>
+              <tr>
+                <td className="py-1">Pekerjaan</td>
+                <td className="py-1">:</td>
+                <td className="py-1 font-bold">{warga.pekerjaan}</td>
+              </tr>
+              <tr>
+                <td className="py-1">Alamat</td>
+                <td className="py-1">:</td>
+                <td className="py-1">
+                  <span className="font-bold">{warga.detail_alamat}</span> RT. 07 / RW. 09<br/>
+                  Kel. <span className="font-bold">Tengah</span> Kec. <span className="font-bold">Kramat Jati</span>
+                </td>
+              </tr>
+              <tr>
+                <td className="py-3">Maksud / Keperluan</td>
+                <td className="py-3">:</td>
+                <td className="py-3">
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] font-bold">
+                    {keperluan} {keterangan ? `- ${keterangan}` : ''}
+                  </div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                  <div className="border-b border-dotted border-black min-h-[1.5rem] mt-1"></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* BAGIAN TANDA TANGAN */}
+        <div className="flex justify-between items-start mt-10">
+          <div className="text-center w-[40%]">
+            <div className="text-left mb-2">Nomor : .................................</div>
+            <div className="mb-20">
+              Mengetahui<br/>
+              Pengurus Rw. 09<br/>
+              Ketua
+            </div>
+            <div>( ......................................... )</div>
+            <div className="text-[9px] text-left mt-4 leading-tight">
+              Lembar Putih Untuk Kelurahan<br/>
+              Lembar Biru Untuk Arsip RW<br/>
+              Lembar Kuning Untuk Arsip RT
+            </div>
+          </div>
+          
+          <div className="text-center w-[40%]">
+            <div className="text-left mb-2">Jakarta, .................................</div>
+            <div className="mb-20">
+              Pengurus Rt. 07 / 09<br/>
+              Kel. Tengah
+            </div>
+            <div>( ......................................... )</div>
+            <div className="text-[9px] text-left mt-4">
+              Catatan :<br/>
+              BAWALAH KTP / KK serta surat-surat lain
+            </div>
+          </div>
+        </div>
+
       </div>
+
     </div>
   );
 }
 === FILE: app/api/warga/login/route.ts ===
-export const dynamic = "force-dynamic";
-
-import { NextRequest, NextResponse } from "next/server";
-import { SignJWT, jwtVerify } from "jose";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import bcrypt from "bcryptjs";
+import { SignJWT } from "jose";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-export async function GET(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const token = request.cookies.get("warga_session")?.value;
-    if (!token) return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
-    const { payload } = await jwtVerify(token, JWT_SECRET); 
-    return NextResponse.json({ success: true, warga: payload });
-  } catch (error) {
-    return NextResponse.json({ error: "Sesi tidak valid atau kedaluwarsa" }, { status: 401 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { nik, password } = body;
-
-    const { data: warga, error: errWarga } = await supabaseAdmin
+    const { nik, pin } = await req.json();
+    
+    // Gunakan Jalur Dewa untuk bypass RLS saat login
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Cari warga berdasarkan NIK
+    const { data: warga, error } = await supabase
       .from("warga")
-      .select("id, nama_lengkap, nik, pin, rt_id, percobaan_gagal, terkunci_sampai")
+      .select("*")
       .eq("nik", nik)
-      .maybeSingle();
+      .single();
 
-    if (errWarga || !warga) {
-      return NextResponse.json({ success: false, error: "Akses Ditolak! NIK tidak terdaftar." }, { status: 401 });
+    if (error || !warga) {
+      return NextResponse.json({ success: false, message: "NIK tidak terdaftar di sistem kami." }, { status: 401 });
     }
 
-    if (warga.terkunci_sampai && new Date(warga.terkunci_sampai) > new Date()) {
-      return NextResponse.json({ success: false, error: "🚨 AKUN TERKUNCI: Anda telah gagal 5x. Silakan coba lagi dalam 15 menit untuk mencegah peretasan." }, { status: 429 });
+    // -------------------------------------------------------------
+    // INJEKSI MUTLAK: GEMBOK STATUS VALIDASI RT (HASIL UAT)
+    // -------------------------------------------------------------
+    if (warga.status_verifikasi === "Menunggu") {
+      return NextResponse.json({ 
+        success: false, 
+        message: "AKSES DITOLAK: Pendaftaran Anda masih dalam antrean. Silakan tunggu Pengurus RT memvalidasi data Anda." 
+      }, { status: 403 });
     }
 
-    // INJEKSI MUTLAK: Sistem Validasi & Seamless Upgrade (C1 Fix)
-    let isMatch = false;
-    let isLegacyPlaintext = false;
+    if (warga.status_verifikasi === "Ditolak") {
+      return NextResponse.json({ 
+        success: false, 
+        message: "AKSES DITOLAK: Pendaftaran Anda ditolak oleh Pengurus RT. Silakan hubungi Ketua RT." 
+      }, { status: 403 });
+    }
+    // -------------------------------------------------------------
 
-    if (warga.pin.startsWith("$2a$") || warga.pin.startsWith("$2b$")) {
-      isMatch = await bcrypt.compare(password, warga.pin);
-    } else {
-      if (warga.pin === password) {
-        isMatch = true;
-        isLegacyPlaintext = true;
-      }
+    // Verifikasi PIN
+    if (warga.pin !== pin) {
+      return NextResponse.json({ success: false, message: "PIN yang Anda masukkan salah!" }, { status: 401 });
     }
 
-    if (!isMatch) {
-      const gagalSekarang = (warga.percobaan_gagal || 0) + 1;
-      let updateData: any = { percobaan_gagal: gagalSekarang };
-      let pesanError = `PIN salah! (Percobaan ${gagalSekarang}/5)`;
-      
-      if (gagalSekarang >= 5) {
-        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
-        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
-      }
-      
-      await supabaseAdmin.from("warga").update(updateData).eq("id", warga.id);
-      return NextResponse.json({ success: false, error: pesanError }, { status: 401 });
-    }
-
-    // Buka gembok & Upgrade PIN diam-diam jika masih plaintext
-    const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
-    if (isLegacyPlaintext) updatePayload.pin = await bcrypt.hash(password, 10);
-    await supabaseAdmin.from("warga").update(updatePayload).eq("id", warga.id);
-
-    if (!warga.rt_id) {
-      return NextResponse.json({ success: false, error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
-    }
-
-    const token = await new SignJWT({ id: warga.id, nama: warga.nama_lengkap, nik: warga.nik, role: "warga", rt_id: warga.rt_id })
+    // Jika status "Disetujui" dan PIN benar, cetak Kartu Akses (JWT)
+    const token = await new SignJWT({ 
+      id: warga.id, 
+      nik: warga.nik, 
+      nama: warga.nama_lengkap, 
+      rt_id: warga.rt_id 
+    })
       .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("24h")
+      .setExpirationTime("7d") // Sesi aktif 7 hari
       .sign(JWT_SECRET);
 
-    const response = NextResponse.json({ success: true, warga: warga });
-    response.cookies.set("warga_session", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" });
+    const response = NextResponse.json({ success: true, message: "Login berhasil!" });
+    
+    // Tanam token di Cookies HP/Laptop warga
+    response.cookies.set("warga_session", token, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === "production", 
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7 // 7 Hari
+    });
+    
     return response;
-
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: "Kesalahan internal server." }, { status: 500 });
+    
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: "Terjadi kesalahan server: " + error.message }, { status: 500 });
   }
-}
-
-export async function DELETE(request: NextRequest) {
-  const response = NextResponse.json({ success: true });
-  response.cookies.set("warga_session", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0, path: "/" });
-  return response;
 }
 === FILE: app/api/admin/warga/route.ts ===
 import { NextResponse } from "next/server";
@@ -1236,9 +1610,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username dan Password wajib diisi!" }, { status: 400 });
     }
 
+    // INJEKSI MUTLAK: Sekarang kita narik kolom 'level' dari database
     const { data: admin, error: errAdmin } = await supabaseAdmin
       .from("pengurus_rt")
-      .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai")
+      .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai, level")
       .or(`username.eq.${username},email.eq.${username}`)
       .maybeSingle();
 
@@ -1250,7 +1625,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "🚨 SYSTEM LOCKDOWN: Akun dikunci karena aktivitas mencurigakan. Coba lagi 15 menit ke depan." }, { status: 429 });
     }
 
-    // INJEKSI MUTLAK: Sistem Validasi & Seamless Upgrade (C1 Fix)
     let isMatch = false;
     let isLegacyPlaintext = false;
 
@@ -1277,7 +1651,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: pesanError }, { status: 401 });
     }
 
-    // Buka gembok & Upgrade Password diam-diam jika masih plaintext
     const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
     if (isLegacyPlaintext) updatePayload.password = await bcrypt.hash(password, 10);
     await supabaseAdmin.from("pengurus_rt").update(updatePayload).eq("id", admin.id);
@@ -1286,12 +1659,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
     }
 
-    const jwtPayload = { sub: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, role: "admin", rt_id: admin.rt_id };
+    // EFEK DOMINO: 'role' di JWT sekarang mengambil dari kasta di database (webmaster atau rt)
+    const kastaAdmin = admin.level || "rt";
+    const jwtPayload = { sub: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, role: kastaAdmin, rt_id: admin.rt_id };
+    
     const secretKey = new TextEncoder().encode(JWT_SECRET);
     const token = await new SignJWT(jwtPayload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("2h").sign(secretKey);
 
     const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 60 * 60 * 2, path: "/" } as const;
-    const response = NextResponse.json({ success: true, user: { id: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, rt_id: admin.rt_id } });
+    const response = NextResponse.json({ success: true, user: { id: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, rt_id: admin.rt_id, role: kastaAdmin } });
     response.cookies.set("admin_session", token, cookieOptions);
     return response;
 
@@ -1406,76 +1782,86 @@ export default function RootLayout({
   );
 }
 === FILE: app/register/page.tsx ===
-import { createClient } from "@supabase/supabase-js";
 import RegisterClient from "./RegisterClient";
-import bcrypt from "bcryptjs";
+import { createClient } from "@supabase/supabase-js";
 
-export default function LaporDiriPage() {
+export default function RegisterPage() {
   
-  async function registerWargaServer(kepala: any, anggotaPayload: any[]) {
-    "use server";
+  // INJEKSI MUTLAK: Mesin Server Action Anti-Error 441
+  async function aksiRegister(payloadKepala: any, anggotaPayload: any[]) {
+    "use server"; // Mantra wajib, tidak boleh hilang!
     
-    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      
+      // 1. Eksekusi Data Kepala Keluarga
+      const { data: wargaBaru, error: errWarga } = await supabase
+        .from("warga")
+        .insert([{
+           nik: payloadKepala.nik,
+           nama_lengkap: payloadKepala.nama_lengkap,
+           no_whatsapp: payloadKepala.no_whatsapp,
+           pin: payloadKepala.pin,
+           status_tinggal: payloadKepala.status_tinggal,
+           detail_alamat: payloadKepala.detail_alamat,
+           tanggal_lahir: payloadKepala.tanggal_lahir,
+           tempat_lahir: payloadKepala.tempat_lahir,
+           jenis_kelamin: payloadKepala.jenis_kelamin,
+           pekerjaan: payloadKepala.pekerjaan,
+           pendapatan_bulanan: payloadKepala.pendapatan_bulanan,
+           daya_listrik: payloadKepala.daya_listrik,
+           ktp_path: payloadKepala.ktp_path,
+           kk_path: payloadKepala.kk_path,
+           status_verifikasi: "Menunggu"
+        }])
+        .select("id")
+        .single();
 
-    // Validasi NIK Ganda
-    const { data: cekNik } = await supabaseAdmin.from("warga").select("id").eq("nik", kepala.nik).maybeSingle();
-    if (cekNik) throw new Error(`DITOLAK: NIK ${kepala.nik} sudah terdaftar di sistem kami.`);
-
-    // INJEKSI MUTLAK (JALUR DEWA): Fungsi pengubah Base64 menjadi File Biner dan Upload Paksa via Admin
-    const uploadBase64ToSupabase = async (base64Data: string | null, prefix: string, nik: string) => {
-      if (!base64Data || base64Data === "MENYUSUL") return "MENYUSUL";
-
-      try {
-        // Memisahkan header "data:image/jpeg;base64," dari isi datanya
-        const base64Content = base64Data.split(",")[1];
-        // Merakit kembali teks menjadi file biner di dalam Server Node.js
-        const buffer = Buffer.from(base64Content, "base64");
-        const fileName = `${nik}_${prefix}_${Date.now()}.jpg`;
-
-        // Upload langsung dari Server ke Storage (Bypass semua RLS & CORS)
-        const { error } = await supabaseAdmin.storage.from("dokumen_warga").upload(fileName, buffer, {
-          contentType: "image/jpeg",
-          upsert: false
-        });
-
-        if (error) throw error;
-        return fileName;
-      } catch (e: any) {
-        throw new Error(`Gagal menyimpan ${prefix} ke brankas: ` + e.message);
+      if (errWarga) {
+        // Logika Mutlak: Deteksi NIK Ganda (Kode 23505 PostgreSQL)
+        if (errWarga.code === '23505') {
+           throw new Error("Pendaftaran Gagal: NIK ini sudah terdaftar di sistem kami! Silakan hubungi Pak RT.");
+        }
+        throw new Error("Gagal menyimpan data Kepala Keluarga: " + errWarga.message);
       }
-    };
 
-    // 1. Upload KTP dan KK Kepala Keluarga (Server-Side)
-    const finalKtpKK = await uploadBase64ToSupabase(kepala.ktp_path, 'KTP_KK', kepala.nik);
-    const finalKkKK = await uploadBase64ToSupabase(kepala.kk_path, 'KK_FILE', kepala.nik);
+      // 2. Eksekusi Data Anggota Keluarga (Jika form diisi)
+      if (anggotaPayload && anggotaPayload.length > 0) {
+        const anggotaToInsert = anggotaPayload.map((a: any) => ({
+          warga_id: wargaBaru.id,
+          nama_lengkap: a.nama_lengkap,
+          nik: a.nik,
+          hubungan_keluarga: a.hubungan_keluarga,
+          hubungan_detail: a.hubungan_detail,
+          tanggal_lahir: a.tanggal_lahir,
+          tempat_lahir: a.tempat_lahir,
+          jenis_kelamin: a.jenis_kelamin,
+          pekerjaan: a.pekerjaan,
+          ktp_path: a.ktp_path
+        }));
+        
+        const { error: errAnggota } = await supabase
+          .from("anggota_keluarga")
+          .insert(anggotaToInsert);
+          
+        if (errAnggota) {
+           throw new Error("Gagal menyimpan data anggota keluarga: " + errAnggota.message);
+        }
+      }
 
-    // 2. Upload KTP Anggota Keluarga (Server-Side)
-    const anggotaFinal = await Promise.all(anggotaPayload.map(async (a) => {
-       const finalKtpAnggota = await uploadBase64ToSupabase(a.ktp_path, `KTP_ANGGOTA_${a.nama_lengkap.replace(/\s+/g, '_')}`, a.nik);
-       return { ...a, ktp_path: finalKtpAnggota };
-    }));
-
-    // 3. Hashing PIN Warga Baru (C1 Fix)
-    const hashedPin = await bcrypt.hash(kepala.pin, 10);
-    
-    // 4. Susun Payload Akhir
-    const payloadAman = { 
-      ...kepala, 
-      pin: hashedPin,
-      ktp_path: finalKtpKK,
-      kk_path: finalKkKK
-    };
-
-    // 5. Eksekusi Tembak ke Database
-    const { error: errorRpc } = await supabaseAdmin.rpc('register_warga_baru', {
-      p_kepala_keluarga: payloadAman,
-      p_anggota_keluarga: anggotaFinal
-    });
-
-    if (errorRpc) throw new Error("Database menolak transaksi: " + errorRpc.message);
+      // Mengembalikan string sederhana agar lolos sensor Serialisasi React (Anti Error 441)
+      return "SUKSES"; 
+      
+    } catch (error: any) {
+      // WAJIB throw new Error murni agar bisa ditangkap oleh alert di RegisterClient.tsx
+      throw new Error(error.message || "Terjadi kesalahan internal pada server pendaftaran.");
+    }
   }
 
-  return <RegisterClient aksiRegister={registerWargaServer} />;
+  return <RegisterClient aksiRegister={aksiRegister} />;
 }
 === FILE: app/register/RegisterClient.tsx ===
 "use client";
@@ -1483,6 +1869,10 @@ import { useState } from "react";
 import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+// Ubah menjadi 'true' jika suatu saat KTP ingin diwajibkan lagi!
+const FITUR_KTP_AKTIF = false; 
 
 type AnggotaKeluarga = {
   nama: string;
@@ -1548,16 +1938,11 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     return null; 
   };
 
-  // INJEKSI MUTLAK: Kompres file menjadi sangat kecil (0.1 MB) lalu ubah jadi teks Base64
   const kompresDanUbahKeBase64 = async (fileOri: File) => {
     const options = { maxSizeMB: 0.1, maxWidthOrHeight: 1024, useWebWorker: false, fileType: "image/jpeg" };
     try {
-      // Nafas UI: Biarkan browser nge-render tulisan loading dulu selama 50ms
       await new Promise(resolve => setTimeout(resolve, 50)); 
-      
       const fileKompresi = await imageCompression(fileOri, options);
-
-      // Ubah gambar jadi teks rahasia
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(fileKompresi);
@@ -1605,13 +1990,21 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       if (errNik) return alert(errNik);
       
       const umur = hitungUmur(a.tglLahir);
-      if (umur >= 17 && !a.fileKtp && !a.ktpMenyusul) {
-        return alert(`${namaLabel} berumur ${umur} tahun. Wajib melampirkan foto KTP atau centang 'KTP Menyusul'.`);
+      if (FITUR_KTP_AKTIF) {
+        if (umur >= 17 && !a.fileKtp && !a.ktpMenyusul) {
+          return alert(`${namaLabel} berumur ${umur} tahun. Wajib melampirkan foto KTP atau centang 'KTP Menyusul'.`);
+        }
       }
     }
 
-    if (!dokumenMenyusul && (!fileKtp || !fileKk)) {
-      return alert("Lampirkan KTP dan KK Kepala Keluarga, atau centang 'Dokumen Menyusul'.");
+    if (FITUR_KTP_AKTIF) {
+      if (!dokumenMenyusul && (!fileKtp || !fileKk)) {
+        return alert("Lampirkan KTP dan KK Kepala Keluarga, atau centang 'Dokumen Menyusul'.");
+      }
+    } else {
+      if (!dokumenMenyusul && !fileKk) {
+        return alert("Lampirkan Foto Kartu Keluarga, atau centang 'Dokumen Menyusul'.");
+      }
     }
 
     setLoading(true);
@@ -1623,8 +2016,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       setProgressTeks("Mempersiapkan dokumen Kepala Keluarga...");
       await new Promise(resolve => setTimeout(resolve, 50)); 
       
-      // Kirim Base64, BUKAN upload ke Supabase dari browser
-      if (!dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUbahKeBase64(fileKtp);
+      if (FITUR_KTP_AKTIF && !dokumenMenyusul && fileKtp) pathKtpKK = await kompresDanUbahKeBase64(fileKtp);
       if (!dokumenMenyusul && fileKk) pathKkKK = await kompresDanUbahKeBase64(fileKk);
 
       setProgressTeks("Mempersiapkan dokumen Anggota Keluarga...");
@@ -1633,7 +2025,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       const anggotaPayload = await Promise.all(
         anggota.map(async (a) => {
           let pathKtpAnggota = a.ktpMenyusul ? "MENYUSUL" : null;
-          if (a.fileKtp && !a.ktpMenyusul) {
+          if (FITUR_KTP_AKTIF && a.fileKtp && !a.ktpMenyusul) {
             pathKtpAnggota = await kompresDanUbahKeBase64(a.fileKtp);
           }
           return {
@@ -1645,7 +2037,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             tempat_lahir: a.tempatLahir,
             jenis_kelamin: a.gender,
             pekerjaan: a.pekerjaan,
-            ktp_path: pathKtpAnggota // Berisi teks Base64, bukan URL
+            ktp_path: pathKtpAnggota
           };
         })
       );
@@ -1757,21 +2149,28 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div>
                 <h2 className="font-black text-slate-800 uppercase text-sm">🔒 Dokumen Kepala Keluarga</h2>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">Dienkripsi dan diamankan khusus untuk verifikasi pengurus RT.</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-1">
+                  {FITUR_KTP_AKTIF ? "Dienkripsi dan diamankan khusus untuk verifikasi pengurus RT." : "Sesuai instruksi RT, saat ini hanya membutuhkan dokumen Kartu Keluarga (KK)."}
+                </p>
               </div>
               <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border-2 border-amber-300 text-amber-900 font-bold text-xs shadow-sm hover:bg-amber-50">
-                <input type="checkbox" checked={dokumenMenyusul} onChange={(e) => { setDokumenMenyusul(e.target.checked); if (e.target.checked) { setFileKtp(null); setFileKk(null); } }} className="w-5 h-5 text-amber-600 rounded" />
-                KTP & KK Menyusul
+                <input type="checkbox" checked={dokumenMenyusul} onChange={(e) => { 
+                  setDokumenMenyusul(e.target.checked); 
+                  if (e.target.checked) { setFileKtp(null); setFileKk(null); } 
+                }} className="w-5 h-5 text-amber-600 rounded" />
+                {FITUR_KTP_AKTIF ? "KTP & KK Menyusul" : "KK Menyusul / Fisik"}
               </label>
             </div>
             
             {!dokumenMenyusul && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                  <label className="block text-xs font-black uppercase text-slate-700 mb-2">📸 Foto E-KTP (Kepala Keluarga)</label>
-                  <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'ktp')} className="w-full text-xs" />
-                  {fileKtp && <div className="text-[10px] text-emerald-600 font-black mt-2 bg-emerald-50 px-2 py-1 rounded w-fit">✓ File terlampir</div>}
-                </div>
+              <div className={`grid grid-cols-1 ${FITUR_KTP_AKTIF ? 'md:grid-cols-2' : ''} gap-4`}>
+                {FITUR_KTP_AKTIF && (
+                  <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                    <label className="block text-xs font-black uppercase text-slate-700 mb-2">📸 Foto E-KTP (Kepala Keluarga)</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'ktp')} className="w-full text-xs" />
+                    {fileKtp && <div className="text-[10px] text-emerald-600 font-black mt-2 bg-emerald-50 px-2 py-1 rounded w-fit">✓ File terlampir</div>}
+                  </div>
+                )}
                 <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                   <label className="block text-xs font-black uppercase text-slate-700 mb-2">📸 Foto Kartu Keluarga</label>
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'kk')} className="w-full text-xs" />
@@ -1785,7 +2184,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             <div className="flex justify-between items-center bg-slate-800 p-4 rounded-xl text-white shadow-md">
               <div>
                 <h2 className="font-black text-sm uppercase tracking-widest">👥 Data Anggota Keluarga</h2>
-                <p className="text-[10px] text-slate-400 mt-1">Wajib KTP jika umur ≥ 17 Tahun (Sistem Sensus).</p>
+                {FITUR_KTP_AKTIF && <p className="text-[10px] text-slate-400 mt-1">Wajib KTP jika umur ≥ 17 Tahun (Sistem Sensus).</p>}
               </div>
               <button type="button" onClick={tambahAnggota} className="bg-blue-500 text-white font-black uppercase tracking-widest px-4 py-2.5 rounded-lg hover:bg-blue-600 text-xs">+ Tambah Warga</button>
             </div>
@@ -1834,7 +2233,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
                     </div>
                   )}
 
-                  {wajibKtp && (
+                  {FITUR_KTP_AKTIF && wajibKtp && (
                     <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg flex flex-col md:flex-row justify-between items-start gap-4">
                       <div className="w-full">
                         <label className="block text-xs font-black uppercase text-blue-800 mb-1">⚠️ Wajib Upload KTP (Usia ≥ 17 thn)</label>
@@ -2139,105 +2538,112 @@ export default function JalurDaruratClient() {
 }
 === FILE: app/login/page.tsx ===
 "use client";
-import { useState, useEffect } from "react";
-import { useWargaAuth } from "@/hooks/use-warga-auth";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function WargaLogin() {
-  const { wargaAktif, loading: authLoading, login } = useWargaAuth();
   const router = useRouter();
-
   const [nik, setNik] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
-  
-  // INJEKSI MUTLAK: Radar Ikon Mata
-  const [showPassword, setShowPassword] = useState(false);
+  const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
-  useEffect(() => {
-    if (wargaAktif) {
-      router.push("/portal");
-    }
-  }, [wargaAktif, router]);
-
- const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginLoading(true);
-    const response = await login(nik, password);
-    if (!response.success) {
-      alert("Akses Ditolak: " + response.error);
-      setLoginLoading(false);
-    } else {
-      window.location.href = "/portal";
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/warga/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nik, pin }),
+      });
+
+      const data = await res.json();
+
+      // INJEKSI MUTLAK: Tangkap dan paksa tampilkan pesan asli dari Server API!
+      if (!res.ok) {
+        throw new Error(data.message || "Akses Ditolak: Terjadi kesalahan sistem.");
+      }
+
+      if (data.success) {
+        router.push("/portal");
+        router.refresh();
+      }
+    } catch (error: any) {
+      // Sekarang alert akan berbunyi persis seperti instruksi dari Backend
+      alert(error.message);
+    } finally {
+      setLoading(false);
     }
   };
-  
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-mono text-blue-600">
-        <div className="text-4xl mb-4 animate-spin">🔄</div>
-        <div className="font-bold tracking-widest uppercase">Memeriksa Kredensial...</div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-      <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] w-full max-w-md border-t-4 border-blue-600 relative overflow-hidden">
-        <div className="absolute top-0 right-0 bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-bl-lg">WARGA PORTAL</div>
-        <div className="text-5xl mb-6 text-center">🏡</div>
-        <h2 className="text-2xl font-black text-slate-800 mb-2 text-center">Portal Warga RT 07</h2>
-        <p className="text-slate-500 text-sm mb-8 text-center">Silakan masuk menggunakan NIK dan Password Anda.</p>
-        
-        <div className="space-y-4 mb-6 text-left">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
-            <input 
-              type="text" 
-              required 
-              maxLength={16} 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono text-slate-800 bg-slate-50 focus:bg-white" 
-              placeholder="Masukkan 16 digit NIK..." 
-              value={nik} 
-              onChange={(e) => setNik(e.target.value.replace(/\D/g, ''))} 
-            />
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      <div className="p-4 flex justify-end">
+         <div className="bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded shadow-sm">
+           WARGA PORTAL
+         </div>
+      </div>
+      
+      <div className="flex-1 flex flex-col justify-center items-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-2">🏡</div>
+            <h1 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Portal Warga RT 07</h1>
+            <p className="text-sm text-slate-500 font-medium">Silakan masuk menggunakan NIK dan Password Anda.</p>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
-            
-            {/* INJEKSI MUTLAK: Sistem Wrapper Relative untuk Ikon Mata */}
-            <div className="relative">
-              <input 
-                type={showPassword ? "text" : "password"} 
-                required 
-                className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-800 bg-slate-50 focus:bg-white pr-12" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
+              <input
+                type="text"
+                maxLength={16}
+                required
+                className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-slate-900 font-mono font-bold focus:border-blue-600 focus:ring-0 outline-none transition-all bg-transparent shadow-sm"
+                value={nik}
+                onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))}
               />
-              <button 
+            </div>
+
+            <div className="relative">
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
+              <input
+                type={showPin ? "text" : "password"}
+                maxLength={6}
+                required
+                className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-slate-900 font-mono font-bold tracking-widest focus:border-blue-600 focus:ring-0 outline-none transition-all bg-transparent shadow-sm"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              />
+              <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none text-lg transition-colors cursor-pointer"
-                tabIndex={-1}
+                onClick={() => setShowPin(!showPin)}
+                className="absolute right-4 top-10 text-xl transition-transform active:scale-90"
               >
-                {showPassword ? "👁️" : "🙈"}
+                {showPin ? "🙉" : "🙈"}
               </button>
             </div>
 
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#0e1b4d] text-white font-black py-4 rounded-xl shadow-lg hover:bg-blue-900 disabled:opacity-70 disabled:scale-100 active:scale-[0.98] transition-all tracking-wide"
+            >
+              {loading ? "Memverifikasi..." : "Masuk Portal"}
+            </button>
+          </form>
+
+          <div className="text-center mt-8 pt-6 border-t border-slate-200">
+            <span className="text-sm text-slate-500 font-medium">Belum punya akun? </span>
+            <Link href="/register" className="text-sm text-blue-600 font-black hover:underline ml-1">
+              Daftar di sini
+            </Link>
           </div>
         </div>
-
-        <button type="submit" disabled={loginLoading} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-md active:scale-[0.98] flex justify-center items-center gap-2">
-          {loginLoading ? "Memverifikasi..." : "Masuk ke Portal"}
-        </button>
-        
-        <div className="mt-6 text-center">
-          <p className="text-sm text-slate-500">Belum punya akun?</p>
-          <Link href="/register" className="text-blue-600 font-bold hover:underline mt-1 inline-block">Daftar sebagai Warga Baru</Link>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }
@@ -3146,19 +3552,24 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+const FITUR_KTP_AKTIF = false;
+
 export default function AdminDashboardClient({ adminAktif, wargaList, prosesValidasi, logoutAction }: { adminAktif: any, wargaList: any[], prosesValidasi: any, logoutAction: any }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
 
-  // INJEKSI MUTLAK: Tambahan parameter ktpPath dan kkPath untuk radar validasi
   const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
     
-    // REM DARURAT ANTI-CEROBOH ADMIN
-    if (status === 'Disetujui' && (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')) {
+    const isDokumenKosong = FITUR_KTP_AKTIF 
+      ? (ktpPath === 'MENYUSUL' || kkPath === 'MENYUSUL')
+      : (kkPath === 'MENYUSUL');
+
+    if (status === 'Disetujui' && isDokumenKosong) {
       const beraniTanggungJawab = confirm(
-        `⚠️ PERINGATAN FATAL: DOKUMEN DIGITAL KOSONG!\n\nPendaftar atas nama ${namaWarga} BELUM mengunggah file KTP/KK secara digital.\n\nSebagai Pengurus RT, apakah Anda BERANI MENJAMIN bahwa Anda SUDAH MENERIMA DAN MEMERIKSA dokumen fisiknya secara langsung?\n\nKlik OK jika Anda berani bertanggung jawab. Klik Batal jika belum menerima dokumen.`
+        `⚠️ PERINGATAN FATAL: DOKUMEN DIGITAL KOSONG!\n\nPendaftar atas nama ${namaWarga} BELUM mengunggah file ${FITUR_KTP_AKTIF ? 'KTP/KK' : 'KK'} secara digital.\n\nSebagai Pengurus RT, apakah Anda BERANI MENJAMIN bahwa Anda SUDAH MENERIMA DAN MEMERIKSA dokumen fisiknya secara langsung?\n\nKlik OK jika Anda berani bertanggung jawab.`
       );
-      if (!beraniTanggungJawab) return; // Batalkan operasi jika admin ragu
+      if (!beraniTanggungJawab) return; 
     } else if (status !== "Menunggu" && !confirm(`Yakin ingin menandai pendaftaran ${namaWarga} sebagai: ${status}?`)) {
       return;
     }
@@ -3184,7 +3595,9 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-white mb-1">Pusat Komando RT 07</h1>
-              <p className="text-slate-400 font-medium text-xs">Dasbor eksklusif pengurus lingkungan.</p>
+              <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded w-fit mt-1 border border-slate-700">
+                Akses: {adminAktif.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
+              </p>
             </div>
           </div>
           <form action={logoutAction} className="w-full md:w-auto">
@@ -3205,6 +3618,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-800 text-sm">Pengumuman RT</h2>
             <p className="text-[10px] text-slate-500 mt-1">Buat edaran ke warga</p>
           </Link>
+          
+          {/* INJEKSI MUTLAK: MENU LAPAK DIBUKA GEMBOKNYA */}
+          <Link href="/admin/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-orange-500">🏪</div>
+            <h2 className="font-black text-slate-800 text-sm">Pasar Warga (UMKM)</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Validasi lapak dagangan</p>
+          </Link>
+
           <Link href="/admin/kas" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-amber-500">💰</div>
             <h2 className="font-black text-slate-800 text-sm">Kas & Keuangan</h2>
@@ -3220,11 +3641,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
             <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
             <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
           </Link>
-          <Link href="/admin/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🚨</div>
-            <h2 className="font-black text-slate-800 text-sm">Laporan Warga</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tindak lanjut tiket keluhan</p>
-          </Link>
+          
+          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 DIGEMBOK</div>
+            <div className="text-3xl mb-3 grayscale">🚨</div>
+            <h2 className="font-black text-slate-500 text-sm">Laporan Warga</h2>
+            <p className="text-[10px] text-slate-400 mt-1">Ditunda instruksi RT</p>
+          </div>
+
           <Link href="/admin/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🎪</div>
             <h2 className="font-black text-slate-800 text-sm">Inventaris</h2>
@@ -3233,37 +3657,55 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
           <Link href="/admin/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">📊</div>
             <h2 className="font-black text-slate-800 text-sm">Manajemen Voting</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Buat topik pemilihan warga</p>
+            <p className="text-[10px] text-slate-500 mt-1">Buat topik pemilihan</p>
           </Link>
           <Link href="/admin/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🔦</div>
             <h2 className="font-black text-white text-sm">Jadwal Siskamling</h2>
             <p className="text-[10px] text-slate-400 mt-1">Atur regu ronda malam</p>
           </Link>
-          <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🔍</div>
-            <h2 className="font-black text-white text-sm">Log Audit</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
-          </Link>
-          <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3 text-indigo-500">👔</div>
-            <h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun RT</p>
-          </Link>
+          
+          {/* LOGIKA KASTA: LOG AUDIT */}
+          {adminAktif.role === 'webmaster' ? (
+            <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
+              <div className="text-3xl mb-3">🔍</div>
+              <h2 className="font-black text-white text-sm">Log Audit</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
+            </Link>
+          ) : (
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+              <div className="absolute top-2 right-2 bg-rose-100 text-rose-700 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 WEBMASTER</div>
+              <div className="text-3xl mb-3 grayscale">🔍</div>
+              <h2 className="font-black text-slate-500 text-sm">Log Audit</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Akses khusus Webmaster</p>
+            </div>
+          )}
+
+          {/* LOGIKA KASTA: AKSES PENGURUS */}
+          {adminAktif.role === 'webmaster' ? (
+            <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+              <div className="text-3xl mb-3 text-indigo-500">👔</div>
+              <h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2>
+              <p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun</p>
+            </Link>
+          ) : (
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
+              <div className="absolute top-2 right-2 bg-rose-100 text-rose-700 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 WEBMASTER</div>
+              <div className="text-3xl mb-3 grayscale">👔</div>
+              <h2 className="font-black text-slate-500 text-sm">Akses Pengurus</h2>
+              <p className="text-[10px] text-slate-400 mt-1">Akses khusus Webmaster</p>
+            </div>
+          )}
+
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
             <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
             <div className="text-3xl mb-3 grayscale">📸</div>
             <h2 className="font-black text-slate-500 text-sm">Buku Tamu 1x24 Jam</h2>
             <p className="text-[10px] text-slate-400 mt-1">Sistem lapor tamu dgn E-KTP</p>
           </div>
-          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
-            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 BUTUH SERVER</div>
-            <div className="text-3xl mb-3 grayscale">🏪</div>
-            <h2 className="font-black text-slate-500 text-sm">Pasar Warga (Lapak)</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Katalog UMKM warga</p>
-          </div>
         </div>
 
+        {/* BAGIAN VALIDASI WARGA DIBIARKAN SAMA (Sudah ada di file asli lu) */}
         <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
           <h2 className="text-lg font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">Validasi Pendaftaran Warga Baru</h2>
           
@@ -3292,18 +3734,20 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                         <div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik}</div>
                         <div className="text-[11px] text-slate-600 font-mono mt-1">WA: {w.no_whatsapp}</div>
                         
-                        {(w.ktp_path || w.kk_path) && (
+                        {( (FITUR_KTP_AKTIF && w.ktp_path) || w.kk_path ) && (
                           <div className="mt-3 flex gap-2">
-                            {w.ktp_path === 'MENYUSUL' ? (
-                              <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
-                            ) : w.ktp_path ? (
-                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
-                            ) : null}
+                            {FITUR_KTP_AKTIF && (
+                              w.ktp_path === 'MENYUSUL' ? (
+                                <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KTP Fisik</span>
+                              ) : w.ktp_path ? (
+                                <a href={`/api/admin/dokumen?path=${w.ktp_path}`} className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KTP</a>
+                              ) : null
+                            )}
                             
                             {w.kk_path === 'MENYUSUL' ? (
                               <span className="text-[9px] bg-rose-50 text-rose-500 px-2 py-1 rounded font-bold border border-rose-100">KK Fisik</span>
                             ) : w.kk_path ? (
-                              <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
+                              <a href={`/api/admin/dokumen?path=${w.kk_path}`} className="text-[9px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors shadow-sm">📄 Cek KK</a>
                             ) : null}
                           </div>
                         )}
@@ -3333,11 +3777,9 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
                       <td className="p-4 text-center">
                         {w.status_verifikasi === 'Menunggu' ? (
                           <div className="flex justify-center gap-2">
-                            {/* INJEKSI MUTLAK: Mengirim ktp_path & kk_path ke fungsi handleValidasi */}
                             <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
                               Sah
                             </button>
-                            {/* INJEKSI MUTLAK: Mengirim ktp_path & kk_path ke fungsi handleValidasi */}
                             <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">
                               Tolak
                             </button>
@@ -3810,7 +4252,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-export default async function AdminWargaPage() {
+export default async function WargaAdminPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
@@ -3826,34 +4268,50 @@ export default async function AdminWargaPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tarik semua warga yang sudah tervalidasi + anggota keluarganya
   const { data: wargaRes } = await supabaseAdmin
     .from("warga")
     .select("*, anggota_keluarga(*)")
-    .eq("status_verifikasi", "Disetujui")
-    .order("nama_lengkap", { ascending: true });
+    .order("created_at", { ascending: false });
 
-  // FAKTA: Server Action untuk Hapus Warga Ekstrem (Cascade)
-  async function hapusWarga(wargaId: string) {
+  async function hapusWarga(id: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Ambil nama sebelum dihapus untuk log
-    const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap, nik").eq("id", wargaId).single();
+    const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", id).single();
+    if (target) {
+      await supabase.from("audit_log").insert([{
+        aktor: adminAktif.nama,
+        aksi: "Hapus Warga Secara Paksa",
+        tabel_target: "warga",
+        detail: `Menghapus seluruh data warga: ${target.nama_lengkap}`
+      }]);
+    }
     
-    // Hapus warga (semua relasi seperti kas, tabungan, dll akan ikut terhapus jika DB diset Cascade/Set Null)
-    const { error } = await supabase.from("warga").delete().eq("id", wargaId);
+    const { error } = await supabase.from("warga").delete().eq("id", id);
     if (error) throw new Error(error.message);
-
-    await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
-      aksi: "HAPUS BUKU INDUK WARGA",
-      tabel_target: "warga",
-      detail: `Menghapus Permanen Warga: ${targetWarga?.nama_lengkap} (NIK: ${targetWarga?.nik})`
-    }]);
   }
 
-  return <WargaAdminClient wargaList={wargaRes || []} aksiHapus={hapusWarga} />;
+  // INJEKSI MUTLAK: Mesin Pencabut Akses (Kill Switch)
+  async function ubahStatusWarga(id: string, status: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", id).single();
+    
+    const { error } = await supabase.from("warga").update({ status_verifikasi: status }).eq("id", id);
+    if (error) throw new Error(error.message);
+
+    if (target) {
+       await supabase.from("audit_log").insert([{
+        aktor: adminAktif.nama,
+        aksi: `Mengubah Status Verifikasi: ${status}`,
+        tabel_target: "warga",
+        detail: `Warga: ${target.nama_lengkap} diubah menjadi ${status}`
+      }]);
+    }
+  }
+
+  return <WargaAdminClient wargaList={wargaRes || []} aksiHapus={hapusWarga} aksiUbahStatus={ubahStatusWarga} />;
 }
 === FILE: app/admin/warga/[id]/page.tsx ===
 import { cookies } from "next/headers";
@@ -3909,6 +4367,9 @@ export default async function AdminWargaDetailPage({ params }: { params: { id: s
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+const FITUR_KTP_AKTIF = false;
 
 export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: any, aksiVerifikasi: any }) {
   const router = useRouter();
@@ -3988,14 +4449,16 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
           <div className="bg-slate-800 p-6 rounded-2xl shadow-sm text-white md:col-span-2">
             <h2 className="font-black text-slate-200 border-b border-slate-700 pb-2 mb-4">🔒 Brankas Dokumen Digital</h2>
             <div className="flex flex-wrap gap-4">
-              {warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? (
-                // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
-              ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>}
+              {FITUR_KTP_AKTIF && (
+                warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? (
+                  // TARGET BLANK DIHAPUS
+                  <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
+                ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>
+              )}
               
               {warga.kk_path && warga.kk_path !== 'MENYUSUL' ? (
-                // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                <a href={`/api/admin/dokumen?path=${warga.kk_path}`} target="_blank" className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a>
+                // TARGET BLANK DIHAPUS
+                <a href={`/api/admin/dokumen?path=${warga.kk_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a>
               ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KK Menyusul (Fisik)</div>}
             </div>
           </div>
@@ -4010,12 +4473,12 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                     <th className="p-3 border-b-2">TTL & Gender</th>
                     <th className="p-3 border-b-2">Hubungan</th>
                     <th className="p-3 border-b-2">Pekerjaan</th>
-                    <th className="p-3 border-b-2 text-center">Dokumen KTP</th>
+                    {FITUR_KTP_AKTIF && <th className="p-3 border-b-2 text-center">Dokumen KTP</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {warga.anggota_keluarga?.length === 0 ? (
-                    <tr><td colSpan={5} className="p-6 text-center italic text-slate-400 font-bold">Tidak ada tanggungan tercatat.</td></tr>
+                    <tr><td colSpan={FITUR_KTP_AKTIF ? 5 : 4} className="p-6 text-center italic text-slate-400 font-bold">Tidak ada tanggungan tercatat.</td></tr>
                   ) : (
                     warga.anggota_keluarga?.map((ak: any) => (
                       <tr key={ak.id} className="border-b hover:bg-slate-50">
@@ -4029,14 +4492,17 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                         </td>
                         <td className="p-3 font-black text-blue-700">{ak.hubungan_keluarga === 'Lainnya' ? ak.hubungan_detail : ak.hubungan_keluarga}</td>
                         <td className="p-3 text-xs font-bold text-slate-600">{ak.pekerjaan || '-'}</td>
-                        <td className="p-3 text-center">
-                          {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? (
-                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                            <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} target="_blank" className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
-                          ) : (
-                            <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
-                          )}
-                        </td>
+                        
+                        {FITUR_KTP_AKTIF && (
+                          <td className="p-3 text-center">
+                            {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? (
+                              // TARGET BLANK DIHAPUS
+                              <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
+                            ) : (
+                              <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -4055,7 +4521,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: any[], aksiHapus: any }) {
+// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
+const FITUR_KTP_AKTIF = false;
+
+export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus }: { wargaList: any[], aksiHapus: any, aksiUbahStatus: any }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
@@ -4075,6 +4544,25 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
       router.refresh();
     } catch (error: any) {
       alert("Gagal menghapus warga: " + error.message);
+    }
+    setLoadingId("");
+  };
+
+  // INJEKSI MUTLAK: Fungsi Dinamis Cabut & Sahkan Warga
+  const handleUbahStatus = async (id: string, nama: string, statusBaru: string) => {
+    const pesan = statusBaru === "Menunggu" 
+      ? `PERINGATAN: Anda akan MENCABUT akses login ${nama}. Mereka tidak akan bisa masuk ke portal sampai disetujui kembali. Yakin?`
+      : `Anda akan memberikan AKSES LOGIN SAH kepada ${nama}. Yakin?`;
+
+    if (!confirm(pesan)) return;
+    
+    setLoadingId(id);
+    try {
+      await aksiUbahStatus(id, statusBaru);
+      alert(`Status ${nama} berhasil diubah menjadi: ${statusBaru.toUpperCase()}!`);
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal mengubah status: " + error.message);
     }
     setLoadingId("");
   };
@@ -4191,7 +4679,12 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                       <td className="p-4 align-top">
                         <div className="font-black text-slate-800 text-base mb-1">{w.nama_lengkap}</div>
                         <div className="text-[10px] text-slate-500 font-mono font-bold bg-slate-200 px-2 py-0.5 rounded w-fit mb-1">NIK: {w.nik}</div>
-                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit">WA: {w.no_whatsapp}</div>
+                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit mb-2">WA: {w.no_whatsapp}</div>
+                        
+                        {/* Status Label untuk indikator cepat */}
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm inline-block ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          Login: {w.status_verifikasi === 'Disetujui' ? 'SAH' : 'DIBLOKIR'}
+                        </span>
                       </td>
                       <td className="p-4 align-top">
                         <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider block w-fit mb-1.5 shadow-sm">
@@ -4212,21 +4705,36 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                       </td>
                       <td className="p-4 align-top">
                         <div className="flex flex-col gap-1.5">
-                          {w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
-                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                            <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
-                          ) : (
-                            <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
+                          {FITUR_KTP_AKTIF && (
+                            w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
+                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
+                            ) : (
+                              <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
+                            )
                           )}
                           {w.kk_path && w.kk_path !== 'MENYUSUL' ? (
-                            // INJEKSI MUTLAK: Dialihkan ke proksi Signed URL
-                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
+                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
                           ) : (
                             <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Fisik/Menyusul</span>
                           )}
                         </div>
                       </td>
                       <td className="p-4 align-top text-center">
+                        <Link href={`/admin/warga/${w.id}`} className="bg-blue-100 hover:bg-blue-500 hover:text-white text-blue-700 border border-blue-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm uppercase tracking-wider w-full mb-2 inline-block">
+                          Detail Warga
+                        </Link>
+                        
+                        {/* INJEKSI MUTLAK: TOMBOL CABUT / SAH DINAMIS */}
+                        {w.status_verifikasi === 'Disetujui' ? (
+                          <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Menunggu')} disabled={loadingId === w.id} className="bg-amber-100 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">
+                            {loadingId === w.id ? 'Memproses...' : 'Batal Sah (Cabut)'}
+                          </button>
+                        ) : (
+                          <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Disetujui')} disabled={loadingId === w.id} className="bg-emerald-100 hover:bg-emerald-500 hover:text-white text-emerald-700 border border-emerald-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">
+                            {loadingId === w.id ? 'Memproses...' : 'Setujui (Sah)'}
+                          </button>
+                        )}
+
                         <button onClick={() => handleHapus(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
                           {loadingId === w.id ? 'Memproses...' : 'Hapus Warga'}
                         </button>
@@ -4797,6 +5305,11 @@ export default async function AdminPengurusPage() {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     adminAktif = JSON.parse(JSON.stringify(payload));
+    
+    // PERTAHANAN LAPIS SERVER: Tendang jika bukan webmaster
+    if (adminAktif.role !== "webmaster") {
+      redirect("/admin");
+    }
   } catch (error) {
     redirect("/admin");
   }
@@ -4812,7 +5325,6 @@ export default async function AdminPengurusPage() {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // INJEKSI MUTLAK: Hashing Password Pengurus Baru (C1 Fix)
     const hashedPassword = await bcrypt.hash(pass, 10);
 
     const { error } = await supabase.from("pengurus_rt").insert([{
@@ -4952,6 +5464,146 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
     </div>
   );
 }
+=== FILE: app/admin/lapak/page.tsx ===
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
+import { redirect } from "next/navigation";
+import LapakAdminClient from "./LapakAdminClient";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+
+export default async function AdminLapakPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
+
+  if (!token) redirect("/admin");
+
+  let adminAktif: any;
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    adminAktif = payload;
+  } catch (error) {
+    redirect("/admin");
+  }
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data: lapakRes } = await supabaseAdmin
+    .from("lapak_warga")
+    .select("*, warga(nama_lengkap)")
+    .order("created_at", { ascending: false });
+
+  async function validasiLapak(idLapak: string, statusBaru: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { error } = await supabase.from("lapak_warga").update({ status: statusBaru }).eq("id", idLapak);
+    if (error) throw new Error(error.message);
+
+    const { data: targetLapak } = await supabase.from("lapak_warga").select("nama_usaha").eq("id", idLapak).single();
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama,
+      aksi: `Validasi UMKM: ${statusBaru}`,
+      tabel_target: "lapak_warga",
+      detail: `Lapak: ${targetLapak?.nama_usaha}`
+    }]);
+  }
+
+  return <LapakAdminClient adminAktif={adminAktif} daftarLapak={lapakRes || []} aksiValidasi={validasiLapak} />;
+}
+=== FILE: app/admin/lapak/LapakAdminClient.tsx ===
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+export default function LapakAdminClient({ adminAktif, daftarLapak, aksiValidasi }: { adminAktif: any, daftarLapak: any[], aksiValidasi: any }) {
+  const router = useRouter();
+  const [loadingId, setLoadingId] = useState("");
+
+  const handleValidasi = async (id: string, status: string, namaLapak: string) => {
+    if (!confirm(`Tandai lapak "${namaLapak}" sebagai: ${status}?`)) return;
+    setLoadingId(id);
+    try {
+      await aksiValidasi(id, status);
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal memvalidasi: " + error.message);
+    }
+    setLoadingId("");
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Link href="/admin" className="text-orange-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</Link>
+
+        <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-orange-500 mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Validasi Pasar Warga</h1>
+            <p className="text-slate-400 text-sm">Review dan setujui pendaftaran lapak jualan warga sebelum tampil di portal.</p>
+          </div>
+          <div className="text-5xl hidden md:block grayscale brightness-200">🏪</div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">Daftar Pengajuan Etalase UMKM</h2>
+          <div className="overflow-x-auto max-h-[700px] overflow-y-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-100 text-slate-700 text-xs">
+                <tr>
+                  <th className="p-4 border-b-2 border-slate-200">Pemilik & Usaha</th>
+                  <th className="p-4 border-b-2 border-slate-200 w-[150px]">Foto Brosur</th>
+                  <th className="p-4 border-b-2 border-slate-200">Deskripsi Jualan</th>
+                  <th className="p-4 border-b-2 border-slate-200 text-center">Status Validasi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {daftarLapak.length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-400 font-bold italic">Belum ada warga yang mendaftarkan usaha.</td></tr>
+                ) : (
+                  daftarLapak.map((l) => (
+                    <tr key={l.id} className="border-b border-slate-200 hover:bg-slate-50">
+                      <td className="p-4 align-top">
+                        <div className="font-black text-slate-800 text-base">{l.nama_usaha}</div>
+                        <div className="text-[10px] text-slate-500 font-bold mb-2 uppercase">{l.kategori}</div>
+                        <div className="text-xs text-slate-600 bg-slate-200 px-2 py-1 rounded inline-block font-medium">👤 {l.warga?.nama_lengkap}</div>
+                        <div className="text-xs text-emerald-700 font-mono font-bold mt-1">📞 {l.nomor_wa}</div>
+                      </td>
+                      <td className="p-4 align-top">
+                        <img src={l.foto_url} alt="Brosur" className="w-24 h-24 object-cover rounded-xl shadow-sm border border-slate-200" />
+                      </td>
+                      <td className="p-4 align-top text-xs text-slate-600 leading-relaxed max-w-[250px]">
+                        {l.deskripsi}
+                      </td>
+                      <td className="p-4 align-top text-center">
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded shadow-sm inline-block w-full mb-3 ${l.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : l.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
+                          {l.status}
+                        </span>
+                        
+                        {(l.status === 'Menunggu' || !l.status) && (
+                          <div className="flex flex-col gap-2">
+                            <button onClick={() => handleValidasi(l.id, 'Aktif', l.nama_usaha)} disabled={loadingId === l.id} className="bg-emerald-500 text-white text-[10px] font-bold py-2 rounded hover:bg-emerald-600 shadow-sm transition-colors">Setujui Layak Tayang</button>
+                            <button onClick={() => handleValidasi(l.id, 'Ditolak', l.nama_usaha)} disabled={loadingId === l.id} className="bg-white text-rose-500 border border-rose-200 text-[10px] font-bold py-2 rounded hover:bg-rose-50 transition-colors">Tolak Pendaftaran</button>
+                          </div>
+                        )}
+                        {l.status === 'Aktif' && (
+                          <button onClick={() => handleValidasi(l.id, 'Menunggu', l.nama_usaha)} disabled={loadingId === l.id} className="text-[10px] text-slate-400 font-bold underline hover:text-slate-700 transition-colors">Batalkan / Turunkan</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 === FILE: app/admin/audit/page.tsx ===
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -4970,13 +5622,16 @@ export default async function AdminAuditPage() {
   if (!token) redirect("/admin");
 
   try {
-    // Validasi JWT untuk memastikan ini benar-benar admin
-    await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    
+    // PERTAHANAN LAPIS SERVER: Tendang jika bukan webmaster
+    if (payload.role !== "webmaster") {
+      redirect("/admin");
+    }
   } catch (error) {
     redirect("/admin");
   }
 
-  // Gunakan Service Role untuk menembus RLS agar log audit selalu terbaca penuh
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: logsRes } = await supabaseAdmin

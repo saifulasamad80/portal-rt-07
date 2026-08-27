@@ -43,6 +43,16 @@ kas_rt,warga_id,uuid,YES,null
 kas_rt,tanggal_transaksi,date,YES,CURRENT_DATE
 kas_rt,created_at,timestamp with time zone,YES,now()
 kas_rt,rt_id,uuid,YES,null
+lapak_warga,id,uuid,NO,gen_random_uuid()
+lapak_warga,warga_id,uuid,NO,null
+lapak_warga,nama_usaha,text,NO,null
+lapak_warga,kategori,text,NO,null
+lapak_warga,deskripsi,text,NO,null
+lapak_warga,nomor_wa,text,NO,null
+lapak_warga,foto_url,text,NO,null
+lapak_warga,status,text,YES,'Menunggu'::text
+lapak_warga,created_at,timestamp with time zone,YES,now()
+lapak_warga,rt_id,uuid,YES,null
 laporan_warga,id,uuid,NO,gen_random_uuid()
 laporan_warga,warga_id,uuid,NO,null
 laporan_warga,judul_laporan,character varying,NO,null
@@ -89,13 +99,3 @@ pengumuman_rt,tanggal_publikasi,timestamp with time zone,YES,now()
 pengumuman_rt,rt_id,uuid,YES,null
 pengurus_rt,id,uuid,NO,gen_random_uuid()
 pengurus_rt,nama_lengkap,text,NO,null
-pengurus_rt,jabatan,text,NO,null
-pengurus_rt,created_at,timestamp with time zone,YES,now()
-pengurus_rt,email,text,YES,null
-pengurus_rt,username,text,YES,null
-pengurus_rt,password,text,YES,null
-pengurus_rt,rt_id,uuid,YES,null
-pengurus_rt,reset_token,text,YES,null
-pengurus_rt,reset_token_expires,timestamp with time zone,YES,null
-pengurus_rt,percobaan_gagal,integer,YES,0
-pengurus_rt,terkunci_sampai,timestamp with time zone,YES,null

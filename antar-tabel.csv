@@ -28,3 +28,5 @@ master_inventaris,rt_id,master_rt,id
 peminjaman_inventaris,rt_id,master_rt,id
 audit_log,rt_id,master_rt,id
 transaksi_kurban,warga_id,warga,id
+lapak_warga,warga_id,warga,id
+lapak_warga,rt_id,master_rt,id

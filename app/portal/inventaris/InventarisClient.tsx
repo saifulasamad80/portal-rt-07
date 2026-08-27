@@ -59,7 +59,7 @@ export default function InventarisClient({ masterBarang, riwayat, ajukanBooking 
               
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Tanggal Pakai</label>
-                <input type="date" required min={new Date().toISOString().split('T')[0]} className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+                <input type="date" required min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]} className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
               </div>
 
               <div>

@@ -17,8 +17,7 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
   const [nominalWarga, setNominalWarga] = useState("");
   const [nominalKasRt, setNominalKasRt] = useState("0");
   
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
-
+  const [tanggal, setTanggal] = useState(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]);
   // Kalkulasi Statistik Atas
   const totalSaldoWarga = transaksiList.reduce((sum, t) => {
     if (t.jenis_transaksi === "Setor") return sum + t.nominal_warga;

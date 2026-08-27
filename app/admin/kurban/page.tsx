@@ -18,88 +18,68 @@ export default async function AdminKurbanPage() {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     adminAktif = payload;
-  } catch (error) {
-    redirect("/admin");
-  }
+  } catch (error) { redirect("/admin"); }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: kurbanRes } = await supabaseAdmin
-    .from("transaksi_kurban")
-    .select("*, warga(nama_lengkap)")
-    .order("tanggal_transaksi", { ascending: false });
-
-  const { data: wargaRes } = await supabaseAdmin
-    .from("warga")
-    .select("id, nama_lengkap")
-    .eq("status_verifikasi", "Disetujui")
-    .order("nama_lengkap", { ascending: true });
-
-  const { data: sampahRes } = await supabaseAdmin
-    .from("transaksi_sampah")
-    .select("warga_id, jenis_transaksi, nominal_warga");
+  const { data: kurbanRes } = await supabaseAdmin.from("transaksi_kurban").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false });
+  const { data: wargaRes } = await supabaseAdmin.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui").order("nama_lengkap", { ascending: true });
+  const { data: sampahRes } = await supabaseAdmin.from("transaksi_sampah").select("warga_id, jenis_transaksi, nominal_warga");
 
   async function simpanTransaksiKurban(wargaId: string, jenis: string, sumber: string, nominal: number, keterangan: string, tanggal: string) {
     "use server";
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
-      let idSampahTerpotong = null; // Menyimpan ID potongan sampah untuk dibatalkan jika kurban gagal
-
-      // 1. LOGIKA AUTO-DEBET SAMPAH
-      if (sumber === "Saldo Tabungan Sampah" && jenis === "Setoran (+)") {
-        const { data: dataSampah, error: errSampah } = await supabase.from("transaksi_sampah").insert([{
-          warga_id: wargaId,
-          jenis_transaksi: "Tarik",
-          keterangan: `Auto-Debet untuk Tabungan Kurban: ${keterangan}`,
-          nominal_warga: nominal,
-          nominal_kas_rt: 0,
-          tanggal_transaksi: tanggal
-        }]).select('id').single(); // Ambil ID transaksi ini segera setelah dibuat
-
-        if (errSampah) return { success: false, message: "Gagal memotong saldo sampah: " + errSampah.message };
-        idSampahTerpotong = dataSampah.id; // Amankan ID-nya
+      // INJEKSI MUTLAK: Validasi Lapis Server untuk Penarikan Kurban
+      if (jenis === "Tarikan (-)") {
+        const { data: riwayat } = await supabase.from("transaksi_kurban").select("jenis_transaksi, nominal").eq("warga_id", wargaId);
+        let saldoKurban = 0;
+        riwayat?.forEach(r => {
+          if (r.jenis_transaksi === "Setoran (+)") saldoKurban += r.nominal;
+          if (r.jenis_transaksi === "Tarikan (-)") saldoKurban -= r.nominal;
+        });
+        if (nominal > saldoKurban) return { success: false, message: `SERVER BLOCKED: Saldo kurban tidak mencukupi!` };
       }
 
-      // 2. OPERASI UTAMA KURBAN
+      let idSampahTerpotong = null; 
+
+      if (sumber === "Saldo Tabungan Sampah" && jenis === "Setoran (+)") {
+        // Validasi Saldo Sampah
+        const { data: riwayatSampah } = await supabase.from("transaksi_sampah").select("jenis_transaksi, nominal_warga").eq("warga_id", wargaId);
+        let saldoSampah = 0;
+        riwayatSampah?.forEach(r => {
+          if (r.jenis_transaksi === "Setor") saldoSampah += r.nominal_warga;
+          if (r.jenis_transaksi === "Tarik") saldoSampah -= r.nominal_warga;
+        });
+        if (nominal > saldoSampah) return { success: false, message: `SERVER BLOCKED: Saldo Tabungan Sampah tidak mencukupi untuk Auto-Debet!` };
+
+        const { data: dataSampah, error: errSampah } = await supabase.from("transaksi_sampah").insert([{
+          warga_id: wargaId, jenis_transaksi: "Tarik", keterangan: `Auto-Debet untuk Tabungan Kurban: ${keterangan}`, nominal_warga: nominal, nominal_kas_rt: 0, tanggal_transaksi: tanggal
+        }]).select('id').single();
+
+        if (errSampah) return { success: false, message: "Gagal memotong saldo sampah: " + errSampah.message };
+        idSampahTerpotong = dataSampah.id; 
+      }
+
       const { error } = await supabase.from("transaksi_kurban").insert([{
-        warga_id: wargaId,
-        jenis_transaksi: jenis,
-        sumber_dana: sumber,
-        nominal: nominal,
-        keterangan: keterangan,
-        tanggal_transaksi: tanggal
+        warga_id: wargaId, jenis_transaksi: jenis, sumber_dana: sumber, nominal: nominal, keterangan: keterangan, tanggal_transaksi: tanggal
       }]);
 
-      // 3. REM ROLLBACK (TARIK MUNDUR JIKA GAGAL)
       if (error) {
-        if (idSampahTerpotong) {
-          // Batalin (hapus) potongan sampah karena kurbannya gagal masuk database!
-          await supabase.from("transaksi_sampah").delete().eq("id", idSampahTerpotong);
-        }
+        if (idSampahTerpotong) await supabase.from("transaksi_sampah").delete().eq("id", idSampahTerpotong);
         return { success: false, message: error.message };
       }
 
-      // 4. CATAT LOG AUDIT (Jika semua sukses)
       const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
       await supabase.from("audit_log").insert([{
-        aktor: adminAktif.nama,
-        aksi: `Input Transaksi Kurban: ${jenis}`,
-        tabel_target: "transaksi_kurban",
+        aktor: adminAktif.nama, aksi: `Input Transaksi Kurban: ${jenis}`, tabel_target: "transaksi_kurban",
         detail: `${targetWarga?.nama_lengkap} - Rp${nominal} via ${sumber}`
       }]);
       
       return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
-    }
+    } catch (err: any) { return { success: false, message: err.message }; }
   }
 
-  return <KurbanAdminClient 
-            adminAktif={adminAktif} 
-            transaksiList={kurbanRes || []} 
-            wargaList={wargaRes || []} 
-            sampahList={sampahRes || []}
-            aksiSimpan={simpanTransaksiKurban} 
-         />;
+  return <KurbanAdminClient adminAktif={adminAktif} transaksiList={kurbanRes || []} wargaList={wargaRes || []} sampahList={sampahRes || []} aksiSimpan={simpanTransaksiKurban} />;
 }
