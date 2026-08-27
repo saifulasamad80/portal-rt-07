@@ -6,7 +6,22 @@ import SampahAdminClient from "./SampahAdminClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+// SECURITY FIX: Hapus fallback rawan. 
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+
+// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust untuk Endpoint Admin
+async function pastikanOtentikasiAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
+  if (!token) throw new Error("Akses Ilegal: Sesi tidak valid atau telah berakhir.");
+  
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; // Lolos verifikasi, kembalikan payload admin
+  } catch (error) {
+    throw new Error("Akses Ilegal: Token keamanan rusak atau dimanipulasi.");
+  }
+}
 
 export default async function AdminSampahPage() {
   const cookieStore = await cookies();
@@ -22,15 +37,19 @@ export default async function AdminSampahPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: transaksiRes } = await supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false });
+  // OPTIMASI LIMITASI: Batasi output maksimal 500 baris
+  const { data: transaksiRes } = await supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500);
   const { data: wargaRes } = await supabaseAdmin.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui").order("nama_lengkap", { ascending: true });
 
+  // REFACTOR: Kunci Server Action dengan Barrier Otentikasi
   async function simpanTransaksiSampah(wargaId: string, jenis: string, keterangan: string, beratKg: number | null, nominalWarga: number, nominalKasRt: number, tanggal: string) {
     "use server";
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER KEAMANAN AKTIF
+
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
-      // INJEKSI MUTLAK: Validasi Saldo Murni di Server
+      // Validasi Saldo Murni di Server
       if (jenis === "Tarik") {
         const { data: riwayat } = await supabase.from("transaksi_sampah").select("jenis_transaksi, nominal_warga").eq("warga_id", wargaId);
         let saldoAktual = 0;
@@ -50,8 +69,10 @@ export default async function AdminSampahPage() {
       if (error) return { success: false, message: error.message };
 
       const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
+      
+      // Ambil nama dari token yang tervalidasi, BUKAN closure luar
       await supabase.from("audit_log").insert([{
-        aktor: adminAktif.nama, aksi: `Input Transaksi Sampah: ${jenis}`, tabel_target: "transaksi_sampah",
+        aktor: sesi.nama, aksi: `Input Transaksi Sampah: ${jenis}`, tabel_target: "transaksi_sampah",
         detail: `${targetWarga?.nama_lengkap} - Warga: Rp${nominalWarga} | Kas RT: Rp${nominalKasRt}`
       }]);
       

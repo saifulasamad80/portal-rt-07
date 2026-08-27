@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import LapakClient from "./LapakClient";
+import { v4 as uuidv4 } from "uuid"; // Modul pembuat ID Acak
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+// SECURITY FIX: Hapus fallback string.
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 // INJEKSI MUTLAK: Mesin Gembok Zero-Trust Anti-IDOR
 async function pastikanOtentikasiWarga() {
@@ -35,11 +37,13 @@ export default async function PortalLapakPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  // OPTIMASI: Batasi katalog agar tidak OOM jika lapak mencapai ribuan
   const { data: katalogRes } = await supabaseAdmin
     .from("lapak_warga")
     .select("*, warga(nama_lengkap)")
     .eq("status", "Aktif")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   const { data: lapakKuRes } = await supabaseAdmin
     .from("lapak_warga")
@@ -47,27 +51,55 @@ export default async function PortalLapakPage() {
     .eq("warga_id", wargaAktif.id)
     .order("created_at", { ascending: false });
 
-  // REFACTOR: Validasi Endpoint Bikin Lapak
+  // REFACTOR: Endpoint Bikin Lapak & Penghancur Base64
   async function buatLapak(namaUsaha: string, kategori: string, deskripsi: string, wa: string, fotoBase64: string) {
     "use server";
     const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
+    let finalFotoUrl = fotoBase64; // Fallback jika kosong
+    
+    // -------------------------------------------------------------------
+    // EKSEKUSI PEMBERSIHAN DATA: Ekstrak Base64 ke Supabase Storage Public
+    // -------------------------------------------------------------------
+    if (fotoBase64 && fotoBase64.startsWith('data:image')) {
+      const matches = fotoBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const contentType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const fileName = `${uuidv4()}.${contentType.split('/')[1]}`;
+        
+        // Tembak ke bucket 'lapak_warga' (Pastikan bucket ini PUBLIC di Supabase)
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('lapak_warga')
+          .upload(fileName, buffer, {
+            contentType: contentType,
+            upsert: false
+          });
+          
+        if (uploadError) throw new Error("Gagal mengunggah foto brosur ke Storage: " + uploadError.message);
+        
+        // Ambil URL Publiknya untuk disimpan di tabel database
+        const { data: publicUrlData } = supabase.storage.from('lapak_warga').getPublicUrl(fileName);
+        finalFotoUrl = publicUrlData.publicUrl;
+      }
+    }
+
     const { error } = await supabase.from("lapak_warga").insert([{
       warga_id: sesi.id, // ID Asli dari JWT
       nama_usaha: namaUsaha,
       kategori: kategori,
       deskripsi: deskripsi,
       nomor_wa: wa,
-      foto_url: fotoBase64, 
-      rt_id: sesi.rt_id // Ambil RT ID dari JWT
+      foto_url: finalFotoUrl, // DATABASE SEKARANG BERSIH! (Hanya menyimpan URL)
+      rt_id: sesi.rt_id 
     }]);
 
     if (error) throw new Error(error.message);
   }
 
-  // REFACTOR: Validasi Endpoint Hapus Lapak (Super Kritis agar tidak bisa hapus lapak orang)
+  // REFACTOR: Validasi Endpoint Hapus Lapak 
   async function hapusLapakKu(idLapak: string) {
     "use server";
     const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF

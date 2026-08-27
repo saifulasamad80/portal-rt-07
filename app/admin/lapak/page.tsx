@@ -6,7 +6,21 @@ import LapakAdminClient from "./LapakAdminClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+
+// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust untuk Endpoint Admin
+async function pastikanOtentikasiAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
+  if (!token) throw new Error("Akses Ilegal: Sesi tidak valid atau telah berakhir.");
+  
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; 
+  } catch (error) {
+    throw new Error("Akses Ilegal: Token keamanan rusak atau dimanipulasi.");
+  }
+}
 
 export default async function AdminLapakPage() {
   const cookieStore = await cookies();
@@ -24,20 +38,25 @@ export default async function AdminLapakPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  // OPTIMASI: Pemasangan Limit(200) Mencegah Memory Leak (OOM)
   const { data: lapakRes } = await supabaseAdmin
     .from("lapak_warga")
     .select("*, warga(nama_lengkap)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
+  // REFACTOR: Server Action Diamankan
   async function validasiLapak(idLapak: string, statusBaru: string) {
     "use server";
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { error } = await supabase.from("lapak_warga").update({ status: statusBaru }).eq("id", idLapak);
     if (error) throw new Error(error.message);
 
     const { data: targetLapak } = await supabase.from("lapak_warga").select("nama_usaha").eq("id", idLapak).single();
     await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
+      aktor: sesi.nama,
       aksi: `Validasi UMKM: ${statusBaru}`,
       tabel_target: "lapak_warga",
       detail: `Lapak: ${targetLapak?.nama_usaha}`
