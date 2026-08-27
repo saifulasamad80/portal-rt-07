@@ -19,11 +19,11 @@ export const metadata: Metadata = {
   manifest: "/manifest.json", 
 };
 
+// REFACTOR MUTLAK: maximumScale: 1 DIHAPUS agar warga lansia bisa melakukan Zoom-In di HP!
 export const viewport: Viewport = {
   themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
 };
 
 export default function RootLayout({
