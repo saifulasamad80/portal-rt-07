@@ -32,12 +32,20 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
     setLinkDokumen("");
   };
 
-  // INJEKSI MUTLAK: FUNGSI RAKIT TEKS WHATSAPP
-  const shareKeWhatsApp = (teksJudul: string, teksDeskripsi: string, teksLink: string) => {
-    const pesan = `📢 *PENGUMUMAN RT 07* 📢\n\n*${teksJudul.toUpperCase()}*\n\n${teksDeskripsi}\n${teksLink ? `\n📂 *Lampiran Dokumen/Galeri:*\n${teksLink}` : ''}\n\n🌐 _Informasi ini juga dapat dilihat di Portal Digital Warga._`;
+  // ------------------------------------------------------------------
+  // INJEKSI MUTLAK: MESIN FOMO WHATSAPP BROADCAST
+  // ------------------------------------------------------------------
+  const shareKeWhatsApp = (teksJudul: string) => {
+    // Mesin otomatis mendeteksi URL aktif aplikasi (contoh: https://wargaku-six.vercel.app)
+    const appUrl = window.location.origin; 
+    
+    // Merakit Teks Umpan (Bait)
+    const pesan = `📢 *INFO PENTING RT 07* 📢\n\n*${teksJudul.toUpperCase()}*\n\nSilakan cek detail informasi lengkapnya di Mading Portal Warga sekarang:\n👉 ${appUrl}\n\n_Harap segera dibaca agar tidak tertinggal informasi!_`;
+    
     const waUrl = `https://wa.me/?text=${encodeURIComponent(pesan)}`;
     window.open(waUrl, "_blank");
   };
+  // ------------------------------------------------------------------
 
   // EKSEKUSI SIMPAN / UPDATE
   const handleSimpan = async (e: React.FormEvent) => {
@@ -56,9 +64,9 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
       } else {
         await aksiSimpan(judul, deskripsi, linkDokumen);
         
-        // EFEK DOMINO: Trigger Langsung Share WA setelah buat baru!
-        if (confirm("Sempurna! Pengumuman baru berhasil dipublikasikan di Portal.\n\nApakah Anda ingin langsung menyebarkannya ke Grup WhatsApp RT sekarang?")) {
-          shareKeWhatsApp(judul, deskripsi, linkDokumen);
+        // EFEK DOMINO: Trigger Langsung Share WA setelah buat baru
+        if (confirm("Sempurna! Pengumuman baru berhasil dipublikasikan di Portal.\n\nApakah Anda ingin memancing warga dengan menyebarkan judulnya ke Grup WhatsApp RT sekarang?")) {
+          shareKeWhatsApp(judul);
         }
       }
       
@@ -165,9 +173,9 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                     {/* TOMBOL AKSI KANAN */}
                     <div className="flex flex-row md:flex-col gap-2 shrink-0 md:border-l md:border-slate-200 md:pl-6 pt-4 md:pt-0 border-t border-slate-200 md:border-t-0 justify-end md:justify-start">
                       
-                      {/* INJEKSI MUTLAK: TOMBOL SHARE WA */}
+                      {/* INJEKSI MUTLAK: TOMBOL SHARE WA DENGAN TAKTIK FOMO */}
                       <button 
-                        onClick={() => shareKeWhatsApp(p.judul, p.deskripsi, p.link_dokumen)}
+                        onClick={() => shareKeWhatsApp(p.judul)}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider flex-1 md:flex-none text-center active:scale-95"
                       >
                         📲 Share WA
