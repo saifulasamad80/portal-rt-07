@@ -30,6 +30,17 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
     setSubmitLoading(false);
   };
 
+  // INJEKSI MUTLAK: Generator Pesan Clickbait ke WhatsApp
+  const handleShareWA = (judulPengumuman: string) => {
+    // Otomatis mengambil domain vercel lu saat ini
+    const domainPortal = window.location.origin; 
+    
+    const pesanClickbait = `📢 *INFORMASI TERBARU RT 07* 📢\n\n*${judulPengumuman}*\n\nBapak/Ibu warga RT 07, terdapat edaran/informasi resmi terbaru dari pengurus lingkungan kita.\n\nSilakan cek detail selengkapnya di Portal Warga:\n👉 ${domainPortal}\n\n_Dimohon kerjasamanya untuk selalu mengecek portal. Terima kasih._`;
+    
+    const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(pesanClickbait)}`;
+    window.open(waLink, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -38,7 +49,6 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
           &larr; Kembali ke Pusat Komando
         </Link>
 
-        {/* REVISI UX: Hapus border-l-[12px] */}
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] mb-8 border border-slate-800">
           <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Pusat Informasi RT 07</h1>
           <p className="text-slate-400 text-sm font-medium">Sebarkan surat edaran, undangan, dan galeri resmi ke portal warga.</p>
@@ -46,7 +56,6 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* REVISI UX: Hapus border-t-[6px] */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-1 h-fit">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2">📢 Buat Siaran Baru</h2>
             <form onSubmit={handleSimpan} className="space-y-5">
@@ -83,12 +92,22 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                         {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
                       </span>
                     </div>
+                    
                     <p className="text-slate-600 text-sm whitespace-pre-wrap mb-5 leading-relaxed">{p.deskripsi}</p>
-                    {p.link_dokumen && (
-                      <a href={p.link_dokumen} target="_blank" rel="noopener noreferrer" className="text-xs bg-white border border-slate-200 text-blue-700 px-5 py-2.5 rounded-lg font-bold hover:bg-blue-50 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
-                        <span>{p.link_dokumen.includes("drive.google.com") ? '📂 Buka Folder Galeri' : '📄 Buka Dokumen Lampiran'}</span>
-                      </a>
-                    )}
+                    
+                    {/* INJEKSI MUTLAK: Baris Tombol Aksi (Link Lampiran & Share WA) */}
+                    <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-200">
+                      {p.link_dokumen && (
+                        <a href={p.link_dokumen} target="_blank" rel="noopener noreferrer" className="text-xs bg-white border border-slate-200 text-blue-700 px-5 py-2.5 rounded-lg font-bold hover:bg-blue-50 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
+                          <span>{p.link_dokumen.includes("drive.google.com") ? '📂 Buka Folder Galeri' : '📄 Buka Dokumen'}</span>
+                        </a>
+                      )}
+                      
+                      <button onClick={() => handleShareWA(p.judul)} className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-2.5 rounded-lg font-bold hover:bg-emerald-100 hover:border-emerald-300 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
+                        <span className="text-emerald-500 text-base">💬</span> Beri Tahu di Grup WA
+                      </button>
+                    </div>
+
                   </div>
                 ))
               )}
