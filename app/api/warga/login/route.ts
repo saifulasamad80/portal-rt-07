@@ -1,99 +1,76 @@
-export const dynamic = "force-dynamic";
-
-import { NextRequest, NextResponse } from "next/server";
-import { SignJWT, jwtVerify } from "jose";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import bcrypt from "bcryptjs";
+import { SignJWT } from "jose";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-export async function GET(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const token = request.cookies.get("warga_session")?.value;
-    if (!token) return NextResponse.json({ error: "Tidak ada sesi aktif" }, { status: 401 });
-    const { payload } = await jwtVerify(token, JWT_SECRET); 
-    return NextResponse.json({ success: true, warga: payload });
-  } catch (error) {
-    return NextResponse.json({ error: "Sesi tidak valid atau kedaluwarsa" }, { status: 401 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { nik, password } = body;
-
-    const { data: warga, error: errWarga } = await supabaseAdmin
+    const { nik, pin } = await req.json();
+    
+    // Gunakan Jalur Dewa untuk bypass RLS saat login
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Cari warga berdasarkan NIK
+    const { data: warga, error } = await supabase
       .from("warga")
-      .select("id, nama_lengkap, nik, pin, rt_id, percobaan_gagal, terkunci_sampai")
+      .select("*")
       .eq("nik", nik)
-      .maybeSingle();
+      .single();
 
-    if (errWarga || !warga) {
-      return NextResponse.json({ success: false, error: "Akses Ditolak! NIK tidak terdaftar." }, { status: 401 });
+    if (error || !warga) {
+      return NextResponse.json({ success: false, message: "NIK tidak terdaftar di sistem kami." }, { status: 401 });
     }
 
-    if (warga.terkunci_sampai && new Date(warga.terkunci_sampai) > new Date()) {
-      return NextResponse.json({ success: false, error: "🚨 AKUN TERKUNCI: Anda telah gagal 5x. Silakan coba lagi dalam 15 menit untuk mencegah peretasan." }, { status: 429 });
+    // -------------------------------------------------------------
+    // INJEKSI MUTLAK: GEMBOK STATUS VALIDASI RT (HASIL UAT)
+    // -------------------------------------------------------------
+    if (warga.status_verifikasi === "Menunggu") {
+      return NextResponse.json({ 
+        success: false, 
+        message: "AKSES DITOLAK: Pendaftaran Anda masih dalam antrean. Silakan tunggu Pengurus RT memvalidasi data Anda." 
+      }, { status: 403 });
     }
 
-    // INJEKSI MUTLAK: Sistem Validasi & Seamless Upgrade (C1 Fix)
-    let isMatch = false;
-    let isLegacyPlaintext = false;
+    if (warga.status_verifikasi === "Ditolak") {
+      return NextResponse.json({ 
+        success: false, 
+        message: "AKSES DITOLAK: Pendaftaran Anda ditolak oleh Pengurus RT. Silakan hubungi Ketua RT." 
+      }, { status: 403 });
+    }
+    // -------------------------------------------------------------
 
-    if (warga.pin.startsWith("$2a$") || warga.pin.startsWith("$2b$")) {
-      isMatch = await bcrypt.compare(password, warga.pin);
-    } else {
-      if (warga.pin === password) {
-        isMatch = true;
-        isLegacyPlaintext = true;
-      }
+    // Verifikasi PIN
+    if (warga.pin !== pin) {
+      return NextResponse.json({ success: false, message: "PIN yang Anda masukkan salah!" }, { status: 401 });
     }
 
-    if (!isMatch) {
-      const gagalSekarang = (warga.percobaan_gagal || 0) + 1;
-      let updateData: any = { percobaan_gagal: gagalSekarang };
-      let pesanError = `PIN salah! (Percobaan ${gagalSekarang}/5)`;
-      
-      if (gagalSekarang >= 5) {
-        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
-        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
-      }
-      
-      await supabaseAdmin.from("warga").update(updateData).eq("id", warga.id);
-      return NextResponse.json({ success: false, error: pesanError }, { status: 401 });
-    }
-
-    // Buka gembok & Upgrade PIN diam-diam jika masih plaintext
-    const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
-    if (isLegacyPlaintext) updatePayload.pin = await bcrypt.hash(password, 10);
-    await supabaseAdmin.from("warga").update(updatePayload).eq("id", warga.id);
-
-    if (!warga.rt_id) {
-      return NextResponse.json({ success: false, error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
-    }
-
-    const token = await new SignJWT({ id: warga.id, nama: warga.nama_lengkap, nik: warga.nik, role: "warga", rt_id: warga.rt_id })
+    // Jika status "Disetujui" dan PIN benar, cetak Kartu Akses (JWT)
+    const token = await new SignJWT({ 
+      id: warga.id, 
+      nik: warga.nik, 
+      nama: warga.nama_lengkap, 
+      rt_id: warga.rt_id 
+    })
       .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("24h")
+      .setExpirationTime("7d") // Sesi aktif 7 hari
       .sign(JWT_SECRET);
 
-    const response = NextResponse.json({ success: true, warga: warga });
-    response.cookies.set("warga_session", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" });
+    const response = NextResponse.json({ success: true, message: "Login berhasil!" });
+    
+    // Tanam token di Cookies HP/Laptop warga
+    response.cookies.set("warga_session", token, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === "production", 
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7 // 7 Hari
+    });
+    
     return response;
-
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: "Kesalahan internal server." }, { status: 500 });
+    
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: "Terjadi kesalahan server: " + error.message }, { status: 500 });
   }
-}
-
-export async function DELETE(request: NextRequest) {
-  const response = NextResponse.json({ success: true });
-  response.cookies.set("warga_session", "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 0, path: "/" });
-  return response;
 }
