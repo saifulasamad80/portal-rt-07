@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 // INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
 const FITUR_KTP_AKTIF = false;
 
-export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: any[], aksiHapus: any }) {
+export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus }: { wargaList: any[], aksiHapus: any, aksiUbahStatus: any }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
@@ -26,6 +26,25 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
       router.refresh();
     } catch (error: any) {
       alert("Gagal menghapus warga: " + error.message);
+    }
+    setLoadingId("");
+  };
+
+  // INJEKSI MUTLAK: Fungsi Dinamis Cabut & Sahkan Warga
+  const handleUbahStatus = async (id: string, nama: string, statusBaru: string) => {
+    const pesan = statusBaru === "Menunggu" 
+      ? `PERINGATAN: Anda akan MENCABUT akses login ${nama}. Mereka tidak akan bisa masuk ke portal sampai disetujui kembali. Yakin?`
+      : `Anda akan memberikan AKSES LOGIN SAH kepada ${nama}. Yakin?`;
+
+    if (!confirm(pesan)) return;
+    
+    setLoadingId(id);
+    try {
+      await aksiUbahStatus(id, statusBaru);
+      alert(`Status ${nama} berhasil diubah menjadi: ${statusBaru.toUpperCase()}!`);
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal mengubah status: " + error.message);
     }
     setLoadingId("");
   };
@@ -142,7 +161,12 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                       <td className="p-4 align-top">
                         <div className="font-black text-slate-800 text-base mb-1">{w.nama_lengkap}</div>
                         <div className="text-[10px] text-slate-500 font-mono font-bold bg-slate-200 px-2 py-0.5 rounded w-fit mb-1">NIK: {w.nik}</div>
-                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit">WA: {w.no_whatsapp}</div>
+                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit mb-2">WA: {w.no_whatsapp}</div>
+                        
+                        {/* Status Label untuk indikator cepat */}
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm inline-block ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          Login: {w.status_verifikasi === 'Disetujui' ? 'SAH' : 'DIBLOKIR'}
+                        </span>
                       </td>
                       <td className="p-4 align-top">
                         <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider block w-fit mb-1.5 shadow-sm">
@@ -165,14 +189,12 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                         <div className="flex flex-col gap-1.5">
                           {FITUR_KTP_AKTIF && (
                             w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
-                              // TARGET BLANK DIHAPUS
                               <a href={`/api/admin/dokumen?path=${w.ktp_path}`} className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
                             ) : (
                               <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik/Menyusul</span>
                             )
                           )}
                           {w.kk_path && w.kk_path !== 'MENYUSUL' ? (
-                            // TARGET BLANK DIHAPUS
                             <a href={`/api/admin/dokumen?path=${w.kk_path}`} className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
                           ) : (
                             <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Fisik/Menyusul</span>
@@ -183,6 +205,18 @@ export default function WargaAdminClient({ wargaList, aksiHapus }: { wargaList: 
                         <Link href={`/admin/warga/${w.id}`} className="bg-blue-100 hover:bg-blue-500 hover:text-white text-blue-700 border border-blue-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm uppercase tracking-wider w-full mb-2 inline-block">
                           Detail Warga
                         </Link>
+                        
+                        {/* INJEKSI MUTLAK: TOMBOL CABUT / SAH DINAMIS */}
+                        {w.status_verifikasi === 'Disetujui' ? (
+                          <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Menunggu')} disabled={loadingId === w.id} className="bg-amber-100 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">
+                            {loadingId === w.id ? 'Memproses...' : 'Batal Sah (Cabut)'}
+                          </button>
+                        ) : (
+                          <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Disetujui')} disabled={loadingId === w.id} className="bg-emerald-100 hover:bg-emerald-500 hover:text-white text-emerald-700 border border-emerald-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">
+                            {loadingId === w.id ? 'Memproses...' : 'Setujui (Sah)'}
+                          </button>
+                        )}
+
                         <button onClick={() => handleHapus(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
                           {loadingId === w.id ? 'Memproses...' : 'Hapus Warga'}
                         </button>
