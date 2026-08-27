@@ -1,103 +1,110 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useWargaAuth } from "@/hooks/use-warga-auth";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function WargaLogin() {
-  const { wargaAktif, loading: authLoading, login } = useWargaAuth();
   const router = useRouter();
-
   const [nik, setNik] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
-  
-  // INJEKSI MUTLAK: Radar Ikon Mata
-  const [showPassword, setShowPassword] = useState(false);
+  const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
-  useEffect(() => {
-    if (wargaAktif) {
-      router.push("/portal");
-    }
-  }, [wargaAktif, router]);
-
- const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginLoading(true);
-    const response = await login(nik, password);
-    if (!response.success) {
-      alert("Akses Ditolak: " + response.error);
-      setLoginLoading(false);
-    } else {
-      window.location.href = "/portal";
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/warga/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nik, pin }),
+      });
+
+      const data = await res.json();
+
+      // INJEKSI MUTLAK: Tangkap dan paksa tampilkan pesan asli dari Server API!
+      if (!res.ok) {
+        throw new Error(data.message || "Akses Ditolak: Terjadi kesalahan sistem.");
+      }
+
+      if (data.success) {
+        router.push("/portal");
+        router.refresh();
+      }
+    } catch (error: any) {
+      // Sekarang alert akan berbunyi persis seperti instruksi dari Backend
+      alert(error.message);
+    } finally {
+      setLoading(false);
     }
   };
-  
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-mono text-blue-600">
-        <div className="text-4xl mb-4 animate-spin">🔄</div>
-        <div className="font-bold tracking-widest uppercase">Memeriksa Kredensial...</div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
-      <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] w-full max-w-md border-t-4 border-blue-600 relative overflow-hidden">
-        <div className="absolute top-0 right-0 bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-bl-lg">WARGA PORTAL</div>
-        <div className="text-5xl mb-6 text-center">🏡</div>
-        <h2 className="text-2xl font-black text-slate-800 mb-2 text-center">Portal Warga RT 07</h2>
-        <p className="text-slate-500 text-sm mb-8 text-center">Silakan masuk menggunakan NIK dan Password Anda.</p>
-        
-        <div className="space-y-4 mb-6 text-left">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
-            <input 
-              type="text" 
-              required 
-              maxLength={16} 
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono text-slate-800 bg-slate-50 focus:bg-white" 
-              placeholder="Masukkan 16 digit NIK..." 
-              value={nik} 
-              onChange={(e) => setNik(e.target.value.replace(/\D/g, ''))} 
-            />
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      <div className="p-4 flex justify-end">
+         <div className="bg-blue-100 text-blue-800 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded shadow-sm">
+           WARGA PORTAL
+         </div>
+      </div>
+      
+      <div className="flex-1 flex flex-col justify-center items-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-2">🏡</div>
+            <h1 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Portal Warga RT 07</h1>
+            <p className="text-sm text-slate-500 font-medium">Silakan masuk menggunakan NIK dan Password Anda.</p>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
-            
-            {/* INJEKSI MUTLAK: Sistem Wrapper Relative untuk Ikon Mata */}
-            <div className="relative">
-              <input 
-                type={showPassword ? "text" : "password"} 
-                required 
-                className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors text-slate-800 bg-slate-50 focus:bg-white pr-12" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Nomor Induk Kependudukan (NIK)</label>
+              <input
+                type="text"
+                maxLength={16}
+                required
+                className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-slate-900 font-mono font-bold focus:border-blue-600 focus:ring-0 outline-none transition-all bg-transparent shadow-sm"
+                value={nik}
+                onChange={(e) => setNik(e.target.value.replace(/\D/g, ""))}
               />
-              <button 
+            </div>
+
+            <div className="relative">
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
+              <input
+                type={showPin ? "text" : "password"}
+                maxLength={6}
+                required
+                className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-slate-900 font-mono font-bold tracking-widest focus:border-blue-600 focus:ring-0 outline-none transition-all bg-transparent shadow-sm"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              />
+              <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none text-lg transition-colors cursor-pointer"
-                tabIndex={-1}
+                onClick={() => setShowPin(!showPin)}
+                className="absolute right-4 top-10 text-xl transition-transform active:scale-90"
               >
-                {showPassword ? "👁️" : "🙈"}
+                {showPin ? "🙉" : "🙈"}
               </button>
             </div>
 
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#0e1b4d] text-white font-black py-4 rounded-xl shadow-lg hover:bg-blue-900 disabled:opacity-70 disabled:scale-100 active:scale-[0.98] transition-all tracking-wide"
+            >
+              {loading ? "Memverifikasi..." : "Masuk Portal"}
+            </button>
+          </form>
+
+          <div className="text-center mt-8 pt-6 border-t border-slate-200">
+            <span className="text-sm text-slate-500 font-medium">Belum punya akun? </span>
+            <Link href="/register" className="text-sm text-blue-600 font-black hover:underline ml-1">
+              Daftar di sini
+            </Link>
           </div>
         </div>
-
-        <button type="submit" disabled={loginLoading} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-md active:scale-[0.98] flex justify-center items-center gap-2">
-          {loginLoading ? "Memverifikasi..." : "Masuk ke Portal"}
-        </button>
-        
-        <div className="mt-6 text-center">
-          <p className="text-sm text-slate-500">Belum punya akun?</p>
-          <Link href="/register" className="text-blue-600 font-bold hover:underline mt-1 inline-block">Daftar sebagai Warga Baru</Link>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }
