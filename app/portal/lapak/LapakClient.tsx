@@ -13,7 +13,7 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
   const [kategori, setKategori] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   
-  // INJEKSI MUTLAK: State WA langsung diisi oleh data dari database
+  // State WA diisi otomatis dari database
   const [wa, setWa] = useState(nomorWaDefault);
   
   const [fileFoto, setFileFoto] = useState<File | null>(null);
@@ -172,6 +172,7 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
             {/* FORM PENDAFTARAN LAPAK */}
             <div className={`bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] ${kuotaHabis ? 'border-t-slate-400 opacity-80' : 'border-t-orange-500'} h-fit relative overflow-hidden`}>
               
+              {/* OVERLAY JIKA KUOTA HABIS */}
               {kuotaHabis && (
                 <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
                   <div className="text-4xl mb-3">🔒</div>
@@ -196,10 +197,16 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
                 </div>
                 <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Deskripsi & Harga Singkat</label><textarea required disabled={kuotaHabis} rows={3} className="w-full border border-slate-300 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="Jual risol mayo isi daging. Menerima pesanan arisan..." value={deskripsi} onChange={e => setDeskripsi(e.target.value)} /></div>
                 
+                {/* INJEKSI MUTLAK: Nomor WA Dikunci (Read Only) & Desain diubah jadi Disabled */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nomor WhatsApp Aktif</label>
-                  <input type="tel" required disabled={kuotaHabis} className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="081234567890" value={wa} onChange={e => setWa(e.target.value.replace(/\D/g, ''))} />
-                  <p className="text-[9px] text-slate-400 mt-1.5">*Otomatis diisi dari nomor Anda yang terdaftar.</p>
+                  <input 
+                    type="tel" 
+                    readOnly 
+                    className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-500 bg-slate-100 cursor-not-allowed shadow-inner outline-none" 
+                    value={wa} 
+                  />
+                  <p className="text-[9px] text-rose-500 font-bold mt-1.5">*Sistem mengunci nomor WA otomatis untuk mencegah pihak luar menitipkan lapak.</p>
                 </div>
                 
                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
