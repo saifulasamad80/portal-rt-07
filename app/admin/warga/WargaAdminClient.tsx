@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 
 const FITUR_KTP_AKTIF = false;
 
-export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus, aksiImportMassal }: { wargaList: any[], aksiHapus: any, aksiUbahStatus: any, aksiImportMassal: any }) {
+export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus, aksiImportMassal, aksiResetPin }: { wargaList: any[], aksiHapus: any, aksiUbahStatus: any, aksiImportMassal: any, aksiResetPin: any }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // State untuk loading CSV
+  const [isUploading, setIsUploading] = useState(false);
 
   const filteredWarga = wargaList.filter(w => 
     w.nama_lengkap.toLowerCase().includes(search.toLowerCase()) || 
@@ -43,6 +43,21 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     setLoadingId("");
   };
 
+  // INJEKSI MUTLAK: Reset PIN 1-Klik (Otomatis ke 123456)
+  const handleResetPin = async (id: string, nama: string) => {
+    if (!confirm(`🔑 RESET PIN AKSES WARGA\n\nAnda akan mereset sandi milik ${nama} kembali ke PIN Default (123456).\n\nSistem akan secara otomatis MEMAKSA warga tersebut untuk membuat PIN baru pada saat mereka login. Lanjutkan?`)) return;
+
+    setLoadingId(id);
+    try {
+      await aksiResetPin(id, "123456");
+      alert(`Sempurna! PIN untuk ${nama} telah direset ke 123456.\n\nSilakan instruksikan warga tersebut untuk login, sistem akan memandu mereka untuk mengganti PIN.`);
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal mereset PIN: " + error.message);
+    }
+    setLoadingId("");
+  };
+
   const handleExportPDF = async () => {
     setPdfLoading(true);
     try {
@@ -72,7 +87,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     setPdfLoading(false);
   };
 
-  // INJEKSI MUTLAK: FUNGSI DOWNLOAD TEMPLATE CSV
   const downloadTemplateCSV = () => {
     const headers = "nik,nama_lengkap,no_whatsapp,status_tinggal,detail_alamat,tanggal_lahir,tempat_lahir,jenis_kelamin,pekerjaan\n";
     const sample = "3171000000000001,Budi Santoso,081234567890,Warga Tetap,Blok A No 1,1985-08-15,Jakarta,Laki-laki,Karyawan Swasta\n";
@@ -82,12 +96,11 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     a.href = url; a.download = "Template_Import_Warga_RT07.csv"; a.click();
   };
 
-  // INJEKSI MUTLAK: FUNGSI BACA DAN UPLOAD CSV
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!confirm(`Sistem akan mengimpor data dari file "${file.name}". Seluruh warga yang berhasil diimpor akan mendapatkan PIN default "123456". Lanjutkan?`)) {
+    if (!confirm(`Sistem akan mengimpor data dari file "${file.name}". Seluruh warga yang diimpor akan mendapatkan PIN "123456" dan dipaksa ganti PIN saat login. Lanjutkan?`)) {
       e.target.value = ''; return;
     }
 
@@ -95,7 +108,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     const reader = new FileReader();
     reader.onload = async (event) => {
       const text = event.target?.result as string;
-      // Membedah CSV (mengamankan koma di dalam tanda kutip ganda)
       const rows = text.split("\n").filter(row => row.trim() !== "");
       if (rows.length < 2) {
         alert("File CSV kosong atau tidak memiliki data!");
@@ -239,6 +251,10 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                         <Link href={`/admin/warga/${w.id}`} className="bg-blue-100 hover:bg-blue-500 hover:text-white text-blue-700 border border-blue-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm uppercase tracking-wider w-full mb-2 inline-block">
                           Detail Warga
                         </Link>
+                        
+                        <button onClick={() => handleResetPin(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-700 border border-slate-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">
+                          {loadingId === w.id ? 'Memproses...' : '🔑 Reset PIN'}
+                        </button>
                         
                         {w.status_verifikasi === 'Disetujui' ? (
                           <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Menunggu')} disabled={loadingId === w.id} className="bg-amber-100 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">

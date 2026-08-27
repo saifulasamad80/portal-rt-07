@@ -1,5 +1,6 @@
 import RegisterClient from "./RegisterClient";
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs"; // INJEKSI MUTLAK: Mesin Penghancur Teks
 
 export default function RegisterPage() {
   
@@ -13,6 +14,9 @@ export default function RegisterPage() {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
       
+      // INJEKSI MUTLAK: Hashing PIN sebelum masuk ke database
+      const hashedPin = await bcrypt.hash(payloadKepala.pin, 10);
+
       // 1. Eksekusi Data Kepala Keluarga
       const { data: wargaBaru, error: errWarga } = await supabase
         .from("warga")
@@ -20,7 +24,7 @@ export default function RegisterPage() {
            nik: payloadKepala.nik,
            nama_lengkap: payloadKepala.nama_lengkap,
            no_whatsapp: payloadKepala.no_whatsapp,
-           pin: payloadKepala.pin,
+           pin: hashedPin, // MASUK SEBAGAI HASH KODE ACAK
            status_tinggal: payloadKepala.status_tinggal,
            detail_alamat: payloadKepala.detail_alamat,
            tanggal_lahir: payloadKepala.tanggal_lahir,
@@ -68,11 +72,9 @@ export default function RegisterPage() {
         }
       }
 
-      // Mengembalikan string sederhana agar lolos sensor Serialisasi React (Anti Error 441)
       return "SUKSES"; 
       
     } catch (error: any) {
-      // WAJIB throw new Error murni agar bisa ditangkap oleh alert di RegisterClient.tsx
       throw new Error(error.message || "Terjadi kesalahan internal pada server pendaftaran.");
     }
   }
