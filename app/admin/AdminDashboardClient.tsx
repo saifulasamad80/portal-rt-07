@@ -3,18 +3,18 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
 const FITUR_KTP_AKTIF = false;
 
 export default function AdminDashboardClient({ adminAktif, wargaList, prosesValidasi, logoutAction }: { adminAktif: any, wargaList: any[], prosesValidasi: any, logoutAction: any }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
+  const [isLocked, setIsLocked] = useState(false); // STATE OPTIMASI: Mengendalikan Overlay
 
   // ------------------------------------------------------------------
-  // INJEKSI MUTLAK: MESIN PEMBUNUH SESI OTOMATIS (IDLE TIMEOUT)
+  // REFACTOR: Mesin Sesi Asinkron Anti-Blocking (UX TINGKAT DEWA)
   // ------------------------------------------------------------------
   useEffect(() => {
-    const BATAS_WAKTU_IDLE = 10 * 60 * 1000; // 10 Menit tanpa sentuhan
+    const BATAS_WAKTU_IDLE = 10 * 60 * 1000; 
     let waktuTerakhirAktif = Date.now();
 
     const perbaruiAktivitas = () => {
@@ -23,20 +23,19 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
 
     const cekKematianSesi = async () => {
       if (Date.now() - waktuTerakhirAktif > BATAS_WAKTU_IDLE) {
-        alert("🔒 SISTEM TERKUNCI OTOMATIS!\n\nTidak ada aktivitas selama 10 Menit. Demi keamanan, Anda telah dikeluarkan. Silakan login kembali.");
-        await fetch('/api/admin/login', { method: 'DELETE' });
-        window.location.href = '/admin';
+        setIsLocked(true); // Seketika memicu Overlay Merah (Menutup data Dasbor)
+        try {
+          await fetch('/api/admin/login', { method: 'DELETE' }); // Hapus sesi diam-diam
+        } finally {
+          window.location.href = '/admin'; // Redirect paksa
+        }
       }
     };
 
-    // Radar pendeteksi sentuhan, ketikan, dan scroll
     const daftarEvent = ['touchstart', 'mousemove', 'keypress', 'scroll', 'click'];
     daftarEvent.forEach(event => document.addEventListener(event, perbaruiAktivitas));
     
-    // Cek setiap 1 menit di belakang layar
     const intervalId = setInterval(cekKematianSesi, 60000);
-    
-    // Cek instan saat aplikasi PWA baru dibuka kembali dari background (Layar Nyala)
     const handleLayarNyala = () => { if (document.visibilityState === 'visible') cekKematianSesi(); };
     document.addEventListener('visibilitychange', handleLayarNyala);
 
@@ -71,6 +70,22 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
     }
     setLoadingId("");
   };
+
+  // REFACTOR: Render Darurat jika Idle Timeout tercapai
+  if (isLocked) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white p-6 font-sans">
+        <div className="text-7xl mb-6 animate-bounce">🔒</div>
+        <h1 className="text-2xl md:text-3xl font-black text-rose-500 mb-2 uppercase tracking-widest text-center">Sistem Terkunci Otomatis</h1>
+        <p className="text-slate-400 text-sm md:text-base text-center max-w-md mb-8 leading-relaxed">
+          Tidak ada aktivitas terdeteksi selama 10 Menit. Demi keamanan privasi data Warga, sesi Anda telah dihancurkan oleh sistem.
+        </p>
+        <div className="flex items-center gap-3 text-emerald-400 font-bold bg-slate-800 px-6 py-3 rounded-full border border-slate-700">
+          <span className="animate-spin text-xl">⌛</span> Memulihkan keamanan server...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">

@@ -3,11 +3,25 @@ import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
-import bcrypt from "bcryptjs"; // WAJIB untuk enkripsi PIN default dan Reset PIN
+import bcrypt from "bcryptjs"; 
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+
+// OPTIMASI: Barrier Keamanan Absolut untuk menangkis tembakan API eksternal
+async function pastikanOtentikasiAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
+  if (!token) throw new Error("Akses Ilegal: Sesi tidak valid atau telah berakhir.");
+  
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; // Lolos verifikasi, kembalikan payload admin
+  } catch (error) {
+    throw new Error("Akses Ilegal: Manipulasi Token Terdeteksi.");
+  }
+}
 
 export default async function WargaAdminPage() {
   const cookieStore = await cookies();
@@ -30,14 +44,17 @@ export default async function WargaAdminPage() {
     .select("*, anggota_keluarga(*)")
     .order("created_at", { ascending: false });
 
+  // REFACTOR: Verifikasi token paksa di awal eksekusi
   async function hapusWarga(id: string) {
     "use server";
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
     const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", id).single();
     if (target) {
       await supabase.from("audit_log").insert([{
-        aktor: adminAktif.nama,
+        aktor: sesi.nama,
         aksi: "Hapus Warga Secara Paksa",
         tabel_target: "warga",
         detail: `Menghapus seluruh data warga: ${target.nama_lengkap}`
@@ -50,6 +67,8 @@ export default async function WargaAdminPage() {
 
   async function ubahStatusWarga(id: string, status: string) {
     "use server";
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
     const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", id).single();
@@ -59,7 +78,7 @@ export default async function WargaAdminPage() {
 
     if (target) {
        await supabase.from("audit_log").insert([{
-        aktor: adminAktif.nama,
+        aktor: sesi.nama,
         aksi: `Mengubah Status Verifikasi: ${status}`,
         tabel_target: "warga",
         detail: `Warga: ${target.nama_lengkap} diubah menjadi ${status}`
@@ -69,9 +88,11 @@ export default async function WargaAdminPage() {
 
   async function importWargaMassal(dataWarga: any[]) {
     "use server";
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    const rtId = adminAktif.rt_id;
+    const rtId = sesi.rt_id; // Tarik ID RT langsung dari Token agar tak bisa dimanipulasi
     if (!rtId) throw new Error("Akses Ditolak: Gagal mengidentifikasi ID RT Anda.");
 
     const defaultPinHash = await bcrypt.hash("123456", 10);
@@ -110,7 +131,7 @@ export default async function WargaAdminPage() {
     }
 
     await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
+      aktor: sesi.nama,
       aksi: "Import Bulk CSV Warga",
       tabel_target: "warga",
       detail: `Sukses: ${berhasil} KK. Gagal/Duplikat: ${gagal} baris.`
@@ -119,15 +140,11 @@ export default async function WargaAdminPage() {
     return { berhasil, gagal };
   }
 
-  // ------------------------------------------------------------------
-  // INJEKSI MUTLAK: Mesin Reset PIN Warga 
-  // (Bagian ini yang tadi hilang dan bikin TypeScript menjerit)
-  // ------------------------------------------------------------------
   async function resetPinWarga(idTarget: string, pinBaru: string) {
     "use server";
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
 
-    // Hancurkan PIN baru menjadi Hash sebelum masuk DB
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const hashedPin = await bcrypt.hash(pinBaru, 10);
 
     const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", idTarget).single();
@@ -136,14 +153,13 @@ export default async function WargaAdminPage() {
     if (error) throw new Error(error.message);
 
     await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
+      aktor: sesi.nama,
       aksi: "Reset PIN Warga",
       tabel_target: "warga",
       detail: `Mereset paksa PIN akses milik: ${target?.nama_lengkap}`
     }]);
   }
 
-  // INJEKSI MUTLAK: aksiResetPin disematkan ke dalam return komponen
   return <WargaAdminClient 
             wargaList={wargaRes || []} 
             aksiHapus={hapusWarga} 
