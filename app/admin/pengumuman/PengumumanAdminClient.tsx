@@ -22,7 +22,6 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
     setJudul(p.judul);
     setDeskripsi(p.deskripsi);
     setLinkDokumen(p.link_dokumen || "");
-    // Scroll otomatis ke atas agar user melihat form
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -31,6 +30,13 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
     setJudul("");
     setDeskripsi("");
     setLinkDokumen("");
+  };
+
+  // INJEKSI MUTLAK: FUNGSI RAKIT TEKS WHATSAPP
+  const shareKeWhatsApp = (teksJudul: string, teksDeskripsi: string, teksLink: string) => {
+    const pesan = `📢 *PENGUMUMAN RT 07* 📢\n\n*${teksJudul.toUpperCase()}*\n\n${teksDeskripsi}\n${teksLink ? `\n📂 *Lampiran Dokumen/Galeri:*\n${teksLink}` : ''}\n\n🌐 _Informasi ini juga dapat dilihat di Portal Digital Warga._`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(pesan)}`;
+    window.open(waUrl, "_blank");
   };
 
   // EKSEKUSI SIMPAN / UPDATE
@@ -49,7 +55,11 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
         alert("Sempurna! Pengumuman berhasil diperbarui.");
       } else {
         await aksiSimpan(judul, deskripsi, linkDokumen);
-        alert("Sempurna! Pengumuman baru berhasil dipublikasikan.");
+        
+        // EFEK DOMINO: Trigger Langsung Share WA setelah buat baru!
+        if (confirm("Sempurna! Pengumuman baru berhasil dipublikasikan di Portal.\n\nApakah Anda ingin langsung menyebarkannya ke Grup WhatsApp RT sekarang?")) {
+          shareKeWhatsApp(judul, deskripsi, linkDokumen);
+        }
       }
       
       batalkanEdit(); // Bersihkan form
@@ -67,7 +77,7 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
     setLoadingHapusId(id);
     try {
       await aksiHapus(id);
-      if (modeEditId === id) batalkanEdit(); // Kalau kebetulan yang dihapus lagi diedit, tutup formnya
+      if (modeEditId === id) batalkanEdit(); 
       router.refresh();
     } catch (error: any) {
       alert("Gagal menghapus: " + error.message);
@@ -116,7 +126,7 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Link GDrive (Opsional)</label>
                 <input type="url" className="w-full border border-slate-300 rounded-lg p-3 text-slate-900 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50 focus:bg-white" placeholder="https://drive.google.com/..." value={linkDokumen} onChange={(e) => setLinkDokumen(e.target.value)} />
-                <p className="text-[10px] text-slate-400 mt-2 font-medium">*Link GDrive akan otomatis menjadi Ikon Folder 📂 di halaman depan warga.</p>
+                <p className="text-[10px] text-slate-400 mt-2 font-medium">*Link GDrive otomatis menjadi Ikon Folder di portal.</p>
               </div>
               
               <button type="submit" disabled={submitLoading} className={`w-full h-12 flex items-center justify-center text-white font-bold rounded-lg shadow-md mt-6 transition-all active:scale-95 ${submitLoading ? 'bg-slate-300 cursor-not-allowed shadow-none' : (modeEditId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700')}`}>
@@ -152,8 +162,17 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                       )}
                     </div>
 
-                    {/* TOMBOL AKSI (EDIT & HAPUS) */}
+                    {/* TOMBOL AKSI KANAN */}
                     <div className="flex flex-row md:flex-col gap-2 shrink-0 md:border-l md:border-slate-200 md:pl-6 pt-4 md:pt-0 border-t border-slate-200 md:border-t-0 justify-end md:justify-start">
+                      
+                      {/* INJEKSI MUTLAK: TOMBOL SHARE WA */}
+                      <button 
+                        onClick={() => shareKeWhatsApp(p.judul, p.deskripsi, p.link_dokumen)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider flex-1 md:flex-none text-center active:scale-95"
+                      >
+                        📲 Share WA
+                      </button>
+
                       <button 
                         onClick={() => handleKlikEdit(p)} 
                         disabled={loadingHapusId === p.id}
