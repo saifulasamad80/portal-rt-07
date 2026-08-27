@@ -30,21 +30,22 @@ export default function AuditClient({ logs }: { logs: any[] }) {
         l.detail || "-"
       ]);
 
-      // INJEKSI MUTLAK: Tata letak kolom responsif anti-tabrakan
+      // INJEKSI MUTLAK: Pencabutan font courier & Pemasangan dinding margin absolut
       autoTable(doc, {
         startY: 40,
+        margin: { left: 14, right: 14 }, // Dinding beton anti-tabrakan
         head: [['Waktu', 'Aktor Eksekutor', 'Tindakan / Aksi', 'Modul Target', 'Detail Forensik']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [225, 29, 72] },
-        styles: { fontSize: 8, font: "courier", overflow: 'linebreak', cellPadding: 3 }, 
-        // INJEKSI MUTLAK: Lebar absolut untuk kertas Landscape A4 (297mm)
+        // FAKTA: font "courier" dihilangkan agar jsPDF bisa menghitung word-wrap dengan benar
+        styles: { fontSize: 8, overflow: 'linebreak', cellPadding: 3 }, 
         columnStyles: { 
-          0: { cellWidth: 35 }, 
-          1: { cellWidth: 35 }, 
+          0: { cellWidth: 30 }, 
+          1: { cellWidth: 40 }, 
           2: { cellWidth: 50 }, 
           3: { cellWidth: 35 }, 
-          4: { cellWidth: 100 } // Dipaku 100mm. Total = 255mm (Aman dari margin)
+          4: { cellWidth: 'auto' } // Memaksa kolom ini menyesuaikan sisa ruang di dalam dinding margin
         }
       });
 
