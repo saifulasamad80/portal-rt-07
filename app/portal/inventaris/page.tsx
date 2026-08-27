@@ -8,6 +8,17 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
+// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust
+async function pastikanOtentikasiWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
+  if (!token) throw new Error("Akses Ditolak: Sesi Anda tidak valid.");
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; 
+  } catch (error) { throw new Error("Akses Ditolak: Token keamanan rusak."); }
+}
+
 export default async function InventarisPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
@@ -29,13 +40,15 @@ export default async function InventarisPage() {
     supabaseAdmin.from("peminjaman_inventaris").select("*").eq("warga_id", wargaAktif.id).order("tanggal_pinjam", { ascending: true })
   ]);
 
+  // REFACTOR: Eksekusi Validasi Lapis Baja
   async function ajukanBooking(namaBarang: string, tanggal: string, keterangan: string) {
     "use server";
+    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+    
     const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Mengeksekusi Insert sesuai dengan skema asli di database
     const { error } = await supabaseAdmin.from("peminjaman_inventaris").insert([{
-      warga_id: wargaAktif.id,
+      warga_id: sesi.id, // Gunakan ID asli
       nama_barang: namaBarang,
       tanggal_pinjam: tanggal,
       keterangan: keterangan,

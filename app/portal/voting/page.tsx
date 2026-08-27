@@ -8,6 +8,17 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
+// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust
+async function pastikanOtentikasiWarga() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
+  if (!token) throw new Error("Akses Ditolak: Sesi Anda tidak valid.");
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload; 
+  } catch (error) { throw new Error("Akses Ditolak: Token keamanan rusak."); }
+}
+
 export default async function PortalVotingPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
@@ -24,7 +35,6 @@ export default async function PortalVotingPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // INJEKSI MUTLAK: maybeSingle() DIBUNUH. Diganti dengan penarikan Array aman.
   const { data: votingAktifList } = await supabaseAdmin
     .from("voting_rt")
     .select("*")
@@ -32,7 +42,6 @@ export default async function PortalVotingPage() {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  // Ambil data pertama jika ada (Anti-Crash meskipun Admin bikin 10 voting aktif)
   const votingAktif = votingAktifList && votingAktifList.length > 0 ? votingAktifList[0] : null;
 
   let suaraKu = null;
@@ -43,21 +52,23 @@ export default async function PortalVotingPage() {
       .eq("voting_id", votingAktif.id)
       .eq("warga_id", wargaAktif.id);
       
-    // Penyesuaian aman untuk pencarian suara
     suaraKu = cekSuara && cekSuara.length > 0 ? cekSuara[0] : null;
   }
 
+  // REFACTOR: Eksekusi Validasi Lapis Baja (Super Kritis untuk Mencegah Pemilu Curang)
   async function kirimSuara(votingId: string, pilihanTeks: string) {
     "use server";
+    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // Validasi Ganda di Server (Anti Cheat)
-    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", wargaAktif.id);
-    if (validasi && validasi.length > 0) throw new Error("Suara Anda sudah terekam sebelumnya. Dilarang memilih ganda!");
+    // Validasi Ganda di Server menggunakan ID Asli Warga
+    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", sesi.id);
+    if (validasi && validasi.length > 0) throw new Error("Sistem mendeteksi anomali: Suara Anda sudah terekam sebelumnya. Tindakan diblokir!");
 
     const { error } = await supabase.from("suara_voting").insert([{
       voting_id: votingId,
-      warga_id: wargaAktif.id,
+      warga_id: sesi.id, // Gunakan ID asli
       pilihan: pilihanTeks
     }]);
 
