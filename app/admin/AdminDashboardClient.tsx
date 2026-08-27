@@ -8,13 +8,13 @@ const FITUR_KTP_AKTIF = false;
 export default function AdminDashboardClient({ adminAktif, wargaList, prosesValidasi, logoutAction }: { adminAktif: any, wargaList: any[], prosesValidasi: any, logoutAction: any }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
-  const [isLocked, setIsLocked] = useState(false); // STATE OPTIMASI: Mengendalikan Overlay
+  const [isLocked, setIsLocked] = useState(false); // REFACTOR: State kendali UI Kunci
 
   // ------------------------------------------------------------------
-  // REFACTOR: Mesin Sesi Asinkron Anti-Blocking (UX TINGKAT DEWA)
+  // REFACTOR: Eksekusi Idle Timeout Non-Blocking (Asynchronous)
   // ------------------------------------------------------------------
   useEffect(() => {
-    const BATAS_WAKTU_IDLE = 10 * 60 * 1000; 
+    const BATAS_WAKTU_IDLE = 10 * 60 * 1000; // 10 Menit
     let waktuTerakhirAktif = Date.now();
 
     const perbaruiAktivitas = () => {
@@ -23,11 +23,13 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
 
     const cekKematianSesi = async () => {
       if (Date.now() - waktuTerakhirAktif > BATAS_WAKTU_IDLE) {
-        setIsLocked(true); // Seketika memicu Overlay Merah (Menutup data Dasbor)
+        // Mengamankan layar secara visual TERLEBIH DAHULU
+        setIsLocked(true); 
         try {
-          await fetch('/api/admin/login', { method: 'DELETE' }); // Hapus sesi diam-diam
+          // Menghancurkan session di backend secara diam-diam
+          await fetch('/api/admin/login', { method: 'DELETE' }); 
         } finally {
-          window.location.href = '/admin'; // Redirect paksa
+          window.location.href = '/admin'; // Redirect paksa tanpa block thread
         }
       }
     };
@@ -45,7 +47,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
       document.removeEventListener('visibilitychange', handleLayarNyala);
     };
   }, []);
-  // ------------------------------------------------------------------
 
   const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
     const isDokumenKosong = FITUR_KTP_AKTIF 
@@ -71,7 +72,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
     setLoadingId("");
   };
 
-  // REFACTOR: Render Darurat jika Idle Timeout tercapai
+  // REFACTOR: Komponen Overlay Layar Penuh (Menutupi Dasbor saat Locked)
   if (isLocked) {
     return (
       <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white p-6 font-sans">
@@ -87,6 +88,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
     );
   }
 
+  // ... (Sisa kode UI Return dasbor dipertahankan sama persis sesuai sumber V4)
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">

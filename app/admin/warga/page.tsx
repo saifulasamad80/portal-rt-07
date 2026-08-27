@@ -3,13 +3,17 @@ import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
-import bcrypt from "bcryptjs"; 
+import bcrypt from "bcryptjs";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-// OPTIMASI: Barrier Keamanan Absolut untuk menangkis tembakan API eksternal
+/**
+ * @function pastikanOtentikasiAdmin
+ * @description Penghalang (Barrier) Zero-Trust untuk Server Actions. Memastikan request yang masuk 
+ * benar-benar memiliki sesi Admin yang sah sebelum menyentuh database.
+ */
 async function pastikanOtentikasiAdmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
@@ -17,7 +21,7 @@ async function pastikanOtentikasiAdmin() {
   
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload; // Lolos verifikasi, kembalikan payload admin
+    return payload; 
   } catch (error) {
     throw new Error("Akses Ilegal: Manipulasi Token Terdeteksi.");
   }
@@ -44,7 +48,7 @@ export default async function WargaAdminPage() {
     .select("*, anggota_keluarga(*)")
     .order("created_at", { ascending: false });
 
-  // REFACTOR: Verifikasi token paksa di awal eksekusi
+  // REFACTOR: Injeksi verifikasi lapis baja di setiap Server Action
   async function hapusWarga(id: string) {
     "use server";
     const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
@@ -92,7 +96,7 @@ export default async function WargaAdminPage() {
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    const rtId = sesi.rt_id; // Tarik ID RT langsung dari Token agar tak bisa dimanipulasi
+    const rtId = sesi.rt_id; // REFACTOR: Ekstraksi RT ID langsung dari token yang divalidasi
     if (!rtId) throw new Error("Akses Ditolak: Gagal mengidentifikasi ID RT Anda.");
 
     const defaultPinHash = await bcrypt.hash("123456", 10);
