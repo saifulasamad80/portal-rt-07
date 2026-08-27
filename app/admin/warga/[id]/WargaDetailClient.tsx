@@ -3,28 +3,27 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// INJEKSI MUTLAK: SAKELAR DEWA (FEATURE FLAG)
 const FITUR_KTP_AKTIF = false;
 
 export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: any, aksiVerifikasi: any }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  if (!warga) {
-    return <div className="min-h-screen flex flex-col items-center justify-center font-black text-slate-500">BERKAS TIDAK DITEMUKAN ❌</div>;
-  }
+  if (!warga) return <div className="min-h-screen flex flex-col items-center justify-center font-black text-slate-500">BERKAS TIDAK DITEMUKAN ❌</div>;
 
   const handleVerifikasi = async (status: string) => {
     if (!confirm(`Yakin ingin mengubah status warga ini menjadi: ${status}?`)) return;
     setLoading(true);
-    try {
-      await aksiVerifikasi(warga.id, status);
-      alert(`Warga berhasil di-${status.toLowerCase()}!`);
-      router.refresh();
-    } catch (error: any) {
-      alert("Gagal update status: " + error.message);
-    }
+    try { await aksiVerifikasi(warga.id, status); alert(`Warga berhasil di-${status.toLowerCase()}!`); router.refresh(); } 
+    catch (error: any) { alert("Gagal update status: " + error.message); }
     setLoading(false);
+  };
+
+  const formatWA = (nomor: string) => {
+    if (!nomor) return "";
+    let bersih = nomor.replace(/\D/g, '');
+    if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1);
+    return bersih;
   };
 
   return (
@@ -32,23 +31,15 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
       <div className="max-w-5xl mx-auto space-y-6">
         <Link href="/admin/warga" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Buku Induk</Link>
 
-        {/* HEADER STATUS */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-black text-slate-800">{warga.nama_lengkap}</h1>
-            {/* INJEKSI MUTLAK: MASKING NIK KEPALA KELUARGA */}
-            <p className="text-sm text-slate-500 font-mono font-bold mt-1">
-              NIK: {warga.nik ? `${warga.nik.slice(0, 4)}********${warga.nik.slice(-4)}` : '-'}
-            </p>
+            <p className="text-sm text-slate-500 font-mono font-bold mt-1">NIK: {warga.nik ? `${warga.nik.slice(0, 4)}********${warga.nik.slice(-4)}` : '-'}</p>
           </div>
           <div className="flex items-center gap-3 w-full md:w-auto">
-            <span className={`px-4 py-2 rounded-lg font-black text-xs uppercase tracking-widest ${
-              warga.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' :
-              warga.status_verifikasi === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700 animate-pulse'
-            }`}>
+            <span className={`px-4 py-2 rounded-lg font-black text-xs uppercase tracking-widest ${warga.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : warga.status_verifikasi === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
               Status: {warga.status_verifikasi || 'Menunggu'}
             </span>
-            
             {(warga.status_verifikasi === 'Menunggu' || !warga.status_verifikasi) && (
               <div className="flex gap-2">
                 <button onClick={() => handleVerifikasi('Disetujui')} disabled={loading} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-sm">Setujui ✅</button>
@@ -66,11 +57,15 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
               <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">Gender</span><span className="col-span-2 font-black text-slate-800">{warga.jenis_kelamin}</span></div>
               <div className="grid grid-cols-3"><span className="text-slate-500 font-bold">Pekerjaan</span><span className="col-span-2 font-black text-slate-800">{warga.pekerjaan}</span></div>
               
-              {/* INJEKSI MUTLAK: MASKING NOMOR WHATSAPP KEPALA KELUARGA */}
-              <div className="grid grid-cols-3">
+              {/* REFACTOR MUTLAK: WA Tidak Lagi Disensor & Jadi Tombol Link */}
+              <div className="grid grid-cols-3 items-center">
                 <span className="text-slate-500 font-bold">WhatsApp</span>
-                <span className="col-span-2 font-mono font-bold text-blue-600">
-                  {warga.no_whatsapp ? `${warga.no_whatsapp.slice(0, 4)}****${warga.no_whatsapp.slice(-4)}` : '-'}
+                <span className="col-span-2">
+                  {warga.no_whatsapp ? (
+                    <a href={`https://wa.me/${formatWA(warga.no_whatsapp)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 w-fit bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md border border-emerald-200 font-mono font-bold transition-colors shadow-sm">
+                      💬 {warga.no_whatsapp}
+                    </a>
+                  ) : <span className="font-mono text-slate-400">-</span>}
                 </span>
               </div>
               
@@ -95,17 +90,8 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
           <div className="bg-slate-800 p-6 rounded-2xl shadow-sm text-white md:col-span-2">
             <h2 className="font-black text-slate-200 border-b border-slate-700 pb-2 mb-4">🔒 Brankas Dokumen Digital</h2>
             <div className="flex flex-wrap gap-4">
-              {FITUR_KTP_AKTIF && (
-                warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? (
-                  // TARGET BLANK DIHAPUS
-                  <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a>
-                ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>
-              )}
-              
-              {warga.kk_path && warga.kk_path !== 'MENYUSUL' ? (
-                // TARGET BLANK DIHAPUS
-                <a href={`/api/admin/dokumen?path=${warga.kk_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a>
-              ) : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KK Menyusul (Fisik)</div>}
+              {FITUR_KTP_AKTIF && (warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a> : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>)}
+              {warga.kk_path && warga.kk_path !== 'MENYUSUL' ? <a href={`/api/admin/dokumen?path=${warga.kk_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a> : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KK Menyusul (Fisik)</div>}
             </div>
           </div>
 
@@ -114,13 +100,7 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left text-sm border-collapse">
                 <thead className="bg-slate-100 text-xs text-slate-600">
-                  <tr>
-                    <th className="p-3 border-b-2">Nama & NIK</th>
-                    <th className="p-3 border-b-2">TTL & Gender</th>
-                    <th className="p-3 border-b-2">Hubungan</th>
-                    <th className="p-3 border-b-2">Pekerjaan</th>
-                    {FITUR_KTP_AKTIF && <th className="p-3 border-b-2 text-center">Dokumen KTP</th>}
-                  </tr>
+                  <tr><th className="p-3 border-b-2">Nama & NIK</th><th className="p-3 border-b-2">TTL & Gender</th><th className="p-3 border-b-2">Hubungan</th><th className="p-3 border-b-2">Pekerjaan</th>{FITUR_KTP_AKTIF && <th className="p-3 border-b-2 text-center">Dokumen KTP</th>}</tr>
                 </thead>
                 <tbody>
                   {warga.anggota_keluarga?.length === 0 ? (
@@ -128,28 +108,13 @@ export default function WargaDetailClient({ warga, aksiVerifikasi }: { warga: an
                   ) : (
                     warga.anggota_keluarga?.map((ak: any) => (
                       <tr key={ak.id} className="border-b hover:bg-slate-50">
-                        <td className="p-3">
-                          <div className="font-black text-slate-800">{ak.nama_lengkap}</div>
-                          {/* INJEKSI MUTLAK: MASKING NIK ANGGOTA KELUARGA */}
-                          <div className="font-mono text-[10px] text-slate-500">
-                            {ak.nik ? `${ak.nik.slice(0, 4)}********${ak.nik.slice(-4)}` : '-'}
-                          </div>
-                        </td>
-                        <td className="p-3 text-xs">
-                          <div className="font-bold">{ak.tempat_lahir}, {ak.tanggal_lahir}</div>
-                          <div className="text-slate-500">{ak.jenis_kelamin}</div>
-                        </td>
+                        <td className="p-3"><div className="font-black text-slate-800">{ak.nama_lengkap}</div><div className="font-mono text-[10px] text-slate-500">{ak.nik ? `${ak.nik.slice(0, 4)}********${ak.nik.slice(-4)}` : '-'}</div></td>
+                        <td className="p-3 text-xs"><div className="font-bold">{ak.tempat_lahir}, {ak.tanggal_lahir}</div><div className="text-slate-500">{ak.jenis_kelamin}</div></td>
                         <td className="p-3 font-black text-blue-700">{ak.hubungan_keluarga === 'Lainnya' ? ak.hubungan_detail : ak.hubungan_keluarga}</td>
                         <td className="p-3 text-xs font-bold text-slate-600">{ak.pekerjaan || '-'}</td>
-                        
                         {FITUR_KTP_AKTIF && (
                           <td className="p-3 text-center">
-                            {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? (
-                              // TARGET BLANK DIHAPUS
-                              <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
-                            ) : (
-                              <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
-                            )}
+                            {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a> : <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>}
                           </td>
                         )}
                       </tr>
