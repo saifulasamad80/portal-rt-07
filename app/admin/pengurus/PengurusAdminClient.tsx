@@ -3,9 +3,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function PengurusAdminClient({ pengurusList, aksiTambah }: { pengurusList: any[], aksiTambah: any }) {
+export default function PengurusAdminClient({ pengurusList, aksiTambah, aksiHapus, aksiReset }: { pengurusList: any[], aksiTambah: any, aksiHapus: any, aksiReset: any }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [loadingId, setLoadingId] = useState("");
 
   const [nama, setNama] = useState("");
   const [jabatan, setJabatan] = useState("");
@@ -16,9 +17,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
     e.preventDefault();
     setLoading(true);
     try {
-      // MATA DEWA: Tangkap response JSON, bukan error yang dilempar
       const res = await aksiTambah(nama, jabatan, email, password);
-      
       if (res && !res.success) {
         alert("Gagal membuat akun pengurus: " + res.message);
       } else {
@@ -26,10 +25,33 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
         alert("Akun pengurus baru berhasil dibuat!");
         router.refresh();
       }
-    } catch (error: any) {
-      alert("Terjadi kesalahan sistem: " + error.message);
-    }
+    } catch (error: any) { alert("Terjadi kesalahan sistem: " + error.message); }
     setLoading(false);
+  };
+
+  const handleHapus = async (id: string, namaTarget: string) => {
+    if (!confirm(`PERINGATAN FATAL: Yakin ingin mencabut akses dan menghapus admin ${namaTarget}?`)) return;
+    setLoadingId(id);
+    try {
+      await aksiHapus(id);
+      alert(`Akses admin ${namaTarget} berhasil dihapus dari sistem!`);
+      router.refresh();
+    } catch (error: any) { alert(error.message); }
+    setLoadingId("");
+  };
+
+  const handleReset = async (id: string, namaTarget: string) => {
+    const sandiBaru = prompt(`Masukkan PASSWORD BARU untuk admin ${namaTarget} (Minimal 6 karakter):`);
+    if (!sandiBaru) return;
+    if (sandiBaru.length < 6) return alert("GAGAL: Password baru harus minimal 6 karakter!");
+
+    setLoadingId(id);
+    try {
+      await aksiReset(id, sandiBaru);
+      alert(`Password untuk ${namaTarget} berhasil diperbarui!`);
+      router.refresh();
+    } catch (error: any) { alert(error.message); }
+    setLoadingId("");
   };
 
   return (
@@ -71,7 +93,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
             </form>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2 h-fit">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">📋 Daftar Pejabat RT (Admin)</h2>
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left border-collapse text-sm">
@@ -79,7 +101,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
                   <tr>
                     <th className="p-4 border-b-2 border-slate-200">Nama & Jabatan</th>
                     <th className="p-4 border-b-2 border-slate-200">Email Login</th>
-                    <th className="p-4 border-b-2 border-slate-200">Tanggal Terdaftar</th>
+                    <th className="p-4 border-b-2 border-slate-200 text-center">Aksi (Webmaster)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -93,18 +115,24 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
                       </td>
                       <td className="p-4 align-top">
                         <div className="font-mono text-xs font-bold text-slate-600">{p.email}</div>
+                        <div className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-widest">
+                          Join: {p.created_at ? new Date(p.created_at).toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'}) : '-'}
+                        </div>
                       </td>
-                      <td className="p-4 align-top text-xs text-slate-500 font-bold">
-                        {p.created_at ? new Date(p.created_at).toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'}) : '-'}
+                      <td className="p-4 align-top">
+                        <div className="flex flex-col gap-2">
+                          <button onClick={() => handleReset(p.id, p.nama_lengkap)} disabled={loadingId === p.id} className="bg-amber-100 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
+                            {loadingId === p.id ? '...' : 'Reset Sandi'}
+                          </button>
+                          <button onClick={() => handleHapus(p.id, p.nama_lengkap)} disabled={loadingId === p.id} className="bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
+                            {loadingId === p.id ? '...' : 'Hapus Akun'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs font-bold flex gap-3">
-              <span className="text-xl">⚠️</span>
-              <p>Hanya Ketua RT atau Webmaster yang dapat menghapus akun pengurus melalui akses langsung ke database Supabase untuk alasan keamanan tingkat tinggi.</p>
             </div>
           </div>
         </div>

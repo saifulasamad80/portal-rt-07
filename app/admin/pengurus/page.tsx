@@ -38,28 +38,58 @@ export default async function AdminPengurusPage() {
   async function tambahPengurus(nama: string, jabatan: string, email: string, pass: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
     const hashedPassword = await bcrypt.hash(pass, 10);
 
     const { error } = await supabase.from("pengurus_rt").insert([{
-      nama_lengkap: nama,
-      jabatan: jabatan,
-      email: email,
-      username: email.split('@')[0], 
-      password: hashedPassword
+      nama_lengkap: nama, jabatan: jabatan, email: email, username: email.split('@')[0], password: hashedPassword
     }]);
 
     if (error) return { success: false, message: error.message };
 
     await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
-      aksi: "Registrasi Pengurus Baru",
-      tabel_target: "pengurus_rt",
-      detail: `Memberikan akses admin kepada ${nama} (${jabatan})`
+      aktor: adminAktif.nama, aksi: "Registrasi Pengurus Baru", tabel_target: "pengurus_rt", detail: `Memberikan akses admin kepada ${nama} (${jabatan})`
     }]);
 
     return { success: true };
   }
 
-  return <PengurusAdminClient pengurusList={pengurusRes || []} aksiTambah={tambahPengurus} />;
+  // FAKTA: Injeksi Mesin Eksekutor Hapus Akun
+  async function hapusPengurus(idTarget: string) {
+    "use server";
+    const idAktor = adminAktif.sub || adminAktif.id;
+    if (idTarget === idAktor) throw new Error("PERINGATAN SISTEM: Anda tidak dapat menghapus akun Webmaster Anda sendiri!");
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { data: target } = await supabase.from("pengurus_rt").select("nama_lengkap").eq("id", idTarget).single();
+    
+    const { error } = await supabase.from("pengurus_rt").delete().eq("id", idTarget);
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama, aksi: "Hapus Akun Pengurus", tabel_target: "pengurus_rt", detail: `Mencabut akses admin: ${target?.nama_lengkap}`
+    }]);
+  }
+
+  // FAKTA: Injeksi Mesin Eksekutor Reset Sandi Manual
+  async function resetSandiPengurus(idTarget: string, sandiBaru: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const hashedPassword = await bcrypt.hash(sandiBaru, 10);
+
+    const { data: target } = await supabase.from("pengurus_rt").select("nama_lengkap").eq("id", idTarget).single();
+    
+    const { error } = await supabase.from("pengurus_rt").update({ password: hashedPassword }).eq("id", idTarget);
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama, aksi: "Reset Paksa Password Pengurus", tabel_target: "pengurus_rt", detail: `Merubah password milik: ${target?.nama_lengkap}`
+    }]);
+  }
+
+  return <PengurusAdminClient 
+            pengurusList={pengurusRes || []} 
+            aksiTambah={tambahPengurus} 
+            aksiHapus={hapusPengurus} 
+            aksiReset={resetSandiPengurus} 
+         />;
 }
