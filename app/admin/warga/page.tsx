@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs"; 
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -21,7 +21,7 @@ async function pastikanOtentikasiAdmin() {
   
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload; 
+    return payload; // Lolos verifikasi, kembalikan payload admin
   } catch (error) {
     throw new Error("Akses Ilegal: Manipulasi Token Terdeteksi.");
   }

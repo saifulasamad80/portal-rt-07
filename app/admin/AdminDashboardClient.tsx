@@ -47,6 +47,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
       document.removeEventListener('visibilitychange', handleLayarNyala);
     };
   }, []);
+  // ------------------------------------------------------------------
 
   const handleValidasi = async (idWarga: string, status: string, namaWarga: string, ktpPath: string, kkPath: string) => {
     const isDokumenKosong = FITUR_KTP_AKTIF 
@@ -72,7 +73,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
     setLoadingId("");
   };
 
-  // REFACTOR: Komponen Overlay Layar Penuh (Menutupi Dasbor saat Locked)
+  // REFACTOR: Render Darurat jika Idle Timeout tercapai
   if (isLocked) {
     return (
       <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center text-white p-6 font-sans">
@@ -88,7 +89,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, prosesVali
     );
   }
 
-  // ... (Sisa kode UI Return dasbor dipertahankan sama persis sesuai sumber V4)
+  // ... (Sisa kode UI Return dasbor dipertahankan sama persis sesuai sumber V5)
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
