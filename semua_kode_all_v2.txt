@@ -298,9 +298,9 @@ export default async function TabunganKurbanWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // INJEKSI MUTLAK: Mengarahkan tembakan ke tabel tabungan_kurban
+  // INJEKSI MUTLAK: Mengarahkan tembakan ke tabel transaksi_kurban (Sesuai Admin)
   const { data } = await supabaseAdmin
-    .from("tabungan_kurban")
+    .from("transaksi_kurban")
     .select("*")
     .eq("warga_id", wargaAktif.id)
     .order("tanggal_transaksi", { ascending: false });
@@ -687,13 +687,16 @@ export default async function PortalVotingPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: votingAktif } = await supabaseAdmin
+  // INJEKSI MUTLAK: maybeSingle() DIBUNUH. Diganti dengan penarikan Array aman.
+  const { data: votingAktifList } = await supabaseAdmin
     .from("voting_rt")
     .select("*")
     .eq("status", "Aktif")
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  // Ambil data pertama jika ada (Anti-Crash meskipun Admin bikin 10 voting aktif)
+  const votingAktif = votingAktifList && votingAktifList.length > 0 ? votingAktifList[0] : null;
 
   let suaraKu = null;
   if (votingAktif) {
@@ -701,9 +704,10 @@ export default async function PortalVotingPage() {
       .from("suara_voting")
       .select("*")
       .eq("voting_id", votingAktif.id)
-      .eq("warga_id", wargaAktif.id)
-      .maybeSingle();
-    suaraKu = cekSuara;
+      .eq("warga_id", wargaAktif.id);
+      
+    // Penyesuaian aman untuk pencarian suara
+    suaraKu = cekSuara && cekSuara.length > 0 ? cekSuara[0] : null;
   }
 
   async function kirimSuara(votingId: string, pilihanTeks: string) {
@@ -711,8 +715,8 @@ export default async function PortalVotingPage() {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
     // Validasi Ganda di Server (Anti Cheat)
-    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", wargaAktif.id).maybeSingle();
-    if (validasi) throw new Error("Suara Anda sudah terekam sebelumnya. Dilarang memilih ganda!");
+    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", wargaAktif.id);
+    if (validasi && validasi.length > 0) throw new Error("Suara Anda sudah terekam sebelumnya. Dilarang memilih ganda!");
 
     const { error } = await supabase.from("suara_voting").insert([{
       voting_id: votingId,
@@ -940,12 +944,16 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
   const [tab, setTab] = useState<"katalog" | "lapak_saya">("katalog");
   const [loading, setLoading] = useState(false);
 
-  // Form State
   const [namaUsaha, setNamaUsaha] = useState("");
   const [kategori, setKategori] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [wa, setWa] = useState("");
   const [fileFoto, setFileFoto] = useState<File | null>(null);
+
+  // INJEKSI MUTLAK: Hitung jumlah lapak milik warga ini
+  const jumlahLapakKu = lapakKu.length;
+  const MAKSIMAL_LAPAK = 2;
+  const kuotaHabis = jumlahLapakKu >= MAKSIMAL_LAPAK;
 
   const formatWA = (nomor: string) => {
     let bersih = nomor.replace(/\D/g, '');
@@ -955,11 +963,11 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
 
   const handleSimpanLapak = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (kuotaHabis) return alert("Batas maksimal kepemilikan lapak telah tercapai!");
     if (!fileFoto) return alert("Pilih satu foto brosur/produk andalan Anda!");
     
     setLoading(true);
     try {
-      // Kompres ekstrem jadi max 100KB agar database ringan
       const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800, useWebWorker: true, fileType: "image/jpeg" };
       const fileKompresi = await imageCompression(fileFoto, options);
       
@@ -1039,13 +1047,72 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
         {/* TAB 2: LAPAK SAYA */}
         {tab === "lapak_saya" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-orange-500 h-fit">
+            
+            <div className="space-y-6 h-fit">
+              {/* PANEL ATURAN MAIN (INJEKSI MUTLAK) */}
+              <div className="bg-orange-50 border border-orange-200 p-6 rounded-2xl shadow-sm">
+                <h3 className="font-black text-orange-800 text-sm mb-3 uppercase tracking-widest flex items-center gap-2">
+                  <span>📜</span> Aturan Pasar Warga
+                </h3>
+                <ul className="text-xs text-orange-900 space-y-2.5 leading-relaxed font-medium">
+                  <li><strong className="text-orange-700">1. Kuota Lapak:</strong> Setiap KK hanya diizinkan memiliki maksimal <strong>{MAKSIMAL_LAPAK} Lapak Aktif</strong> secara bersamaan.</li>
+                  <li><strong className="text-orange-700">2. Etalase Toko:</strong> Pasang iklan berupa <strong>Nama Usaha/Jasa</strong> (Contoh: "Katering Bu Ani"), BUKAN barang satuan (Contoh: "Jual Risol 1 biji").</li>
+                  <li><strong className="text-orange-700">3. Transaksi:</strong> Seluruh komunikasi & pembayaran dilakukan secara pribadi melalui tombol WhatsApp.</li>
+                  <li><strong className="text-orange-700">4. Perubahan Data:</strong> Jika ingin mengganti usaha, hapus lapak lama Anda terlebih dahulu untuk mengosongkan kuota.</li>
+                </ul>
+              </div>
+
+              {/* DAFTAR LAPAK MILIK SENDIRI */}
+              <div className="space-y-4">
+                <h3 className="font-black text-slate-800 text-sm border-b border-slate-200 pb-2">Lapak Anda Saat Ini ({jumlahLapakKu}/{MAKSIMAL_LAPAK})</h3>
+                {lapakKu.length === 0 ? (
+                  <div className="bg-slate-100 p-8 text-center rounded-2xl border border-dashed border-slate-300">
+                    <p className="text-slate-400 text-sm font-bold">Anda belum mendaftarkan usaha apapun.</p>
+                  </div>
+                ) : (
+                  lapakKu.map(k => (
+                    <div key={k.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center md:items-start transition-all hover:border-orange-300">
+                      <img src={k.foto_url} alt={k.nama_usaha} className="w-24 h-24 object-cover rounded-xl shadow-sm shrink-0" />
+                      <div className="flex-1 w-full">
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-black text-slate-800 text-base">{k.nama_usaha}</h3>
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shrink-0 ${k.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : k.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {k.status}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-bold mb-2 uppercase">{k.kategori}</p>
+                        <button onClick={async () => {
+                          if(confirm('Yakin ingin menghapus lapak ini secara permanen?')) {
+                            try { await aksiHapus(k.id); router.refresh(); } catch(e:any) { alert(e.message); }
+                          }
+                        }} className="text-[10px] font-bold text-rose-500 hover:bg-rose-50 px-3 py-1.5 rounded border border-rose-200 transition-colors w-full md:w-auto text-center mt-2 shadow-sm active:scale-95">
+                          Tutup / Hapus Lapak
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* FORM PENDAFTARAN LAPAK */}
+            <div className={`bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] ${kuotaHabis ? 'border-t-slate-400 opacity-80' : 'border-t-orange-500'} h-fit relative overflow-hidden`}>
+              
+              {/* OVERLAY JIKA KUOTA HABIS */}
+              {kuotaHabis && (
+                <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6">
+                  <div className="text-4xl mb-3">🔒</div>
+                  <h3 className="font-black text-slate-800 text-lg">Kuota Lapak Penuh</h3>
+                  <p className="text-xs font-bold text-slate-600 mt-2">Anda sudah memiliki {MAKSIMAL_LAPAK} lapak yang terdaftar. Hapus salah satu lapak Anda untuk membuka pendaftaran baru.</p>
+                </div>
+              )}
+
               <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-3">Daftarkan Lapak UMKM</h2>
               <form onSubmit={handleSimpanLapak} className="space-y-4">
-                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nama Usaha / Toko</label><input type="text" required className="w-full border border-slate-300 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-orange-500" placeholder="Cth: Katering Bu RT" value={namaUsaha} onChange={e => setNamaUsaha(e.target.value)} /></div>
+                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nama Usaha / Toko</label><input type="text" required disabled={kuotaHabis} className="w-full border border-slate-300 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="Cth: Katering Bu RT" value={namaUsaha} onChange={e => setNamaUsaha(e.target.value)} /></div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Kategori</label>
-                  <select required className="w-full border border-slate-300 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 bg-white" value={kategori} onChange={e => setKategori(e.target.value)}>
+                  <select required disabled={kuotaHabis} className="w-full border border-slate-300 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-orange-500 bg-white disabled:bg-slate-100" value={kategori} onChange={e => setKategori(e.target.value)}>
                     <option value="" disabled>Pilih Kategori...</option>
                     <option value="Makanan & Minuman">Makanan & Minuman</option>
                     <option value="Jasa & Servis">Jasa & Servis (AC, Pipa, dll)</option>
@@ -1054,48 +1121,21 @@ export default function LapakClient({ wargaAktif, katalog, lapakKu, aksiBuat, ak
                     <option value="Lainnya">Lainnya</option>
                   </select>
                 </div>
-                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Deskripsi & Harga Singkat</label><textarea required rows={3} className="w-full border border-slate-300 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-orange-500" placeholder="Jual risol mayo isi daging. Harga Rp 5.000/pcs. Menerima pesanan arisan..." value={deskripsi} onChange={e => setDeskripsi(e.target.value)} /></div>
-                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nomor WhatsApp Aktif</label><input type="tel" required className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-800 outline-none focus:border-orange-500" placeholder="081234567890" value={wa} onChange={e => setWa(e.target.value.replace(/\D/g, ''))} /></div>
+                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Deskripsi & Harga Singkat</label><textarea required disabled={kuotaHabis} rows={3} className="w-full border border-slate-300 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="Jual risol mayo isi daging. Menerima pesanan arisan..." value={deskripsi} onChange={e => setDeskripsi(e.target.value)} /></div>
+                <div><label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Nomor WhatsApp Aktif</label><input type="tel" required disabled={kuotaHabis} className="w-full border border-slate-300 rounded-lg p-3 text-sm font-mono text-slate-800 outline-none focus:border-orange-500 disabled:bg-slate-100" placeholder="081234567890" value={wa} onChange={e => setWa(e.target.value.replace(/\D/g, ''))} /></div>
                 
                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
                   <label className="block text-[11px] font-black text-orange-800 mb-2 uppercase">📸 Upload 1 Foto Andalan</label>
-                  <input type="file" accept="image/*" required onChange={e => setFileFoto(e.target.files?.[0] || null)} className="w-full text-xs text-orange-900 font-medium" />
+                  <input type="file" accept="image/*" required disabled={kuotaHabis} onChange={e => setFileFoto(e.target.files?.[0] || null)} className="w-full text-xs text-orange-900 font-medium disabled:opacity-50" />
                   <p className="text-[9px] text-orange-600 mt-2 font-bold leading-relaxed">*Sistem hanya mengizinkan 1 foto brosur/produk. Pembeli yang tertarik akan meminta foto lainnya via WhatsApp.</p>
                 </div>
 
-                <button type="submit" disabled={loading} className={`w-full text-white font-black uppercase tracking-widest text-xs rounded-lg p-4 shadow-md transition-colors mt-2 ${loading ? 'bg-slate-400' : 'bg-orange-600 hover:bg-orange-700'}`}>
-                  {loading ? "Menyimpan & Mengompresi Foto..." : "Ajukan Buka Lapak"}
+                <button type="submit" disabled={loading || kuotaHabis} className={`w-full text-white font-black uppercase tracking-widest text-xs rounded-lg p-4 shadow-md transition-all mt-2 active:scale-95 ${loading || kuotaHabis ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-orange-600 hover:bg-orange-700'}`}>
+                  {loading ? "Menyimpan & Mengompresi..." : "Ajukan Buka Lapak"}
                 </button>
               </form>
             </div>
 
-            <div className="space-y-4">
-              {lapakKu.length === 0 ? (
-                <div className="bg-slate-100 p-8 text-center rounded-2xl border border-dashed border-slate-300">
-                  <p className="text-slate-400 text-sm font-bold">Anda belum mendaftarkan usaha apapun.</p>
-                </div>
-              ) : (
-                lapakKu.map(k => (
-                  <div key={k.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center md:items-start">
-                    <img src={k.foto_url} alt={k.nama_usaha} className="w-24 h-24 object-cover rounded-xl shadow-sm shrink-0" />
-                    <div className="flex-1 w-full">
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-black text-slate-800 text-base">{k.nama_usaha}</h3>
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shrink-0 ${k.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : k.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {k.status}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-bold mb-2 uppercase">{k.kategori}</p>
-                      <button onClick={async () => {
-                        if(confirm('Yakin ingin menghapus lapak ini?')) {
-                          try { await aksiHapus(k.id); router.refresh(); } catch(e:any) { alert(e.message); }
-                        }
-                      }} className="text-[10px] font-bold text-rose-500 hover:bg-rose-50 px-3 py-1.5 rounded border border-rose-200 transition-colors w-full md:w-auto text-center mt-2">Tutup / Hapus Lapak</button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
           </div>
         )}
       </div>
@@ -3365,8 +3405,7 @@ export default async function AdminPengumumanPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // INJEKSI MUTLAK (MULTI-TENANT): Tarik rt_id admin dari database sebagai pelampung
-  // sebelum JWT kita update di tahap selanjutnya.
+  // PENAMBALAN MULTI-TENANT: Tarik rt_id admin dari database
   const { data: profilAdmin } = await supabaseAdmin
     .from("pengurus_rt")
     .select("rt_id")
@@ -3375,27 +3414,25 @@ export default async function AdminPengumumanPage() {
 
   const rtIdAktif = adminAktif.rt_id || profilAdmin?.rt_id;
   
-  if (!rtIdAktif) redirect("/admin"); // Tendang keluar kalau rt_id ga ketemu (Keamanan Absolut)
+  if (!rtIdAktif) redirect("/admin");
 
-  // Tarik daftar pengumuman yang HANYA milik RT ini
+  // Tarik daftar pengumuman milik RT ini
   const { data: pengumumanRes } = await supabaseAdmin
     .from("pengumuman_rt")
     .select("*")
     .eq("rt_id", rtIdAktif)
     .order("tanggal_publikasi", { ascending: false });
 
-  // Server Action untuk Rilis Pengumuman
+  // 1. ACTION: SIMPAN BARU
   async function simpanPengumuman(judul: string, deskripsi: string, linkDokumen: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
-    // PENAMBALAN MULTI-TENANT: Masukkan rt_id saat insert pengumuman
     const { error } = await supabase.from("pengumuman_rt").insert([
       { judul, deskripsi, link_dokumen: linkDokumen, rt_id: rtIdAktif }
     ]);
     if (error) throw new Error(error.message);
 
-    // PENAMBALAN MULTI-TENANT: Masukkan rt_id saat insert audit log
     await supabase.from("audit_log").insert([{
       aktor: adminAktif.nama,
       aksi: "Buat Pengumuman Baru",
@@ -3405,8 +3442,53 @@ export default async function AdminPengumumanPage() {
     }]);
   }
 
-  // Catatan: File PengumumanAdminClient.tsx lu udah aman, gak perlu diubah.
-  return <PengumumanAdminClient adminAktif={adminAktif} pengumumanList={pengumumanRes || []} aksiSimpan={simpanPengumuman} />;
+  // 2. ACTION: EDIT / UPDATE
+  async function editPengumuman(id: string, judul: string, deskripsi: string, linkDokumen: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    const { error } = await supabase.from("pengumuman_rt").update({ 
+      judul, deskripsi, link_dokumen: linkDokumen 
+    }).eq("id", id).eq("rt_id", rtIdAktif); // Validasi keamanan ganda (hanya RT yang sama)
+    
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama,
+      aksi: "Edit Pengumuman",
+      tabel_target: "pengumuman_rt",
+      detail: `Memperbarui pengumuman: ${judul}`,
+      rt_id: rtIdAktif
+    }]);
+  }
+
+  // 3. ACTION: HAPUS
+  async function hapusPengumuman(id: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    const { data: target } = await supabase.from("pengumuman_rt").select("judul").eq("id", id).single();
+    
+    const { error } = await supabase.from("pengumuman_rt").delete().eq("id", id).eq("rt_id", rtIdAktif);
+    
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama,
+      aksi: "Hapus Pengumuman",
+      tabel_target: "pengumuman_rt",
+      detail: `Menghapus siaran: ${target?.judul}`,
+      rt_id: rtIdAktif
+    }]);
+  }
+
+  return <PengumumanAdminClient 
+            adminAktif={adminAktif} 
+            pengumumanList={pengumumanRes || []} 
+            aksiSimpan={simpanPengumuman} 
+            aksiEdit={editPengumuman}
+            aksiHapus={hapusPengumuman}
+         />;
 }
 === FILE: app/admin/pengumuman/PengumumanAdminClient.tsx ===
 "use client";
@@ -3414,13 +3496,37 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksiSimpan }: { adminAktif: any, pengumumanList: any[], aksiSimpan: any }) {
+export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksiSimpan, aksiEdit, aksiHapus }: { adminAktif: any, pengumumanList: any[], aksiSimpan: any, aksiEdit: any, aksiHapus: any }) {
+  const router = useRouter();
+  
+  // STATE UNTUK FORM
   const [judul, setJudul] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [linkDokumen, setLinkDokumen] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
-  const router = useRouter();
+  
+  // STATE UNTUK MODE EDIT & HAPUS
+  const [modeEditId, setModeEditId] = useState<string | null>(null);
+  const [loadingHapusId, setLoadingHapusId] = useState<string | null>(null);
 
+  // Memicu Form masuk ke Mode Edit
+  const handleKlikEdit = (p: any) => {
+    setModeEditId(p.id);
+    setJudul(p.judul);
+    setDeskripsi(p.deskripsi);
+    setLinkDokumen(p.link_dokumen || "");
+    // Scroll otomatis ke atas agar user melihat form
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const batalkanEdit = () => {
+    setModeEditId(null);
+    setJudul("");
+    setDeskripsi("");
+    setLinkDokumen("");
+  };
+
+  // EKSEKUSI SIMPAN / UPDATE
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -3431,14 +3537,35 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
 
     setSubmitLoading(true);
     try {
-      await aksiSimpan(judul, deskripsi, linkDokumen);
-      alert("Sempurna! Pengumuman berhasil dipublikasikan.");
-      setJudul(""); setDeskripsi(""); setLinkDokumen(""); 
+      if (modeEditId) {
+        await aksiEdit(modeEditId, judul, deskripsi, linkDokumen);
+        alert("Sempurna! Pengumuman berhasil diperbarui.");
+      } else {
+        await aksiSimpan(judul, deskripsi, linkDokumen);
+        alert("Sempurna! Pengumuman baru berhasil dipublikasikan.");
+      }
+      
+      batalkanEdit(); // Bersihkan form
       router.refresh();
     } catch (error: any) {
-      alert("Gagal mempublikasikan: " + error.message);
+      alert("Terjadi kesalahan: " + error.message);
     }
     setSubmitLoading(false);
+  };
+
+  // EKSEKUSI HAPUS
+  const handleHapus = async (id: string, judulPengumuman: string) => {
+    if (!confirm(`YAKIN INGIN MENGHAPUS PERMANEN pengumuman "${judulPengumuman}"? Siaran ini akan hilang dari halaman warga.`)) return;
+    
+    setLoadingHapusId(id);
+    try {
+      await aksiHapus(id);
+      if (modeEditId === id) batalkanEdit(); // Kalau kebetulan yang dihapus lagi diedit, tutup formnya
+      router.refresh();
+    } catch (error: any) {
+      alert("Gagal menghapus: " + error.message);
+    }
+    setLoadingHapusId(null);
   };
 
   return (
@@ -3449,17 +3576,27 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
           &larr; Kembali ke Pusat Komando
         </Link>
 
-        {/* REVISI UX: Hapus border-l-[12px] */}
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] mb-8 border border-slate-800">
           <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Pusat Informasi RT 07</h1>
-          <p className="text-slate-400 text-sm font-medium">Sebarkan surat edaran, undangan, dan galeri resmi ke portal warga.</p>
+          <p className="text-slate-400 text-sm font-medium">Sebarkan, edit, atau tarik siaran edaran resmi dari portal warga.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* REVISI UX: Hapus border-t-[6px] */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-1 h-fit">
-            <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2">📢 Buat Siaran Baru</h2>
+          {/* PANEL KIRI: FORM DINAMIS (CREATE/EDIT) */}
+          <div className={`bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-1 h-fit transition-all duration-300 ${modeEditId ? 'ring-2 ring-amber-400 shadow-amber-100/50' : ''}`}>
+            
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+              <h2 className="font-black text-lg text-slate-800 flex items-center gap-2">
+                {modeEditId ? "✏️ Edit Siaran" : "📢 Buat Siaran Baru"}
+              </h2>
+              {modeEditId && (
+                <button type="button" onClick={batalkanEdit} className="text-[10px] bg-rose-50 text-rose-600 font-bold px-3 py-1.5 rounded hover:bg-rose-100 transition-colors uppercase tracking-widest">
+                  Batal Edit
+                </button>
+              )}
+            </div>
+
             <form onSubmit={handleSimpan} className="space-y-5">
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Judul Pengumuman</label>
@@ -3474,12 +3611,14 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                 <input type="url" className="w-full border border-slate-300 rounded-lg p-3 text-slate-900 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-slate-50 focus:bg-white" placeholder="https://drive.google.com/..." value={linkDokumen} onChange={(e) => setLinkDokumen(e.target.value)} />
                 <p className="text-[10px] text-slate-400 mt-2 font-medium">*Link GDrive akan otomatis menjadi Ikon Folder 📂 di halaman depan warga.</p>
               </div>
-              <button type="submit" disabled={submitLoading} className={`w-full h-12 flex items-center justify-center text-white font-bold rounded-lg shadow-md mt-6 transition-all active:scale-95 ${submitLoading ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {submitLoading ? "Mempublikasikan..." : "Sebarkan Sekarang"}
+              
+              <button type="submit" disabled={submitLoading} className={`w-full h-12 flex items-center justify-center text-white font-bold rounded-lg shadow-md mt-6 transition-all active:scale-95 ${submitLoading ? 'bg-slate-300 cursor-not-allowed shadow-none' : (modeEditId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700')}`}>
+                {submitLoading ? "Memproses..." : (modeEditId ? "Update Siaran" : "Sebarkan Sekarang")}
               </button>
             </form>
           </div>
 
+          {/* PANEL KANAN: DAFTAR PENGUMUMAN */}
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 lg:col-span-2">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4 flex items-center gap-2">📋 Riwayat Siaran Anda</h2>
             <div className="space-y-5">
@@ -3487,19 +3626,43 @@ export default function PengumumanAdminClient({ adminAktif, pengumumanList, aksi
                 <div className="p-10 text-center text-slate-400 font-medium italic border border-dashed border-slate-300 rounded-xl bg-slate-50">Belum ada pengumuman yang disebarkan.</div>
               ) : (
                 pengumumanList.map((p) => (
-                  <div key={p.id} className="p-6 border border-slate-100 rounded-xl bg-slate-50 hover:bg-white hover:border-blue-200 transition-all shadow-sm hover:shadow-md">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
-                      <h3 className="font-black text-slate-800 text-lg leading-tight">{p.judul}</h3>
-                      <span className="text-[10px] bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full font-black uppercase tracking-widest shrink-0">
-                        {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-                      </span>
+                  <div key={p.id} className={`p-6 border rounded-xl transition-all shadow-sm flex flex-col md:flex-row gap-6 ${modeEditId === p.id ? 'border-amber-400 bg-amber-50/30' : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-blue-200 hover:shadow-md'}`}>
+                    
+                    {/* KONTEN PENGUMUMAN */}
+                    <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <h3 className="font-black text-slate-800 text-lg leading-tight">{p.judul}</h3>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 px-3 py-1.5 rounded-full font-black uppercase tracking-widest shrink-0">
+                          {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-sm whitespace-pre-wrap mb-5 leading-relaxed">{p.deskripsi}</p>
+                      
+                      {p.link_dokumen && (
+                        <a href={p.link_dokumen} target="_blank" rel="noopener noreferrer" className="text-xs bg-white border border-slate-200 text-blue-700 px-5 py-2.5 rounded-lg font-bold hover:bg-blue-50 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
+                          <span>{p.link_dokumen.includes("drive.google.com") ? '📂 Buka Folder Galeri' : '📄 Buka Dokumen Lampiran'}</span>
+                        </a>
+                      )}
                     </div>
-                    <p className="text-slate-600 text-sm whitespace-pre-wrap mb-5 leading-relaxed">{p.deskripsi}</p>
-                    {p.link_dokumen && (
-                      <a href={p.link_dokumen} target="_blank" rel="noopener noreferrer" className="text-xs bg-white border border-slate-200 text-blue-700 px-5 py-2.5 rounded-lg font-bold hover:bg-blue-50 transition-colors inline-flex items-center gap-2 shadow-sm w-fit active:scale-95">
-                        <span>{p.link_dokumen.includes("drive.google.com") ? '📂 Buka Folder Galeri' : '📄 Buka Dokumen Lampiran'}</span>
-                      </a>
-                    )}
+
+                    {/* TOMBOL AKSI (EDIT & HAPUS) */}
+                    <div className="flex flex-row md:flex-col gap-2 shrink-0 md:border-l md:border-slate-200 md:pl-6 pt-4 md:pt-0 border-t border-slate-200 md:border-t-0 justify-end md:justify-start">
+                      <button 
+                        onClick={() => handleKlikEdit(p)} 
+                        disabled={loadingHapusId === p.id}
+                        className="bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-amber-600 text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider disabled:opacity-50 flex-1 md:flex-none text-center"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button 
+                        onClick={() => handleHapus(p.id, p.judul)} 
+                        disabled={loadingHapusId === p.id}
+                        className="bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-rose-600 text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider disabled:opacity-50 flex-1 md:flex-none text-center"
+                      >
+                        {loadingHapusId === p.id ? "⌛" : "🗑️ Hapus"}
+                      </button>
+                    </div>
+
                   </div>
                 ))
               )}
@@ -5289,30 +5452,60 @@ export default async function AdminPengurusPage() {
   async function tambahPengurus(nama: string, jabatan: string, email: string, pass: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
     const hashedPassword = await bcrypt.hash(pass, 10);
 
     const { error } = await supabase.from("pengurus_rt").insert([{
-      nama_lengkap: nama,
-      jabatan: jabatan,
-      email: email,
-      username: email.split('@')[0], 
-      password: hashedPassword
+      nama_lengkap: nama, jabatan: jabatan, email: email, username: email.split('@')[0], password: hashedPassword
     }]);
 
     if (error) return { success: false, message: error.message };
 
     await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
-      aksi: "Registrasi Pengurus Baru",
-      tabel_target: "pengurus_rt",
-      detail: `Memberikan akses admin kepada ${nama} (${jabatan})`
+      aktor: adminAktif.nama, aksi: "Registrasi Pengurus Baru", tabel_target: "pengurus_rt", detail: `Memberikan akses admin kepada ${nama} (${jabatan})`
     }]);
 
     return { success: true };
   }
 
-  return <PengurusAdminClient pengurusList={pengurusRes || []} aksiTambah={tambahPengurus} />;
+  // FAKTA: Injeksi Mesin Eksekutor Hapus Akun
+  async function hapusPengurus(idTarget: string) {
+    "use server";
+    const idAktor = adminAktif.sub || adminAktif.id;
+    if (idTarget === idAktor) throw new Error("PERINGATAN SISTEM: Anda tidak dapat menghapus akun Webmaster Anda sendiri!");
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { data: target } = await supabase.from("pengurus_rt").select("nama_lengkap").eq("id", idTarget).single();
+    
+    const { error } = await supabase.from("pengurus_rt").delete().eq("id", idTarget);
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama, aksi: "Hapus Akun Pengurus", tabel_target: "pengurus_rt", detail: `Mencabut akses admin: ${target?.nama_lengkap}`
+    }]);
+  }
+
+  // FAKTA: Injeksi Mesin Eksekutor Reset Sandi Manual
+  async function resetSandiPengurus(idTarget: string, sandiBaru: string) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const hashedPassword = await bcrypt.hash(sandiBaru, 10);
+
+    const { data: target } = await supabase.from("pengurus_rt").select("nama_lengkap").eq("id", idTarget).single();
+    
+    const { error } = await supabase.from("pengurus_rt").update({ password: hashedPassword }).eq("id", idTarget);
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama, aksi: "Reset Paksa Password Pengurus", tabel_target: "pengurus_rt", detail: `Merubah password milik: ${target?.nama_lengkap}`
+    }]);
+  }
+
+  return <PengurusAdminClient 
+            pengurusList={pengurusRes || []} 
+            aksiTambah={tambahPengurus} 
+            aksiHapus={hapusPengurus} 
+            aksiReset={resetSandiPengurus} 
+         />;
 }
 === FILE: app/admin/pengurus/PengurusAdminClient.tsx ===
 "use client";
@@ -5320,9 +5513,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function PengurusAdminClient({ pengurusList, aksiTambah }: { pengurusList: any[], aksiTambah: any }) {
+export default function PengurusAdminClient({ pengurusList, aksiTambah, aksiHapus, aksiReset }: { pengurusList: any[], aksiTambah: any, aksiHapus: any, aksiReset: any }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [loadingId, setLoadingId] = useState("");
 
   const [nama, setNama] = useState("");
   const [jabatan, setJabatan] = useState("");
@@ -5333,9 +5527,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
     e.preventDefault();
     setLoading(true);
     try {
-      // MATA DEWA: Tangkap response JSON, bukan error yang dilempar
       const res = await aksiTambah(nama, jabatan, email, password);
-      
       if (res && !res.success) {
         alert("Gagal membuat akun pengurus: " + res.message);
       } else {
@@ -5343,10 +5535,33 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
         alert("Akun pengurus baru berhasil dibuat!");
         router.refresh();
       }
-    } catch (error: any) {
-      alert("Terjadi kesalahan sistem: " + error.message);
-    }
+    } catch (error: any) { alert("Terjadi kesalahan sistem: " + error.message); }
     setLoading(false);
+  };
+
+  const handleHapus = async (id: string, namaTarget: string) => {
+    if (!confirm(`PERINGATAN FATAL: Yakin ingin mencabut akses dan menghapus admin ${namaTarget}?`)) return;
+    setLoadingId(id);
+    try {
+      await aksiHapus(id);
+      alert(`Akses admin ${namaTarget} berhasil dihapus dari sistem!`);
+      router.refresh();
+    } catch (error: any) { alert(error.message); }
+    setLoadingId("");
+  };
+
+  const handleReset = async (id: string, namaTarget: string) => {
+    const sandiBaru = prompt(`Masukkan PASSWORD BARU untuk admin ${namaTarget} (Minimal 6 karakter):`);
+    if (!sandiBaru) return;
+    if (sandiBaru.length < 6) return alert("GAGAL: Password baru harus minimal 6 karakter!");
+
+    setLoadingId(id);
+    try {
+      await aksiReset(id, sandiBaru);
+      alert(`Password untuk ${namaTarget} berhasil diperbarui!`);
+      router.refresh();
+    } catch (error: any) { alert(error.message); }
+    setLoadingId("");
   };
 
   return (
@@ -5388,7 +5603,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
             </form>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2 h-fit">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">📋 Daftar Pejabat RT (Admin)</h2>
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left border-collapse text-sm">
@@ -5396,7 +5611,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
                   <tr>
                     <th className="p-4 border-b-2 border-slate-200">Nama & Jabatan</th>
                     <th className="p-4 border-b-2 border-slate-200">Email Login</th>
-                    <th className="p-4 border-b-2 border-slate-200">Tanggal Terdaftar</th>
+                    <th className="p-4 border-b-2 border-slate-200 text-center">Aksi (Webmaster)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -5410,18 +5625,24 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah }: { peng
                       </td>
                       <td className="p-4 align-top">
                         <div className="font-mono text-xs font-bold text-slate-600">{p.email}</div>
+                        <div className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-widest">
+                          Join: {p.created_at ? new Date(p.created_at).toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'}) : '-'}
+                        </div>
                       </td>
-                      <td className="p-4 align-top text-xs text-slate-500 font-bold">
-                        {p.created_at ? new Date(p.created_at).toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'}) : '-'}
+                      <td className="p-4 align-top">
+                        <div className="flex flex-col gap-2">
+                          <button onClick={() => handleReset(p.id, p.nama_lengkap)} disabled={loadingId === p.id} className="bg-amber-100 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
+                            {loadingId === p.id ? '...' : 'Reset Sandi'}
+                          </button>
+                          <button onClick={() => handleHapus(p.id, p.nama_lengkap)} disabled={loadingId === p.id} className="bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">
+                            {loadingId === p.id ? '...' : 'Hapus Akun'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs font-bold flex gap-3">
-              <span className="text-xl">⚠️</span>
-              <p>Hanya Ketua RT atau Webmaster yang dapat menghapus akun pengurus melalui akses langsung ke database Supabase untuk alasan keamanan tingkat tinggi.</p>
             </div>
           </div>
         </div>
