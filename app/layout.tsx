@@ -12,11 +12,27 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// INJEKSI MUTLAK: Deklarasi PWA Manifest & Perubahan Judul
+// INJEKSI MUTLAK: Deklarasi PWA Manifest & Open Graph (Preview WhatsApp) digabung!
 export const metadata: Metadata = {
   title: "Portal Warga",
   description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
-  manifest: "/manifest.json", 
+  manifest: "/manifest.json", // KUNCI MUTLAK PWA TETAP AMAN
+  openGraph: {
+    title: "Portal Warga",
+    description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
+    url: "https://wargaku-six.vercel.app", 
+    siteName: "Portal Warga",
+    images: [
+      {
+        url: "/og-image.jpeg", // UBAH KE .png JIKA FORMAT GAMBAR LU PNG
+        width: 1200,
+        height: 630,
+        alt: "Preview Portal Warga",
+      },
+    ],
+    locale: "id_ID",
+    type: "website",
+  },
 };
 
 // REFACTOR MUTLAK: Kunci Tema Terang (Anti-Dark Mode Inversion)
