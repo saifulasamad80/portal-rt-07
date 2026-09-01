@@ -9,18 +9,19 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const [isFormOpen, setIsFormOpen] = useState(false); 
   const [loading, setLoading] = useState(false);
 
-  // Form State
+  // Form State Rak Bin
   const [namaBarang, setNamaBarang] = useState("");
   const [kategori, setKategori] = useState("Elektronik");
   const [opsiTujuan, setOpsiTujuan] = useState("Hibah ke RT");
   const [deskripsi, setDeskripsi] = useState("");
   const [isSetuju, setIsSetuju] = useState(false);
 
+  // INJEKSI MUTLAK: Penambahan kata "Estimasi"
   const katalogKiloan = [
-    { ikon: "🥤", nama: "Plastik PET", harga: "Rp 2.500/Kg", bg: "bg-blue-50", text: "text-blue-600" },
-    { ikon: "📦", nama: "Kertas/Kardus", harga: "Rp 1.500/Kg", bg: "bg-amber-50", text: "text-amber-600" },
-    { ikon: "🛢️", nama: "Minyak Jelantah", harga: "Rp 4.000/Ltr", bg: "bg-slate-100", text: "text-slate-600" },
-    { ikon: "🥬", nama: "Sampah Organik", harga: "Donasi BTB", bg: "bg-emerald-100", text: "text-emerald-700" },
+    { ikon: "🥤", nama: "Plastik PET", harga: "Est. Rp 2.500", satuan: "/ Kg", bg: "bg-blue-50", text: "text-blue-600" },
+    { ikon: "📦", nama: "Kertas/Kardus", harga: "Est. Rp 1.500", satuan: "/ Kg", bg: "bg-amber-50", text: "text-amber-600" },
+    { ikon: "🛢️", nama: "Minyak Jelantah", harga: "Est. Rp 4.000", satuan: "/ Ltr", bg: "bg-slate-100", text: "text-slate-600" },
+    { ikon: "🥬", nama: "Sampah Organik", harga: "Donasi BTB", satuan: "(Gratis)", bg: "bg-emerald-100", text: "text-emerald-700" },
   ];
 
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
@@ -71,11 +72,19 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>🏷️</span> Harga Pengepul</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>🏷️</span> Referensi Harga Pengepul</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 {katalogKiloan.map((item, idx) => (
-                  <div key={idx} className={`${item.bg} border border-slate-100 p-4 rounded-xl text-center`}><div className="text-2xl mb-2">{item.ikon}</div><div className="text-[10px] font-bold text-slate-700 mb-1 leading-tight">{item.nama}</div><div className={`font-black text-xs ${item.text}`}>{item.harga}</div></div>
+                  <div key={idx} className={`${item.bg} border border-slate-100 p-4 rounded-xl text-center`}><div className="text-2xl mb-2">{item.ikon}</div><div className="text-[10px] font-bold text-slate-700 mb-1 leading-tight">{item.nama}</div><div className={`font-black text-xs ${item.text}`}>{item.harga} <span className="text-[9px] text-slate-500 font-medium">{item.satuan}</span></div></div>
                 ))}
+              </div>
+              
+              {/* INJEKSI UX: DISCLAIMER PERLINDUNGAN ADMIN RT */}
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-start gap-3">
+                <span className="text-amber-500 text-lg">⚠️</span>
+                <p className="text-[9px] text-amber-800 font-bold leading-relaxed">
+                  DISCLAIMER: Harga di atas adalah estimasi. Harga aktual ditentukan oleh Pengepul Pusat pada saat hari penimbangan. Saldo yang masuk ke rekening warga merupakan hak bersih (setelah dipotong biaya operasional / kas RT sesuai kesepakatan).
+                </p>
               </div>
             </div>
 
