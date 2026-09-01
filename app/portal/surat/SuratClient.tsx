@@ -17,9 +17,10 @@ export default function SuratClient({ warga }: { warga: any }) {
 
   const today = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
   
+  // REFACTOR MUTLAK: Opsi Surat Disesuaikan dengan Instruksi Pak RT
   const daftarKeperluan = [
-    "KTP Baru", "Perpanjangan KTP", "KTP Sementara", 
-    "Kartu Keluarga Baru", "Pengantar SKCK", 
+    "Mutasi In / Pindah Datang", "Pembuatan SKTM", "Urusan Dukcapil", 
+    "Keterangan Usaha", "Pengantar SKCK", 
     "Domisili Tempat Tinggal", "Lainnya"
   ];
 
@@ -30,10 +31,18 @@ export default function SuratClient({ warga }: { warga: any }) {
       {/* PANEL FORM (DISEMBUNYIKAN SECARA OTOMATIS SAAT NGE-PRINT) */}
       {/* --------------------------------------------------------- */}
       <div className="w-full max-w-4xl print:hidden space-y-6 mb-10">
-        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block">&larr; Kembali ke Dasbor</Link>
+        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block transition-colors active:scale-95">&larr; Kembali ke Dasbor</Link>
         <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-200">
           <h1 className="text-2xl font-black text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
-          <p className="text-sm text-slate-500 mb-6 border-b border-slate-100 pb-6">Lengkapi data tambahan di bawah ini, lalu cetak surat secara instan untuk dibawa ke rumah RT.</p>
+          <p className="text-sm text-slate-500 mb-4">Lengkapi data tambahan di bawah ini, lalu cetak surat secara instan untuk dibawa ke rumah RT.</p>
+          
+          {/* INJEKSI UX: Edukasi Warga agar Pak RT tidak repot menjawab pertanyaan */}
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex items-start gap-3 mb-6">
+            <span className="text-blue-500 text-lg leading-none mt-0.5">ℹ️</span>
+            <p className="text-[10px] text-blue-800 font-medium leading-relaxed">
+              <strong>INFO BIROKRASI TERBARU:</strong> Sesuai aturan pemerintah, pembuatan KTP dan KK standar saat ini <strong>sudah tidak memerlukan Surat Pengantar RT/RW</strong>. Anda bisa langsung ke Kelurahan/Dukcapil. Pengantar RT hanya diperlukan untuk warga pindahan (Mutasi In), SKTM, dan Keperluan Usaha.
+            </p>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
@@ -50,7 +59,6 @@ export default function SuratClient({ warga }: { warga: any }) {
                 <option value="SLTP">SLTP / SMP</option>
                 <option value="SLTA">SLTA / SMA</option>
                 <option value="S1">S1 / Diploma</option>
-                {/* INJEKSI MUTLAK: Tambahan S2 dan S3 */}
                 <option value="S2">S2 / Magister</option>
                 <option value="S3">S3 / Doktoral</option>
               </select>
@@ -69,7 +77,7 @@ export default function SuratClient({ warga }: { warga: any }) {
             </div>
           </div>
 
-          <div className="space-y-6 pt-2 border-t border-slate-100">
+          <div className="space-y-6 pt-6 border-t border-slate-100">
             <div>
               <label className="block text-[11px] font-black text-slate-500 mb-3 uppercase tracking-widest">Pilih Keperluan Surat</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -114,7 +122,6 @@ export default function SuratClient({ warga }: { warga: any }) {
       {/* --------------------------------------------------------- */}
       {/* PANEL PREVIEW & CETAK - KLONING MUTLAK MODEL AA. 04       */}
       {/* --------------------------------------------------------- */}
-      {/* PERUBAHAN MUTLAK: 'hidden print:block' dicabut, diganti shadow & border untuk layar monitor */}
       <div className="w-full max-w-[210mm] min-h-[297mm] bg-white text-black font-sans text-[13px] leading-snug shadow-2xl print:shadow-none border border-slate-300 print:border-none p-8 sm:p-12 print:p-0 relative">
         
         {/* KOP SURAT */}
