@@ -9,7 +9,6 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const [isFormOpen, setIsFormOpen] = useState(false); 
   const [loading, setLoading] = useState(false);
 
-  // Form State Rak Bin
   const [namaBarang, setNamaBarang] = useState("");
   const [kategori, setKategori] = useState("Elektronik");
   const [opsiTujuan, setOpsiTujuan] = useState("Hibah ke RT");
@@ -19,22 +18,16 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
 
-  // ------------------------------------------------------------------
-  // INJEKSI MUTLAK: MESIN KALKULASI GRAFIK DENGAN TYPESCRIPT FIX
-  // ------------------------------------------------------------------
   const chartData = useMemo(() => {
-    // FIX TS: Deklarasi tipe data eksplisit (Membunuh Error 7034 & 7005)
     const data: { label: string, month: number, year: number, setor: number }[] = [];
     const now = new Date();
     
-    // Siapkan wadah untuk 6 bulan terakhir
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const label = d.toLocaleDateString('id-ID', { month: 'short' });
       data.push({ label, month: d.getMonth(), year: d.getFullYear(), setor: 0 });
     }
 
-    // Isi wadah dengan data transaksi Setor (Pemasukan)
     riwayatKiloan.forEach(trx => {
       if (trx.jenis_transaksi === 'Setor') {
         const trxDate = new Date(trx.tanggal_transaksi);
@@ -45,11 +38,9 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
       }
     });
 
-    // Cari nilai tertinggi untuk skala tiang grafik (Minimal skala Rp 10.000)
     const maxVal = Math.max(...data.map(d => d.setor), 10000); 
     return { data, maxVal };
   }, [riwayatKiloan]);
-  // ------------------------------------------------------------------
 
   const handleLapor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +86,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               </div>
             </div>
 
-            {/* INJEKSI UI: GRAFIK BATANG (BAR CHART) NATIVE */}
+            {/* FIX MUTLAK CSS: h-full disuntikkan ke kontainer flex */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-black text-slate-800 text-sm mb-6 uppercase tracking-widest flex items-center gap-2">
                 <span>📊</span> Statistik Pemasukan (6 Bulan)
@@ -103,27 +94,24 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               
               <div className="flex items-end justify-between gap-2 h-40 mt-4 px-2">
                 {chartData.data.map((item, idx) => {
-                  // Kalkulasi tinggi tiang, minimal 5% agar tiang 0 tetap kelihatan garisnya
                   const heightPct = Math.max((item.setor / chartData.maxVal) * 100, 5);
                   
                   return (
-                    <div key={idx} className="flex-1 flex flex-col items-center gap-3 group relative">
+                    <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full gap-3 group relative">
+                      {/* h-full pada kontainer ini yang sebelumnya hilang */}
                       <div className="w-full max-w-[40px] flex-1 flex items-end bg-slate-50 rounded-t-lg overflow-visible relative group-hover:bg-slate-100 transition-colors">
                         
-                        {/* Tooltip Hover (Rupiah) */}
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap z-10 shadow-lg pointer-events-none transform group-hover:-translate-y-1">
                           {formatRp(item.setor)}
-                          {/* Segitiga bawah tooltip */}
                           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
                         </div>
 
-                        {/* Tiang Grafik */}
                         <div 
                           className={`w-full rounded-t-md transition-all duration-700 ease-out shadow-sm ${item.setor > 0 ? 'bg-emerald-500 group-hover:bg-emerald-400' : 'bg-slate-200'}`}
                           style={{ height: `${heightPct}%` }}
                         ></div>
                       </div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${item.setor > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 ${item.setor > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
                         {item.label}
                       </span>
                     </div>
