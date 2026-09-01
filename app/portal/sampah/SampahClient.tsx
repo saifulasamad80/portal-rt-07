@@ -20,10 +20,11 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
 
   // ------------------------------------------------------------------
-  // INJEKSI MUTLAK: MESIN KALKULASI GRAFIK 6 BULAN TERAKHIR
+  // INJEKSI MUTLAK: MESIN KALKULASI GRAFIK DENGAN TYPESCRIPT FIX
   // ------------------------------------------------------------------
   const chartData = useMemo(() => {
-    const data = [];
+    // FIX TS: Deklarasi tipe data eksplisit (Membunuh Error 7034 & 7005)
+    const data: { label: string, month: number, year: number, setor: number }[] = [];
     const now = new Date();
     
     // Siapkan wadah untuk 6 bulan terakhir
@@ -144,7 +145,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
                 </div>
                 <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-start gap-3">
                   <div className="text-2xl">💰</div>
-                  <div><h4 className="text-[11px] font-black text-amber-800 uppercase tracking-wide">3. Saldo Bertambah</h4><p className="text-[10px] text-amber-700 mt-1 font-medium leading-relaxed">Harga disesuaikan dengan nilai aktual pengepul pada hari penimbangan.</p></div>
+                  <div><h4 className="text-[11px] font-black text-amber-800 uppercase tracking-wide">3. Saldo Bertambah</h4><p className="text-[10px] text-amber-700 mt-1 font-medium leading-relaxed">Harga disesuaikan dengan nilai aktual pengepul pada hari tersebut.</p></div>
                 </div>
               </div>
             </div>
