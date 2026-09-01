@@ -6,11 +6,9 @@ import Link from "next/link";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-// SECURITY FIX: Hapus fallback string. Paksa server melempar error jika ENV bocor!
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 // INJEKSI MUTLAK: FEATURE FLAG (Sakelar Fitur)
-// Ubah menjadi 'true' jika Pak RT sudah mengizinkan fitur ini rilis.
 const FITUR_LAPOR_AKTIF = false;
 
 export default async function PortalWarga() {
@@ -29,14 +27,12 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  // 1. Tarik Data Utama Warga
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
     .select("*")
     .eq("id", wargaAktif.id)
     .single();
 
-  // 2. Pengecekan Status Sensus Kesejahteraan (Anti-Crash)
   const { data: sensusWarga } = await supabaseAdmin
     .from("sensus_kesejahteraan")
     .select("id")
@@ -53,41 +49,49 @@ export default async function PortalWarga() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 font-sans">
-      <nav className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center">
-        <div className="font-bold text-lg ml-2 md:ml-4 tracking-wide">Portal Warga</div>
-        <form action={handleLogout} className="mr-2 md:mr-4">
-          <button type="submit" className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-colors shadow">Keluar Sesi</button>
-        </form>
-      </nav>
-
-      <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6 mt-6">
+    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans pb-24">
+      <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* KARTU SAMBUTAN */}
-        <div className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="text-2xl font-black text-slate-800">Halo, {profilWarga?.nama_lengkap || wargaAktif.nama}!</h1>
-            <p className="text-sm text-slate-500 mt-2">NIK: <span className="font-mono text-slate-700 font-bold">{wargaAktif.nik}</span> <span className="mx-2 text-slate-300">•</span> Status: <span className="font-bold text-slate-700">{profilWarga?.status_tinggal || "Warga"}</span></p>
+        {/* HEADER KLONING ADMIN: Ilusi Otoritas & Personalisasi */}
+        <div className="bg-slate-900 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-xl font-black text-white uppercase shadow-inner shrink-0">
+              {(profilWarga?.nama_lengkap || wargaAktif.nama).charAt(0)}
+            </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-black text-white mb-1">
+                Halo, {profilWarga?.nama_lengkap || wargaAktif.nama}!
+              </h1>
+              <div className="flex flex-wrap gap-2 mt-1">
+                <span className="text-blue-400 font-bold text-[10px] uppercase tracking-widest bg-slate-800 px-2.5 py-1 rounded border border-slate-700 shadow-sm">
+                  NIK: {wargaAktif.nik}
+                </span>
+                <span className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest bg-slate-800 px-2.5 py-1 rounded border border-slate-700 shadow-sm">
+                  {profilWarga?.status_tinggal || "Warga Aktif"}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="bg-slate-50 border border-slate-200 text-slate-700 py-3 px-6 rounded-lg text-center w-full md:w-auto shadow-sm">
-            <div className="text-[10px] font-bold uppercase tracking-widest mb-1 text-slate-500">Status Akun</div>
-            <div className="font-black text-sm text-emerald-600">{profilWarga?.status_verifikasi || "Disetujui"}</div>
-          </div>
+          <form action={handleLogout} className="w-full md:w-auto mt-2 md:mt-0">
+            <button type="submit" className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-3 px-6 rounded-lg transition-all shadow-md active:scale-95">
+              Keluar Portal
+            </button>
+          </form>
         </div>
 
-        {/* BLOK UI FOMO SENSUS */}
+        {/* BLOK UI FOMO SENSUS (Dipertahankan tapi dirapikan) */}
         {!isSensusLengkap && (
-          <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-rose-300">
+          <div className="bg-rose-50 p-6 rounded-2xl border border-rose-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-rose-300">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
             <div className="flex items-start md:items-center gap-4 w-full">
               <div className="text-3xl animate-pulse hidden md:block">⚠️</div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <h2 className="font-black text-rose-800 text-sm uppercase tracking-widest">Sensus Profil Keluarga</h2>
-                  <span className="bg-rose-200 text-rose-800 text-[9px] px-2 py-0.5 rounded font-black shadow-sm">BELUM LENGKAP (0%)</span>
+                  <h2 className="font-black text-rose-800 text-sm uppercase tracking-widest">Sensus Kesejahteraan</h2>
+                  <span className="bg-rose-200 text-rose-800 text-[9px] px-2 py-0.5 rounded font-black shadow-sm">BELUM LENGKAP</span>
                 </div>
                 <p className="text-xs text-rose-700 font-medium leading-relaxed max-w-2xl">
-                  Segera lengkapi Sensus Demografi ini untuk membuka kunci kelayakan Anda dalam menerima <strong>Bantuan Sosial (Bansos), Fasilitas Posyandu, dan Program Kelurahan</strong>.
+                  Segera lengkapi Sensus Demografi ini untuk membuka kunci kelayakan Anda dalam menerima <strong>Bantuan Sosial (Bansos) & Fasilitas Kelurahan</strong>.
                 </p>
               </div>
             </div>
@@ -97,44 +101,66 @@ export default async function PortalWarga() {
           </div>
         )}
 
-        {/* MENU DASHBOARD UTAMA */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/portal/keuangan" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">💰 Transparansi & Iuran</h2><p className="text-xs text-slate-500 leading-relaxed">Cek saldo kas RT dan riwayat pembayaran.</p>
-          </Link>
-          <Link href="/portal/surat" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">📄 Layanan Surat</h2><p className="text-xs text-slate-500 leading-relaxed">Cetak surat pengantar RT secara mandiri.</p>
-          </Link>
+        {/* MENU DASHBOARD UTAMA - KLONING BENTO BOX APPLE/ADMIN STYLE */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-2">
           
-          <Link href="/portal/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-orange-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">🏪 Pasar Warga (UMKM)</h2><p className="text-xs text-slate-500 leading-relaxed">Katalog jasa & dagangan tetangga. Pesan langsung via WhatsApp.</p>
-          </Link>
-          
-          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">🎪 Kalender Inventaris</h2><p className="text-xs text-slate-500 leading-relaxed">Booking tenda, kursi, atau perlengkapan RT.</p>
+          <Link href="/portal/keuangan" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-amber-500">💰</div>
+            <h2 className="font-black text-slate-800 text-sm">Transparansi Kas</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Cek tagihan & riwayat</p>
           </Link>
 
-          <Link href="/portal/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">♻️ Tabungan Sampah</h2><p className="text-xs text-slate-500 leading-relaxed">Pantau saldo hasil setor sampah anorganik.</p>
-          </Link>
-          <Link href="/portal/kurban" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block">
-            <h2 className="font-bold text-slate-800 mb-2">🐄 Tabungan Kurban</h2><p className="text-xs text-slate-500 leading-relaxed">Pantau persiapan dana kurban Idul Adha.</p>
+          <Link href="/portal/surat" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-blue-500">📄</div>
+            <h2 className="font-black text-slate-800 text-sm">Layanan Surat</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Cetak pengantar mandiri</p>
           </Link>
           
-          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
-            <h2 className="font-bold text-slate-800 mb-2">📊 E-Voting Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Pemungutan suara digital untuk keputusan RT. Transparan & anti-curang.</p>
+          <Link href="/portal/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-orange-500">🏪</div>
+            <h2 className="font-black text-slate-800 text-sm">Pasar Warga</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Katalog jasa & UMKM</p>
+          </Link>
+          
+          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-purple-500">🎪</div>
+            <h2 className="font-black text-slate-800 text-sm">Inventaris RT</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Booking tenda & kursi</p>
           </Link>
 
-          {/* LOGIKA SAKELAR: Render UI hanya jika FITUR_LAPOR_AKTIF bernilai true */}
+          <Link href="/portal/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-emerald-500">♻️</div>
+            <h2 className="font-black text-slate-800 text-sm">Tabungan Sampah</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Saldo setor anorganik</p>
+          </Link>
+
+          <Link href="/portal/kurban" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-pink-500">🐄</div>
+            <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
+          </Link>
+          
+          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-indigo-500">📊</div>
+            <h2 className="font-black text-slate-800 text-sm">E-Voting Warga</h2>
+            <p className="text-[10px] text-slate-500 mt-1">Suara digital transparan</p>
+          </Link>
+
+          <Link href="/portal/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3 text-yellow-400">🔦</div>
+            <h2 className="font-black text-white text-sm">Siskamling</h2>
+            <p className="text-[10px] text-slate-400 mt-1">Jadwal ronda Anda</p>
+          </Link>
+
+          {/* FITUR LAPOR (Disembunyikan via Feature Flag, tapi desain sudah disiapkan) */}
           {FITUR_LAPOR_AKTIF && (
-            <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:border-slate-300 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
-              <h2 className="font-bold text-slate-800 mb-2">🚨 Sistem Lapor Warga</h2><p className="text-xs text-slate-500 leading-relaxed">Buat tiket laporan fasilitas rusak dengan sistem tracking otomatis.</p>
+            <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block col-span-2">
+              <div className="text-3xl mb-3 text-rose-500">🚨</div>
+              <h2 className="font-black text-slate-800 text-sm">Sistem Lapor Warga</h2>
+              <p className="text-[10px] text-slate-500 mt-1">Tiket kerusakan & keamanan</p>
             </Link>
           )}
-          
-          <Link href="/portal/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 transition-all duration-300 hover:border-slate-700 hover:shadow-lg hover:-translate-y-1 block md:col-span-2">
-            <h2 className="font-bold text-white mb-2 flex items-center gap-2">🔦 Jadwal Siskamling</h2><p className="text-xs text-slate-400 leading-relaxed">Cek jadwal tugas ronda malam Anda dan konfirmasi kehadiran.</p>
-          </Link>
+
         </div>
       </div>
     </div>
