@@ -65,10 +65,11 @@ export default function AdminLogin() {
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
               />
+              {/* REVISI UX: Hitbox diperbesar (p-3), margin dikalibrasi */}
               <button 
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 focus:outline-none text-lg transition-colors cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-3 text-slate-400 hover:text-emerald-600 focus:outline-none text-lg transition-colors cursor-pointer"
                 tabIndex={-1}
               >
                 {showPassword ? "👁️" : "🙈"}

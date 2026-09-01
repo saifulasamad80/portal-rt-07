@@ -99,14 +99,15 @@ export default function WargaLogin() {
                   type={showPin ? "text" : "password"}
                   maxLength={6}
                   required={!requirePinChange}
-                  className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-slate-900 font-mono font-bold tracking-widest focus:border-blue-600 focus:ring-0 outline-none transition-all bg-transparent shadow-sm"
+                  className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-slate-900 font-mono font-bold tracking-widest focus:border-blue-600 focus:ring-0 outline-none transition-all bg-transparent shadow-sm pr-12"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 />
+                {/* REVISI UX: Hitbox diperbesar (p-3), posisi disesuaikan (right-1 top-7) */}
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
-                  className="absolute right-4 top-10 text-xl transition-transform active:scale-90"
+                  className="absolute right-1 top-7 p-3 text-xl transition-transform active:scale-90"
                 >
                   {showPin ? "🙉" : "🙈"}
                 </button>
@@ -120,15 +121,16 @@ export default function WargaLogin() {
                   type={showNewPin ? "text" : "password"}
                   maxLength={6}
                   required={requirePinChange}
-                  className="w-full border-2 border-rose-300 rounded-xl p-4 text-slate-900 font-mono font-black text-xl text-center tracking-[0.5em] focus:border-rose-600 focus:ring-0 outline-none transition-all bg-white shadow-inner"
+                  className="w-full border-2 border-rose-300 rounded-xl p-4 text-slate-900 font-mono font-black text-xl text-center tracking-[0.5em] focus:border-rose-600 focus:ring-0 outline-none transition-all bg-white shadow-inner pr-12"
                   placeholder="------"
                   value={newPin}
                   onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                 />
+                {/* REVISI UX: Hitbox diperbesar (p-3), posisi disesuaikan (right-1 top-7) */}
                 <button
                   type="button"
                   onClick={() => setShowNewPin(!showNewPin)}
-                  className="absolute right-4 top-10 text-xl transition-transform active:scale-90"
+                  className="absolute right-1 top-7 p-3 text-xl transition-transform active:scale-90"
                 >
                   {showNewPin ? "🙉" : "🙈"}
                 </button>
