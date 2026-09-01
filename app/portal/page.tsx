@@ -8,7 +8,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-// INJEKSI MUTLAK: FEATURE FLAG (Sakelar Fitur)
+// INJEKSI MUTLAK: Sakelar Fitur
 const FITUR_LAPOR_AKTIF = false;
 
 export default async function PortalWarga() {
@@ -27,19 +27,23 @@ export default async function PortalWarga() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
+  // 1. Tarik Data Utama Warga
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
     .select("*")
     .eq("id", wargaAktif.id)
     .single();
 
-  const { data: sensusWarga } = await supabaseAdmin
+  // 2. Pengecekan Status Verifikasi Carik (Menggantikan Logika Sensus)
+  // KITA SEMENTARA TETAP PAKAI TABEL SENSUS SEBAGAI FLAG SEMENTARA
+  // NANTI AKAN KITA UBAH SETELAH DATABASE DIBEDAH
+  const { data: statusCarik } = await supabaseAdmin
     .from("sensus_kesejahteraan")
     .select("id")
     .eq("warga_id", wargaAktif.id)
     .maybeSingle();
 
-  const isSensusLengkap = !!sensusWarga;
+  const isDataTervalidasiWarga = !!statusCarik;
 
   const handleLogout = async () => {
     "use server";
@@ -49,8 +53,9 @@ export default async function PortalWarga() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans pb-24">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 pb-24 font-sans">
+      
+      <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6 mt-2">
         
         {/* HEADER KLONING ADMIN: Ilusi Otoritas & Personalisasi */}
         <div className="bg-slate-900 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
@@ -79,24 +84,24 @@ export default async function PortalWarga() {
           </form>
         </div>
 
-        {/* BLOK UI FOMO SENSUS (Dipertahankan tapi dirapikan) */}
-        {!isSensusLengkap && (
-          <div className="bg-rose-50 p-6 rounded-2xl border border-rose-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-rose-300">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
+        {/* BLOK UI FOMO: VERIFIKASI CARIK (Pengganti Sensus) */}
+        {!isDataTervalidasiWarga && (
+          <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-amber-300">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
             <div className="flex items-start md:items-center gap-4 w-full">
-              <div className="text-3xl animate-pulse hidden md:block">⚠️</div>
+              <div className="text-3xl animate-pulse hidden md:block">📋</div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <h2 className="font-black text-rose-800 text-sm uppercase tracking-widest">Sensus Kesejahteraan</h2>
-                  <span className="bg-rose-200 text-rose-800 text-[9px] px-2 py-0.5 rounded font-black shadow-sm">BELUM LENGKAP</span>
+                  <h2 className="font-black text-amber-800 text-sm uppercase tracking-widest">Verifikasi Data Carik</h2>
+                  <span className="bg-rose-600 text-white text-[9px] px-2 py-0.5 rounded font-black shadow-sm animate-pulse">WAJIB</span>
                 </div>
-                <p className="text-xs text-rose-700 font-medium leading-relaxed max-w-2xl">
-                  Segera lengkapi Sensus Demografi ini untuk membuka kunci kelayakan Anda dalam menerima <strong>Bantuan Sosial (Bansos) & Fasilitas Kelurahan</strong>.
+                <p className="text-xs text-amber-900 font-medium leading-relaxed max-w-2xl">
+                  Pengurus RT telah memperbarui data demografi Anda sesuai catatan <strong>Buku Carik Kelurahan</strong>. Mohon periksa dan verifikasi kesesuaian data keluarga Anda.
                 </p>
               </div>
             </div>
-            <Link href="/portal/sensus" className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] px-6 py-3.5 rounded-lg shadow-md transition-all active:scale-95 text-center shrink-0 uppercase tracking-widest">
-              Isi Sensus Sekarang
+            <Link href="/portal/profil" className="w-full md:w-auto bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] px-6 py-3.5 rounded-lg shadow-md transition-all active:scale-95 text-center shrink-0 uppercase tracking-widest">
+              Cek & Verifikasi Data
             </Link>
           </div>
         )}
@@ -154,10 +159,10 @@ export default async function PortalWarga() {
 
           {/* FITUR LAPOR (Disembunyikan via Feature Flag, tapi desain sudah disiapkan) */}
           {FITUR_LAPOR_AKTIF && (
-            <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block col-span-2">
+            <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block col-span-2 md:col-span-4">
               <div className="text-3xl mb-3 text-rose-500">🚨</div>
               <h2 className="font-black text-slate-800 text-sm">Sistem Lapor Warga</h2>
-              <p className="text-[10px] text-slate-500 mt-1">Tiket kerusakan & keamanan</p>
+              <p className="text-[10px] text-slate-500 mt-1">Tiket kerusakan fasilitas & keamanan</p>
             </Link>
           )}
 
