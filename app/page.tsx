@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import JalurDaruratClient from "./JalurDaruratClient";
 import PengumumanClient from "./PengumumanClient"; 
-import KinerjaSampahClient from "./portal/KinerjaSampahClient"; // INJEKSI MUTLAK: Import Grafik Sampah
+import KinerjaSampahClient from "./portal/KinerjaSampahClient"; // Komponen Grafik Premium
 
 export const revalidate = 60;
 
@@ -12,7 +12,6 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 export default async function LandingPage() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Tambahan query untuk narik seluruh transaksi sampah masuk (Setor)
   const [pengumumanRes, votingTerbaruRes, kasRes, sampahRes] = await Promise.all([
     supabase.from("pengumuman_rt").select("*").order("tanggal_publikasi", { ascending: false }).limit(7),
     supabase.from("voting_rt").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -69,7 +68,7 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center font-sans pb-16">
       
-      {/* 1. HERO SECTION (Dark Premium Authority) */}
+      {/* 1. HERO SECTION */}
       <div className="w-full bg-slate-900 pt-16 pb-32 px-4 text-center rounded-b-[2.5rem] md:rounded-b-[4rem] shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-emerald-500 to-blue-500"></div>
         <span className="bg-slate-800 text-blue-400 border border-slate-700 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-inner inline-block mb-6">
@@ -143,13 +142,8 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        {/* ------------------------------------------------------------- */}
-        {/* INJEKSI GRAFIK: PENCAPAIAN BANK SAMPAH DI HALAMAN DEPAN     */}
-        {/* ------------------------------------------------------------- */}
-        <KinerjaSampahClient dataSampah={sampahGlobal} />
-
-        {/* 4. DEMOGRAFI & STATISTIK WARGA */}
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+        {/* 4. DEMOGRAFI & STATISTIK WARGA (Posisi Ditukar Sesuai Instruksi) */}
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
           <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest border-b border-l border-amber-200">
             Realtime Engine
           </div>
@@ -255,10 +249,13 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        {/* 5. EMERGENCY SYSTEM */}
+        {/* 5. INJEKSI GRAFIK: PENCAPAIAN BANK SAMPAH DI BAWAH DEMOGRAFI */}
+        <KinerjaSampahClient dataSampah={sampahGlobal} />
+
+        {/* 6. EMERGENCY SYSTEM */}
         <JalurDaruratClient />
 
-        {/* 6. MADING & PENGUMUMAN */}
+        {/* 7. MADING & PENGUMUMAN */}
         <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
 
       </div>
