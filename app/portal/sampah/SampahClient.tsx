@@ -18,29 +18,46 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
 
+  // ------------------------------------------------------------------
+  // INJEKSI MUTLAK: MESIN GRAFIK PREMIUM & KALKULATOR TREN
+  // ------------------------------------------------------------------
   const chartData = useMemo(() => {
     const data: { label: string, month: number, year: number, setor: number }[] = [];
     const now = new Date();
     
+    // Tarik 6 bulan ke belakang
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const label = d.toLocaleDateString('id-ID', { month: 'short' });
+      const label = d.toLocaleDateString('id-ID', { month: 'short' }).toUpperCase();
       data.push({ label, month: d.getMonth(), year: d.getFullYear(), setor: 0 });
     }
 
     riwayatKiloan.forEach(trx => {
       if (trx.jenis_transaksi === 'Setor') {
         const trxDate = new Date(trx.tanggal_transaksi);
-        const trxMonth = trxDate.getMonth();
-        const trxYear = trxDate.getFullYear();
-        const targetNode = data.find(d => d.month === trxMonth && d.year === trxYear);
+        const targetNode = data.find(d => d.month === trxDate.getMonth() && d.year === trxDate.getFullYear());
         if (targetNode) targetNode.setor += trx.nominal_warga;
       }
     });
 
     const maxVal = Math.max(...data.map(d => d.setor), 10000); 
-    return { data, maxVal };
+
+    // Kalkulator Tren (Bulan Ini vs Bulan Lalu)
+    let trend = { status: 'Sama', pct: 0, text: 'Stabil' };
+    const bulanIni = data[5].setor;
+    const bulanLalu = data[4].setor;
+
+    if (bulanLalu > 0) {
+      const diff = ((bulanIni - bulanLalu) / bulanLalu) * 100;
+      if (diff > 0) trend = { status: 'Naik', pct: Math.round(diff), text: `🔥 +${Math.round(diff)}% vs Bulan Lalu` };
+      else if (diff < 0) trend = { status: 'Turun', pct: Math.round(Math.abs(diff)), text: `📉 -${Math.round(Math.abs(diff))}% vs Bulan Lalu` };
+    } else if (bulanIni > 0) {
+      trend = { status: 'Naik', pct: 100, text: '🚀 +100% (Bulan Pertama)' };
+    }
+
+    return { data, maxVal, trend };
   }, [riwayatKiloan]);
+  // ------------------------------------------------------------------
 
   const handleLapor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,39 +103,73 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               </div>
             </div>
 
-            {/* FIX MUTLAK CSS: h-full disuntikkan ke kontainer flex */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="font-black text-slate-800 text-sm mb-6 uppercase tracking-widest flex items-center gap-2">
-                <span>📊</span> Statistik Pemasukan (6 Bulan)
-              </h3>
+            {/* ------------------------------------------------------------- */}
+            {/* INJEKSI UI: GRAFIK BATANG PREMIUM (STANDAR FINTECH)           */}
+            {/* ------------------------------------------------------------- */}
+            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6 md:p-8">
               
-              <div className="flex items-end justify-between gap-2 h-40 mt-4 px-2">
-                {chartData.data.map((item, idx) => {
-                  const heightPct = Math.max((item.setor / chartData.maxVal) * 100, 5);
-                  
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full gap-3 group relative">
-                      {/* h-full pada kontainer ini yang sebelumnya hilang */}
-                      <div className="w-full max-w-[40px] flex-1 flex items-end bg-slate-50 rounded-t-lg overflow-visible relative group-hover:bg-slate-100 transition-colors">
+              {/* Header Grafik & Lencana Tren */}
+              <div className="flex justify-between items-start md:items-end mb-8">
+                <div>
+                  <h3 className="font-black text-slate-800 text-lg md:text-xl tracking-tight">Statistik Pemasukan</h3>
+                  <p className="text-xs text-slate-400 font-medium mt-1">Akumulasi pendapatan 6 bulan terakhir</p>
+                </div>
+                <div className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border shrink-0 ${chartData.trend.status === 'Naik' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : chartData.trend.status === 'Turun' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                  {chartData.trend.text}
+                </div>
+              </div>
+
+              {/* Area Canvas Grafik */}
+              <div className="relative h-56 w-full flex items-end pt-4 mb-2">
+                
+                {/* Sumbu Y & Garis Latar (Grid Lines) */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6">
+                  {[chartData.maxVal, chartData.maxVal * 0.66, chartData.maxVal * 0.33, 0].map((val, i) => (
+                    <div key={i} className="flex items-center w-full gap-3">
+                      <span className="text-[9px] font-black text-slate-300 w-8 text-right shrink-0">
+                        {val >= 1000 ? `${(val/1000).toFixed(0)}k` : val}
+                      </span>
+                      <div className="w-full border-t border-dashed border-slate-200"></div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Wadah Tiang Grafik */}
+                <div className="relative w-full h-full flex justify-between items-end pl-12 pr-2 md:pr-6 z-10 pb-6">
+                  {chartData.data.map((item, idx) => {
+                    const heightPct = item.setor === 0 ? 0 : Math.max((item.setor / chartData.maxVal) * 100, 4);
+                    const isAktif = item.setor > 0;
+                    
+                    return (
+                      <div key={idx} className="flex flex-col items-center justify-end h-full w-full group relative">
                         
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap z-10 shadow-lg pointer-events-none transform group-hover:-translate-y-1">
-                          {formatRp(item.setor)}
-                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                        {/* Trek Bayangan Belakang (Background Track) */}
+                        <div className="absolute bottom-6 w-8 md:w-12 h-[calc(100%-1.5rem)] bg-slate-50/50 rounded-t-xl group-hover:bg-slate-100/80 transition-colors"></div>
+                        
+                        {/* Tiang Grafik (Gradient & Glow) */}
+                        <div 
+                          className={`relative w-8 md:w-12 rounded-t-xl transition-all duration-1000 ease-out flex justify-center 
+                          ${isAktif ? 'bg-gradient-to-t from-emerald-600 to-teal-400 shadow-[0_0_15px_rgba(20,184,166,0.3)] group-hover:shadow-[0_0_20px_rgba(20,184,166,0.6)] group-hover:from-emerald-500 group-hover:to-teal-300' : 'bg-transparent'}`}
+                          style={{ height: `${heightPct}%` }}
+                        >
+                          {/* Tooltip Hover ala Fintech */}
+                          <div className="absolute -top-12 bg-slate-800 text-white text-[10px] font-black px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none shadow-xl transform translate-y-2 group-hover:translate-y-0 whitespace-nowrap z-20">
+                            {formatRp(item.setor)}
+                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-800 rotate-45"></div>
+                          </div>
                         </div>
 
-                        <div 
-                          className={`w-full rounded-t-md transition-all duration-700 ease-out shadow-sm ${item.setor > 0 ? 'bg-emerald-500 group-hover:bg-emerald-400' : 'bg-slate-200'}`}
-                          style={{ height: `${heightPct}%` }}
-                        ></div>
+                        {/* Label Sumbu X (Bulan) */}
+                        <span className={`absolute -bottom-0 text-[9px] font-black uppercase tracking-widest transition-colors ${isAktif ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                          {item.label}
+                        </span>
                       </div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 ${item.setor > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
-                        {item.label}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
+            {/* ------------------------------------------------------------- */}
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>💡</span> Cara Menabung Sampah</h3>
