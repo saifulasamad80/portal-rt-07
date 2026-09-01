@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import KinerjaSampahClient from "./KinerjaSampahClient"; // INJEKSI MUTLAK GRAFIK
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -42,12 +41,6 @@ export default async function PortalWarga() {
     .maybeSingle();
 
   const isDataTervalidasiWarga = !!statusCarik;
-
-  // 3. INJEKSI MUTLAK: Tarik SEMUA Data Sampah Global RT
-  const { data: sampahGlobalRes } = await supabaseAdmin
-    .from("transaksi_sampah")
-    .select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi")
-    .eq("jenis_transaksi", "Setor");
 
   const handleLogout = async () => {
     "use server";
@@ -107,11 +100,6 @@ export default async function PortalWarga() {
             </Link>
           </div>
         )}
-
-        {/* ------------------------------------------------------------- */}
-        {/* INJEKSI GRAFIK: DITAMPILKAN DI ATAS MENU BENTO BOX          */}
-        {/* ------------------------------------------------------------- */}
-        <KinerjaSampahClient dataSampah={sampahGlobalRes || []} />
 
         {/* MENU DASHBOARD UTAMA - KLONING BENTO BOX APPLE/ADMIN STYLE */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-2">

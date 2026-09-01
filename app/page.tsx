@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import JalurDaruratClient from "./JalurDaruratClient";
 import PengumumanClient from "./PengumumanClient"; 
+import KinerjaSampahClient from "./portal/KinerjaSampahClient"; // INJEKSI MUTLAK: Import Grafik Sampah
 
 export const revalidate = 60;
 
@@ -11,15 +12,18 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 export default async function LandingPage() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const [pengumumanRes, votingTerbaruRes, kasRes] = await Promise.all([
+  // FAKTA: Tambahan query untuk narik seluruh transaksi sampah masuk (Setor)
+  const [pengumumanRes, votingTerbaruRes, kasRes, sampahRes] = await Promise.all([
     supabase.from("pengumuman_rt").select("*").order("tanggal_publikasi", { ascending: false }).limit(7),
     supabase.from("voting_rt").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("kas_rt").select("tipe_transaksi, nominal") 
+    supabase.from("kas_rt").select("tipe_transaksi, nominal"),
+    supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("jenis_transaksi", "Setor")
   ]);
 
   const pengumumanReguler = pengumumanRes.data;
   const votingTerbaru = votingTerbaruRes.data;
   const kasData = kasRes.data;
+  const sampahGlobal = sampahRes.data || [];
 
   let rekapVoting: any = null;
   if (votingTerbaru) {
@@ -139,7 +143,12 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        {/* 4. INJEKSI BARU: DEMOGRAFI & STATISTIK WARGA (Cuan Magnet) */}
+        {/* ------------------------------------------------------------- */}
+        {/* INJEKSI GRAFIK: PENCAPAIAN BANK SAMPAH DI HALAMAN DEPAN     */}
+        {/* ------------------------------------------------------------- */}
+        <KinerjaSampahClient dataSampah={sampahGlobal} />
+
+        {/* 4. DEMOGRAFI & STATISTIK WARGA */}
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
           <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest border-b border-l border-amber-200">
             Realtime Engine
