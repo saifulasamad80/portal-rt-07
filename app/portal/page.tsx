@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import KinerjaSampahClient from "./KinerjaSampahClient"; // INJEKSI MUTLAK GRAFIK
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-// INJEKSI MUTLAK: Sakelar Fitur
 const FITUR_LAPOR_AKTIF = false;
 
 export default async function PortalWarga() {
@@ -34,9 +34,7 @@ export default async function PortalWarga() {
     .eq("id", wargaAktif.id)
     .single();
 
-  // 2. Pengecekan Status Verifikasi Carik (Menggantikan Logika Sensus)
-  // KITA SEMENTARA TETAP PAKAI TABEL SENSUS SEBAGAI FLAG SEMENTARA
-  // NANTI AKAN KITA UBAH SETELAH DATABASE DIBEDAH
+  // 2. Pengecekan Status Verifikasi Carik
   const { data: statusCarik } = await supabaseAdmin
     .from("sensus_kesejahteraan")
     .select("id")
@@ -44,6 +42,12 @@ export default async function PortalWarga() {
     .maybeSingle();
 
   const isDataTervalidasiWarga = !!statusCarik;
+
+  // 3. INJEKSI MUTLAK: Tarik SEMUA Data Sampah Global RT
+  const { data: sampahGlobalRes } = await supabaseAdmin
+    .from("transaksi_sampah")
+    .select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi")
+    .eq("jenis_transaksi", "Setor");
 
   const handleLogout = async () => {
     "use server";
@@ -57,7 +61,6 @@ export default async function PortalWarga() {
       
       <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6 mt-2">
         
-        {/* HEADER KLONING ADMIN: Ilusi Otoritas & Personalisasi */}
         <div className="bg-slate-900 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-xl font-black text-white uppercase shadow-inner shrink-0">
@@ -84,7 +87,6 @@ export default async function PortalWarga() {
           </form>
         </div>
 
-        {/* BLOK UI FOMO: VERIFIKASI CARIK (Pengganti Sensus) */}
         {!isDataTervalidasiWarga && (
           <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-amber-300">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
@@ -105,6 +107,11 @@ export default async function PortalWarga() {
             </Link>
           </div>
         )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* INJEKSI GRAFIK: DITAMPILKAN DI ATAS MENU BENTO BOX          */}
+        {/* ------------------------------------------------------------- */}
+        <KinerjaSampahClient dataSampah={sampahGlobalRes || []} />
 
         {/* MENU DASHBOARD UTAMA - KLONING BENTO BOX APPLE/ADMIN STYLE */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-2">
@@ -157,7 +164,6 @@ export default async function PortalWarga() {
             <p className="text-[10px] text-slate-400 mt-1">Jadwal ronda Anda</p>
           </Link>
 
-          {/* FITUR LAPOR (Disembunyikan via Feature Flag, tapi desain sudah disiapkan) */}
           {FITUR_LAPOR_AKTIF && (
             <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block col-span-2 md:col-span-4">
               <div className="text-3xl mb-3 text-rose-500">🚨</div>
