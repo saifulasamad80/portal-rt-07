@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import JalurDaruratClient from "./JalurDaruratClient";
-// INJEKSI MUTLAK: Import modul Client Component yang baru dibuat
 import PengumumanClient from "./PengumumanClient"; 
 
 export const revalidate = 60;
@@ -65,60 +64,93 @@ export default async function LandingPage() {
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4 md:px-0 font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center font-sans pb-16">
       
-      <div className="text-center mb-10">
-        <span className="bg-slate-800 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">Sistem Kependudukan & Lingkungan</span>
-        <h1 className="text-3xl md:text-4xl font-black text-slate-800 mt-5 mb-3">Portal Digital <span className="text-blue-600">Warga & RT</span></h1>
-        <p className="text-slate-500 text-sm max-w-lg mx-auto leading-relaxed">Platform terpadu untuk pelayanan surat, pelaporan darurat, manajemen fasilitas, dan pencatatan kas lingkungan secara transparan.</p>
+      {/* 1. HERO SECTION (Dark Premium Authority) */}
+      <div className="w-full bg-slate-900 pt-16 pb-32 px-4 text-center rounded-b-[2.5rem] md:rounded-b-[4rem] shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-emerald-500 to-blue-500"></div>
+        <span className="bg-slate-800 text-blue-400 border border-slate-700 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-inner inline-block mb-6">
+          Sistem Kependudukan & Lingkungan
+        </span>
+        <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight leading-tight">
+          Portal Digital <span className="text-blue-500">Warga & RT</span>
+        </h1>
+        <p className="text-slate-400 text-sm max-w-lg mx-auto leading-relaxed">
+          Platform terpadu untuk pelayanan surat, pelaporan darurat, manajemen fasilitas, dan transparansi keuangan lingkungan.
+        </p>
       </div>
 
-      <div className="w-full max-w-4xl space-y-6">
+      <div className="w-full max-w-5xl space-y-8 px-4 md:px-6 -mt-20 relative z-10">
         
-        {/* INJEKSI MUTLAK: Blok kode UI Galeri Lama DIBUANG, diganti Component Baru yang bersih */}
-        <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
-
-        <div className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-          <h2 className="font-black text-slate-800 text-sm text-center mb-1">Transparansi Kas RT 07</h2>
-          <p className="text-[10px] text-slate-400 text-center font-bold mb-6">Rekapitulasi keuangan lingkungan secara real-time.</p>
+        {/* 2. THE GATEWAYS (Login Portals moved to TOP and overlapping the header) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 flex flex-col transition-all duration-300 hover:border-blue-300 hover:shadow-xl hover:-translate-y-1">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl shadow-inner shrink-0">👤</div>
+              <div>
+                <h3 className="font-black text-slate-800 text-xl">Portal Warga</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Akses Mandiri</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mb-6 flex-1 leading-relaxed">Masuk untuk mengecek tagihan iuran, cetak surat pengantar, lapor kejadian darurat, dan ikut e-voting.</p>
+            <Link href="/login" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-sm transition-colors text-center shadow-md active:scale-95 uppercase tracking-wide">
+              Masuk Portal
+            </Link>
+          </div>
           
-          <div className="grid grid-cols-3 gap-4 md:gap-6">
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
-              <div className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Pemasukan</div>
-              <div className="font-black text-slate-800 text-sm md:text-xl tabular-nums">{formatRp(pemasukan)}</div>
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 flex flex-col transition-all duration-300 hover:border-emerald-300 hover:shadow-xl hover:-translate-y-1">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl shadow-inner shrink-0">🏛️</div>
+              <div>
+                <h3 className="font-black text-slate-800 text-xl">Pengurus RT</h3>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pusat Komando</h4>
+              </div>
             </div>
-            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center shadow-sm">
-              <div className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Pengeluaran</div>
-              <div className="font-black text-slate-800 text-sm md:text-xl tabular-nums">{formatRp(pengeluaran)}</div>
+            <p className="text-xs text-slate-500 mb-6 flex-1 leading-relaxed">Akses khusus admin untuk validasi warga baru, buku induk demografi, dan manajemen kas lingkungan.</p>
+            <Link href="/admin" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-sm transition-colors text-center shadow-md active:scale-95 uppercase tracking-wide">
+              Masuk Dasbor Admin
+            </Link>
+          </div>
+        </div>
+
+        {/* 3. KAS SECTION (Modern Banking Style) */}
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-2">
+            <div>
+              <h2 className="font-black text-slate-800 text-lg flex items-center gap-2"><span>📊</span> Transparansi Kas Lingkungan</h2>
+              <p className="text-[11px] text-slate-500 font-medium">Laporan keuangan terbuka (*Public Dashboard*).</p>
             </div>
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center shadow-sm">
-              <div className="text-[8px] md:text-[9px] font-black text-blue-700 uppercase tracking-widest mb-2">Saldo Akhir Kas</div>
-              <div className="font-black text-blue-700 text-sm md:text-xl tabular-nums">{formatRp(saldoAkhir)}</div>
+            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-emerald-200 shadow-sm animate-pulse">Live Data</span>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl text-left shadow-sm hover:border-slate-300 transition-colors">
+              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Pemasukan</div>
+              <div className="font-black text-emerald-600 text-sm md:text-xl tabular-nums">{formatRp(pemasukan)}</div>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl text-left shadow-sm hover:border-slate-300 transition-colors">
+              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Pengeluaran</div>
+              <div className="font-black text-rose-600 text-sm md:text-xl tabular-nums">{formatRp(pengeluaran)}</div>
+            </div>
+            <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-blue-600 to-indigo-800 border border-blue-500 p-5 rounded-xl text-left shadow-md relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 text-6xl opacity-10">💰</div>
+              <div className="text-[9px] font-black text-blue-200 uppercase tracking-widest mb-1">Saldo Akhir Saat Ini</div>
+              <div className="font-black text-white text-xl md:text-2xl tabular-nums">{formatRp(saldoAkhir)}</div>
             </div>
           </div>
         </div>
 
+        {/* 4. EMERGENCY SYSTEM (Panic Button) */}
         <JalurDaruratClient />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-          <div className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 text-center flex flex-col transition-all duration-300 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-16 h-16 bg-slate-50 border border-slate-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-6 shadow-sm">👤</div>
-            <h3 className="font-black text-slate-800 text-lg mb-3">Portal Warga</h3>
-            <p className="text-xs text-slate-500 mb-8 flex-1 leading-relaxed px-2">Cek tagihan iuran, cetak surat pengantar, lapor kejadian darurat, dan ikut serta dalam e-voting RT.</p>
-            <Link href="/login" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg text-sm transition-colors block shadow-md">Masuk Portal Warga</Link>
-          </div>
-          
-          <div className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 text-center flex flex-col transition-all duration-300 hover:border-emerald-300 hover:shadow-lg hover:-translate-y-1">
-            <div className="w-16 h-16 bg-slate-50 border border-slate-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-6 shadow-sm">🏛️</div>
-            <h3 className="font-black text-slate-800 text-lg mb-3">Pengurus RT</h3>
-            <p className="text-xs text-slate-500 mb-8 flex-1 leading-relaxed px-2">Pusat komando admin untuk validasi warga baru, akses buku induk demografi, dan manajemen informasi lingkungan.</p>
-            <Link href="/admin" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-lg text-sm transition-colors block shadow-md">Masuk Dasbor Admin</Link>
-          </div>
-        </div>
+        {/* 5. MADING & PENGUMUMAN */}
+        <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
 
       </div>
 
-      <p className="text-[10px] text-slate-400 mt-14 font-bold uppercase tracking-widest opacity-80">© 2026 - Sistem Manajemen RT 07.</p>
+      <p className="text-[10px] text-slate-400 mt-16 font-bold uppercase tracking-widest opacity-80">
+        © 2026 - Sistem Kependudukan RT 07.
+      </p>
     </div>
   );
 }
