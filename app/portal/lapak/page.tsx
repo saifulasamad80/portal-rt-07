@@ -35,12 +35,7 @@ export default async function PortalLapakPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // INJEKSI MUTLAK: Tarik detail warga untuk mendapatkan Nomor WA aslinya
-  const { data: profilWarga } = await supabaseAdmin
-    .from("warga")
-    .select("no_whatsapp")
-    .eq("id", wargaAktif.id)
-    .single();
+  const { data: profilWarga } = await supabaseAdmin.from("warga").select("no_whatsapp").eq("id", wargaAktif.id).single();
 
   const { data: katalogRes } = await supabaseAdmin
     .from("lapak_warga")
@@ -55,10 +50,22 @@ export default async function PortalLapakPage() {
     .eq("warga_id", wargaAktif.id)
     .order("created_at", { ascending: false });
 
+  // INJEKSI MUTLAK: Menarik Work Order Rak Bin Khusus untuk Lapak Jasa
+  const lapakIds = lapakKuRes?.map(l => l.id) || [];
+  let orderanJasaRes: any[] = [];
+  
+  if (lapakIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from("limbah_ekonomis")
+      .select("*, warga(nama_lengkap, no_whatsapp)")
+      .in("teknisi_id", lapakIds)
+      .order("created_at", { ascending: false });
+    orderanJasaRes = data || [];
+  }
+
   async function buatLapak(payloadLapak: any) {
     "use server";
     const sesi = await pastikanOtentikasiWarga(); 
-
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
     let finalFotoUrl = payloadLapak.fotoBase64; 
@@ -70,14 +77,8 @@ export default async function PortalLapakPage() {
         const buffer = Buffer.from(matches[2], 'base64');
         const fileName = `${uuidv4()}.${contentType.split('/')[1]}`;
         
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('lapak_warga')
-          .upload(fileName, buffer, {
-            contentType: contentType,
-            upsert: false
-          });
-          
-        if (uploadError) throw new Error("Gagal mengunggah foto brosur: " + uploadError.message);
+        const { error: uploadError } = await supabase.storage.from('lapak_warga').upload(fileName, buffer, { contentType, upsert: false });
+        if (uploadError) throw new Error("Gagal unggah foto: " + uploadError.message);
         
         const { data: publicUrlData } = supabase.storage.from('lapak_warga').getPublicUrl(fileName);
         finalFotoUrl = publicUrlData.publicUrl;
@@ -85,15 +86,9 @@ export default async function PortalLapakPage() {
     }
 
     const { error } = await supabase.from("lapak_warga").insert([{
-      warga_id: sesi.id, 
-      nama_usaha: payloadLapak.namaUsaha,
-      kategori: payloadLapak.kategori,
-      deskripsi: payloadLapak.deskripsi,
-      nomor_wa: payloadLapak.wa,
-      foto_url: finalFotoUrl, 
-      rt_id: sesi.rt_id 
+      warga_id: sesi.id, nama_usaha: payloadLapak.namaUsaha, kategori: payloadLapak.kategori,
+      deskripsi: payloadLapak.deskripsi, nomor_wa: payloadLapak.wa, foto_url: finalFotoUrl, rt_id: sesi.rt_id 
     }]);
-
     if (error) throw new Error(error.message);
   }
 
@@ -105,14 +100,35 @@ export default async function PortalLapakPage() {
     if (error) throw new Error(error.message);
   }
 
+  // SERVER ACTION: Teknisi Menyelesaikan Pekerjaan & Input Tagihan
+  async function selesaikanReparasi(idBarang: string, biaya: number, isGagal: boolean) {
+    "use server";
+    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // Potongan Fee RT ditetapkan 10% jika berhasil
+    const feeRt = isGagal ? 0 : Math.floor(biaya * 0.1); 
+    const statusBaru = isGagal ? "Tersedia di Rak Bin" : "Selesai Direparasi"; // Jika gagal, kembalikan ke gudang
+
+    const { error } = await supabase.from("limbah_ekonomis").update({
+      status: statusBaru,
+      biaya_reparasi: isGagal ? 0 : biaya,
+      fee_rt: feeRt
+    }).eq("id", idBarang);
+
+    if (error) throw new Error(error.message);
+  }
+
   return (
     <LapakClient 
       wargaAktif={wargaAktif} 
       nomorWaDefault={profilWarga?.no_whatsapp || ""} 
       katalog={katalogRes || []} 
       lapakKu={lapakKuRes || []} 
+      orderanJasa={orderanJasaRes}
       aksiBuat={buatLapak} 
       aksiHapus={hapusLapakKu} 
+      aksiSelesaikanOrder={selesaikanReparasi}
     />
   );
 }
