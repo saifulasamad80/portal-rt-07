@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -18,6 +18,37 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
 
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
+
+  // ------------------------------------------------------------------
+  // INJEKSI MUTLAK: MESIN KALKULASI GRAFIK 6 BULAN TERAKHIR
+  // ------------------------------------------------------------------
+  const chartData = useMemo(() => {
+    const data = [];
+    const now = new Date();
+    
+    // Siapkan wadah untuk 6 bulan terakhir
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleDateString('id-ID', { month: 'short' });
+      data.push({ label, month: d.getMonth(), year: d.getFullYear(), setor: 0 });
+    }
+
+    // Isi wadah dengan data transaksi Setor (Pemasukan)
+    riwayatKiloan.forEach(trx => {
+      if (trx.jenis_transaksi === 'Setor') {
+        const trxDate = new Date(trx.tanggal_transaksi);
+        const trxMonth = trxDate.getMonth();
+        const trxYear = trxDate.getFullYear();
+        const targetNode = data.find(d => d.month === trxMonth && d.year === trxYear);
+        if (targetNode) targetNode.setor += trx.nominal_warga;
+      }
+    });
+
+    // Cari nilai tertinggi untuk skala tiang grafik (Minimal skala Rp 10.000)
+    const maxVal = Math.max(...data.map(d => d.setor), 10000); 
+    return { data, maxVal };
+  }, [riwayatKiloan]);
+  // ------------------------------------------------------------------
 
   const handleLapor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +94,43 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               </div>
             </div>
 
-            {/* INJEKSI UX BARU: Edukasi Alur (Menggantikan Katalog Harga) */}
+            {/* INJEKSI UI: GRAFIK BATANG (BAR CHART) NATIVE */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <h3 className="font-black text-slate-800 text-sm mb-6 uppercase tracking-widest flex items-center gap-2">
+                <span>📊</span> Statistik Pemasukan (6 Bulan)
+              </h3>
+              
+              <div className="flex items-end justify-between gap-2 h-40 mt-4 px-2">
+                {chartData.data.map((item, idx) => {
+                  // Kalkulasi tinggi tiang, minimal 5% agar tiang 0 tetap kelihatan garisnya
+                  const heightPct = Math.max((item.setor / chartData.maxVal) * 100, 5);
+                  
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-3 group relative">
+                      <div className="w-full max-w-[40px] flex-1 flex items-end bg-slate-50 rounded-t-lg overflow-visible relative group-hover:bg-slate-100 transition-colors">
+                        
+                        {/* Tooltip Hover (Rupiah) */}
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold px-2 py-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap z-10 shadow-lg pointer-events-none transform group-hover:-translate-y-1">
+                          {formatRp(item.setor)}
+                          {/* Segitiga bawah tooltip */}
+                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                        </div>
+
+                        {/* Tiang Grafik */}
+                        <div 
+                          className={`w-full rounded-t-md transition-all duration-700 ease-out shadow-sm ${item.setor > 0 ? 'bg-emerald-500 group-hover:bg-emerald-400' : 'bg-slate-200'}`}
+                          style={{ height: `${heightPct}%` }}
+                        ></div>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${item.setor > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>💡</span> Cara Menabung Sampah</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -77,14 +144,14 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
                 </div>
                 <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-start gap-3">
                   <div className="text-2xl">💰</div>
-                  <div><h4 className="text-[11px] font-black text-amber-800 uppercase tracking-wide">3. Saldo Bertambah</h4><p className="text-[10px] text-amber-700 mt-1 font-medium leading-relaxed">Harga disesuaikan dengan nilai aktual pengepul pada hari tersebut.</p></div>
+                  <div><h4 className="text-[11px] font-black text-amber-800 uppercase tracking-wide">3. Saldo Bertambah</h4><p className="text-[10px] text-amber-700 mt-1 font-medium leading-relaxed">Harga disesuaikan dengan nilai aktual pengepul pada hari penimbangan.</p></div>
                 </div>
               </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-5 border-b border-slate-100 bg-slate-50"><h3 className="font-black text-slate-800 text-sm uppercase tracking-widest">🧾 Riwayat Kiloan</h3></div>
-              <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+              <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto custom-scrollbar">
                 {riwayatKiloan.length === 0 ? <div className="p-8 text-center text-slate-400 font-bold italic">Belum ada aktivitas tabungan sampah.</div> : 
                   riwayatKiloan.map((trx, idx) => (
                     <div key={idx} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
