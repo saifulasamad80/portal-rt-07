@@ -6,10 +6,8 @@ import SampahAdminClient from "./SampahAdminClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-// SECURITY FIX: Hapus fallback rawan. 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust untuk Endpoint Admin
 async function pastikanOtentikasiAdmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
@@ -17,7 +15,7 @@ async function pastikanOtentikasiAdmin() {
   
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload; // Lolos verifikasi, kembalikan payload admin
+    return payload; 
   } catch (error) {
     throw new Error("Akses Ilegal: Token keamanan rusak atau dimanipulasi.");
   }
@@ -37,19 +35,31 @@ export default async function AdminSampahPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // OPTIMASI LIMITASI: Batasi output maksimal 500 baris
+  // 1. Tarik Data Sampah Kiloan
   const { data: transaksiRes } = await supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500);
   const { data: wargaRes } = await supabaseAdmin.from("warga").select("id, nama_lengkap").eq("status_verifikasi", "Disetujui").order("nama_lengkap", { ascending: true });
 
-  // REFACTOR: Kunci Server Action dengan Barrier Otentikasi
+  // 2. Tarik Data Rak Bin
+  const { data: rakBinRes } = await supabaseAdmin
+    .from("limbah_ekonomis")
+    .select("*, warga(nama_lengkap), lapak_warga(nama_usaha)")
+    .order("created_at", { ascending: false });
+
+  // 3. Tarik Daftar Teknisi / Jasa Profesional dari Tabel Lapak (Untuk Dropdown Penugasan)
+  const { data: teknisiRes } = await supabaseAdmin
+    .from("lapak_warga")
+    .select("id, nama_usaha, warga(nama_lengkap)")
+    .eq("kategori", "Jasa & Servis") // Hanya ambil yang kategori Jasa
+    .eq("status", "Aktif");
+
+  // SERVER ACTION 1: SIMPAN SAMPAH KILOAN (Tetap sama)
   async function simpanTransaksiSampah(wargaId: string, jenis: string, keterangan: string, beratKg: number | null, nominalWarga: number, nominalKasRt: number, tanggal: string) {
     "use server";
-    const sesi = await pastikanOtentikasiAdmin(); // BARRIER KEAMANAN AKTIF
+    const sesi = await pastikanOtentikasiAdmin(); 
 
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
-      // Validasi Saldo Murni di Server
       if (jenis === "Tarik") {
         const { data: riwayat } = await supabase.from("transaksi_sampah").select("jenis_transaksi, nominal_warga").eq("warga_id", wargaId);
         let saldoAktual = 0;
@@ -70,7 +80,6 @@ export default async function AdminSampahPage() {
 
       const { data: targetWarga } = await supabase.from("warga").select("nama_lengkap").eq("id", wargaId).single();
       
-      // Ambil nama dari token yang tervalidasi, BUKAN closure luar
       await supabase.from("audit_log").insert([{
         aktor: sesi.nama, aksi: `Input Transaksi Sampah: ${jenis}`, tabel_target: "transaksi_sampah",
         detail: `${targetWarga?.nama_lengkap} - Warga: Rp${nominalWarga} | Kas RT: Rp${nominalKasRt}`
@@ -80,5 +89,42 @@ export default async function AdminSampahPage() {
     } catch (err: any) { return { success: false, message: err.message }; }
   }
 
-  return <SampahAdminClient adminAktif={adminAktif} transaksiList={transaksiRes || []} wargaList={wargaRes || []} aksiSimpan={simpanTransaksiSampah} />;
+  // SERVER ACTION 2: UPDATE STATUS RAK BIN (Tugaskan Teknisi)
+  async function updateStatusRakBin(idRakBin: string, statusBaru: string, idTeknisi: string | null) {
+    "use server";
+    const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // Update status barang, dan jika ada idTeknisi (di-assign), masukkan ke kolom teknisi_id
+    const payloadUpdate: any = { status: statusBaru };
+    if (idTeknisi) {
+      payloadUpdate.teknisi_id = idTeknisi;
+    }
+
+    const { error } = await supabase.from("limbah_ekonomis").update(payloadUpdate).eq("id", idRakBin);
+    if (error) throw new Error(error.message);
+
+    // Ambil nama barang untuk Audit Log
+    const { data: targetBarang } = await supabase.from("limbah_ekonomis").select("nama_barang").eq("id", idRakBin).single();
+
+    await supabase.from("audit_log").insert([{
+      aktor: sesi.nama,
+      aksi: `Update Rak Bin: ${statusBaru}`,
+      tabel_target: "limbah_ekonomis",
+      detail: `Barang: ${targetBarang?.nama_barang} ${idTeknisi ? '(Telah ditugaskan ke Teknisi)' : ''}`
+    }]);
+  }
+
+  return (
+    <SampahAdminClient 
+      adminAktif={adminAktif} 
+      transaksiList={transaksiRes || []} 
+      wargaList={wargaRes || []} 
+      rakBinList={rakBinRes || []}
+      teknisiList={teknisiRes || []}
+      aksiSimpan={simpanTransaksiSampah} 
+      aksiUpdateRakBin={updateStatusRakBin}
+    />
+  );
 }
