@@ -16,14 +16,6 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const [deskripsi, setDeskripsi] = useState("");
   const [isSetuju, setIsSetuju] = useState(false);
 
-  // INJEKSI MUTLAK: Penambahan kata "Estimasi"
-  const katalogKiloan = [
-    { ikon: "🥤", nama: "Plastik PET", harga: "Est. Rp 2.500", satuan: "/ Kg", bg: "bg-blue-50", text: "text-blue-600" },
-    { ikon: "📦", nama: "Kertas/Kardus", harga: "Est. Rp 1.500", satuan: "/ Kg", bg: "bg-amber-50", text: "text-amber-600" },
-    { ikon: "🛢️", nama: "Minyak Jelantah", harga: "Est. Rp 4.000", satuan: "/ Ltr", bg: "bg-slate-100", text: "text-slate-600" },
-    { ikon: "🥬", nama: "Sampah Organik", harga: "Donasi BTB", satuan: "(Gratis)", bg: "bg-emerald-100", text: "text-emerald-700" },
-  ];
-
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
 
@@ -47,7 +39,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/portal" className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 font-black">←</Link>
+            <Link href="/portal" className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 font-black transition-colors active:scale-90">←</Link>
             <div><h1 className="font-black text-slate-800 text-lg leading-tight">Sirkular Ekonomi</h1><p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Bank Sampah & Rak Bin</p></div>
           </div>
           <div className="text-2xl">♻️</div>
@@ -71,20 +63,22 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               </div>
             </div>
 
+            {/* INJEKSI UX BARU: Edukasi Alur (Menggantikan Katalog Harga) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>🏷️</span> Referensi Harga Pengepul</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                {katalogKiloan.map((item, idx) => (
-                  <div key={idx} className={`${item.bg} border border-slate-100 p-4 rounded-xl text-center`}><div className="text-2xl mb-2">{item.ikon}</div><div className="text-[10px] font-bold text-slate-700 mb-1 leading-tight">{item.nama}</div><div className={`font-black text-xs ${item.text}`}>{item.harga} <span className="text-[9px] text-slate-500 font-medium">{item.satuan}</span></div></div>
-                ))}
-              </div>
-              
-              {/* INJEKSI UX: DISCLAIMER PERLINDUNGAN ADMIN RT */}
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-start gap-3">
-                <span className="text-amber-500 text-lg">⚠️</span>
-                <p className="text-[9px] text-amber-800 font-bold leading-relaxed">
-                  DISCLAIMER: Harga di atas adalah estimasi. Harga aktual ditentukan oleh Pengepul Pusat pada saat hari penimbangan. Saldo yang masuk ke rekening warga merupakan hak bersih (setelah dipotong biaya operasional / kas RT sesuai kesepakatan).
-                </p>
+              <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>💡</span> Cara Menabung Sampah</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-start gap-3">
+                  <div className="text-2xl">🗑️</div>
+                  <div><h4 className="text-[11px] font-black text-emerald-800 uppercase tracking-wide">1. Pilah di Rumah</h4><p className="text-[10px] text-emerald-700 mt-1 font-medium leading-relaxed">Pisahkan plastik, kertas/kardus, dan logam dari sampah basah.</p></div>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
+                  <div className="text-2xl">⚖️</div>
+                  <div><h4 className="text-[11px] font-black text-blue-800 uppercase tracking-wide">2. Timbang di Pos</h4><p className="text-[10px] text-blue-700 mt-1 font-medium leading-relaxed">Bawa ke Pos RT pada jadwal operasional untuk ditimbang oleh Admin.</p></div>
+                </div>
+                <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-start gap-3">
+                  <div className="text-2xl">💰</div>
+                  <div><h4 className="text-[11px] font-black text-amber-800 uppercase tracking-wide">3. Saldo Bertambah</h4><p className="text-[10px] text-amber-700 mt-1 font-medium leading-relaxed">Harga disesuaikan dengan nilai aktual pengepul pada hari tersebut.</p></div>
+                </div>
               </div>
             </div>
 
@@ -93,9 +87,9 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
                 {riwayatKiloan.length === 0 ? <div className="p-8 text-center text-slate-400 font-bold italic">Belum ada aktivitas tabungan sampah.</div> : 
                   riwayatKiloan.map((trx, idx) => (
-                    <div key={idx} className="p-4 flex justify-between items-center hover:bg-slate-50">
+                    <div key={idx} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
                       <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${trx.jenis_transaksi === 'Tarik' ? 'bg-rose-100 text-rose-500' : 'bg-emerald-100 text-emerald-500'}`}>{trx.jenis_transaksi === 'Tarik' ? '💸' : '⚖️'}</div>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 shadow-inner ${trx.jenis_transaksi === 'Tarik' ? 'bg-rose-100 text-rose-500' : 'bg-emerald-100 text-emerald-500'}`}>{trx.jenis_transaksi === 'Tarik' ? '💸' : '⚖️'}</div>
                         <div><h4 className="font-bold text-slate-800 text-xs">{trx.keterangan || 'Setoran Umum'}</h4><p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-wider">{new Date(trx.tanggal_transaksi).toLocaleDateString('id-ID')} {trx.berat_kg ? `• ${trx.berat_kg} Kg` : ''}</p></div>
                       </div>
                       <div className={`font-black text-sm tabular-nums ${trx.jenis_transaksi === 'Tarik' ? 'text-rose-600' : 'text-emerald-600'}`}>{trx.jenis_transaksi === 'Tarik' ? '-' : '+'}{formatRp(trx.nominal_warga)}</div>
@@ -114,7 +108,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               <div>
                 <h3 className="font-black text-indigo-900 text-sm mb-1 uppercase tracking-widest">Pusat Limbah Ekonomis (Rak Bin)</h3>
                 <p className="text-xs text-indigo-700 font-medium leading-relaxed">Laporkan elektronik rusak/furnitur bekas. <strong>Perbaiki lewat UMKM Warga</strong> atau biarkan RT yang menghibahkan/menjualnya.</p>
-                <button onClick={() => setIsFormOpen(true)} className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] px-5 py-2.5 rounded-lg uppercase tracking-widest transition-all shadow-md">📝 Laporkan Barang</button>
+                <button onClick={() => setIsFormOpen(true)} className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] px-5 py-2.5 rounded-lg uppercase tracking-widest transition-all shadow-md active:scale-95">📝 Laporkan Barang</button>
               </div>
             </div>
 
@@ -149,29 +143,29 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
       </div>
 
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsFormOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsFormOpen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 bg-indigo-600 text-white flex justify-between items-center shrink-0"><h3 className="font-black text-sm uppercase tracking-widest">📝 Form Barang Rak Bin</h3><button onClick={() => setIsFormOpen(false)} className="text-white font-black text-xl hover:text-indigo-200">×</button></div>
+            <div className="p-5 bg-indigo-600 text-white flex justify-between items-center shrink-0"><h3 className="font-black text-sm uppercase tracking-widest">📝 Form Barang Rak Bin</h3><button onClick={() => setIsFormOpen(false)} className="text-white font-black text-xl hover:text-indigo-200 transition-colors">×</button></div>
             <div className="p-5 overflow-y-auto flex-1 space-y-4">
               <form id="formRakBin" onSubmit={handleLapor}>
-                <div className="mb-4"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nama Barang</label><input type="text" required placeholder="Cth: Kulkas 1 Pintu" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800" value={namaBarang} onChange={e => setNamaBarang(e.target.value)} /></div>
+                <div className="mb-4"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Nama Barang</label><input type="text" required placeholder="Cth: Kulkas 1 Pintu" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all" value={namaBarang} onChange={e => setNamaBarang(e.target.value)} /></div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Kategori</label><select className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800" value={kategori} onChange={e => setKategori(e.target.value)}><option>Elektronik</option><option>Furnitur</option><option>Otomotif/Sepeda</option><option>Pakaian/Kain</option></select></div>
-                  <div><label className="block text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Opsi Target Anda</label><select className="w-full bg-rose-50 border border-rose-200 rounded-lg p-3 text-sm font-black text-rose-700" value={opsiTujuan} onChange={e => setOpsiTujuan(e.target.value)}><option>Hibah ke RT</option><option>Jual via RT (Konsinyasi)</option><option>Reparasi (Via UMKM Warga)</option></select></div>
+                  <div><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Kategori</label><select className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" value={kategori} onChange={e => setKategori(e.target.value)}><option>Elektronik</option><option>Furnitur</option><option>Otomotif/Sepeda</option><option>Pakaian/Kain</option></select></div>
+                  <div><label className="block text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Opsi Target Anda</label><select className="w-full bg-rose-50 border border-rose-200 rounded-lg p-3 text-sm font-black text-rose-700 outline-none focus:border-rose-500" value={opsiTujuan} onChange={e => setOpsiTujuan(e.target.value)}><option>Hibah ke RT</option><option>Jual via RT (Konsinyasi)</option><option>Reparasi (Via UMKM Warga)</option></select></div>
                 </div>
-                <div className="mb-4"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Kerusakan / Kondisi</label><textarea required rows={2} placeholder="Sebutkan minusnya..." className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-medium text-slate-800" value={deskripsi} onChange={e => setDeskripsi(e.target.value)}></textarea></div>
+                <div className="mb-4"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Kerusakan / Kondisi</label><textarea required rows={2} placeholder="Sebutkan minusnya..." className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500" value={deskripsi} onChange={e => setDeskripsi(e.target.value)}></textarea></div>
                 
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
                   <label className="flex items-start gap-3 cursor-pointer">
-                    <input type="checkbox" required checked={isSetuju} onChange={e => setIsSetuju(e.target.checked)} className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300" />
+                    <input type="checkbox" required checked={isSetuju} onChange={e => setIsSetuju(e.target.checked)} className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
                     <div className="text-xs text-amber-900 leading-relaxed font-medium"><strong>SURAT PERNYATAAN:</strong> Dengan ini saya sadar dan setuju menyerahkan barang di atas ke Ekosistem RT 07. Jika opsi "Jual/Reparasi" dipilih, saya patuh pada potongan Admin RT.</div>
                   </label>
                 </div>
               </form>
             </div>
             <div className="p-5 border-t border-slate-100 flex gap-3 shrink-0">
-              <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 bg-white border border-slate-300 text-slate-600 font-black text-xs py-3 rounded-lg uppercase tracking-widest">Batal</button>
-              <button type="submit" form="formRakBin" disabled={loading || !isSetuju} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 rounded-lg uppercase tracking-widest shadow-md disabled:bg-slate-300 disabled:shadow-none">Submit Laporan</button>
+              <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-xs py-3 rounded-lg uppercase tracking-widest transition-colors">Batal</button>
+              <button type="submit" form="formRakBin" disabled={loading || !isSetuju} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs py-3 rounded-lg uppercase tracking-widest shadow-md disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-95">Submit Laporan</button>
             </div>
           </div>
         </div>
