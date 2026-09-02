@@ -4,6 +4,7 @@ import { useMemo } from "react";
 export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] }) {
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   
+  // Mesin penulisan Ribuan yang Presisi
   const formatK = (angka: number) => {
     if (angka === 0) return "Rp 0";
     return `Rp ${(angka / 1000).toFixed(1).replace(/\.0$/, '')}k`;
@@ -13,7 +14,6 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
     const data: { label: string, month: number, year: number, nominal: number, kg: number }[] = [];
     const now = new Date();
     
-    // Siapkan 6 bulan terakhir
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const label = d.toLocaleDateString('id-ID', { month: 'short' });
@@ -43,7 +43,6 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
   return (
     <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 relative overflow-hidden group/wrapper">
       
-      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full blur-3xl opacity-50 pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6 relative z-10">
@@ -65,18 +64,18 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
         </div>
       </div>
 
-      {/* STRUKTUR GRAFIK BARU (TERPISAH DAN PERMANEN) */}
-      <div className="flex h-64 w-full mt-8 z-10 pb-6">
+      {/* STRUKTUR GRAFIK ANTI-BUG */}
+      <div className="flex h-64 w-full mt-8 z-10">
         
         {/* Sumbu Y (Angka Rupiah & Garis Vertikal) */}
-        <div className="flex flex-col justify-between items-end pr-4 py-0 border-r border-slate-300 text-[10px] font-bold text-slate-400 w-16 shrink-0 bg-white z-20">
+        <div className="flex flex-col justify-between items-end pr-4 pb-6 border-r border-slate-300 text-[10px] font-bold text-slate-400 w-16 shrink-0 bg-white z-20">
           {[chartData.maxVal, chartData.maxVal * 0.75, chartData.maxVal * 0.5, chartData.maxVal * 0.25, 0].map((val, i) => (
-            <span key={i} className="leading-none transform translate-y-1.5">{formatK(val)}</span>
+            <span key={i} className="leading-none transform translate-y-1">{formatK(val)}</span>
           ))}
         </div>
 
         {/* Kanvas Grafik & Sumbu X */}
-        <div className="relative flex-1 border-b border-slate-300">
+        <div className="relative flex-1 border-b border-slate-300 mb-6">
           
           {/* Garis Latar Horizontal (Grid Lines) */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
@@ -86,22 +85,21 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
           </div>
 
           {/* Tempat Penanaman Tiang */}
-          <div className="absolute inset-0 flex justify-around items-end z-10">
+          <div className="absolute inset-0 flex justify-around z-10">
             {chartData.data.map((item, idx) => {
-              // Minimal tinggi agar garis tiang bulan bersaldo 0 tidak menghilang
               const heightPct = item.nominal === 0 ? 0 : Math.max((item.nominal / chartData.maxVal) * 100, 2);
               const isAktif = item.nominal > 0;
 
               return (
                 <div key={idx} className="relative h-full w-full flex justify-center group">
                   
-                  {/* Tiang Utama dengan Posisi Absolute Bottom */}
+                  {/* Tiang Utama dengan Posisi Absolute Bottom-0 (Anti-Amblas) */}
                   <div
                     className={`absolute bottom-0 w-8 md:w-12 rounded-t-sm transition-all duration-1000 ease-out 
                     ${isAktif ? 'bg-gradient-to-t from-emerald-500 to-teal-400 shadow-[0_0_10px_rgba(20,184,166,0.2)]' : 'bg-transparent'}`}
                     style={{ height: `${heightPct}%` }}
                   >
-                    {/* LABEL PERMANEN (Tidak Perlu Hover) */}
+                    {/* LABEL PERMANEN */}
                     {isAktif && (
                       <div className="absolute -top-11 left-1/2 -translate-x-1/2 bg-white border border-slate-200 shadow-sm rounded flex flex-col items-center px-2 py-1 z-20 pointer-events-none">
                         <span className="text-[10px] font-black text-slate-800 whitespace-nowrap">{formatRp(item.nominal)}</span>

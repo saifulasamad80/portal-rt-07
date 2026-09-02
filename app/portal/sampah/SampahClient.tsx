@@ -16,20 +16,19 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const [isSetuju, setIsSetuju] = useState(false);
 
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+  
+  // FIX: Membunuh bug pembulatan 8k dan 3k
   const formatK = (angka: number) => {
     if (angka === 0) return "Rp 0";
-    return `Rp ${(angka / 1000).toFixed(0)}k`;
+    return `Rp ${(angka / 1000).toFixed(1).replace(/\.0$/, '')}k`;
   };
+  
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
 
-  // ------------------------------------------------------------------
-  // INJEKSI MUTLAK: MESIN KALKULASI GRAFIK
-  // ------------------------------------------------------------------
   const chartData = useMemo(() => {
     const data: { label: string, month: number, year: number, setor: number }[] = [];
     const now = new Date();
     
-    // Tarik 6 bulan ke belakang
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const label = d.toLocaleDateString('id-ID', { month: 'short' });
@@ -44,20 +43,20 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
       }
     });
 
-    // Menentukan skala maksimal (Minimal Rp 10.000 agar grafik proporsional)
-    const maxVal = Math.max(...data.map(d => d.setor), 10000); 
+    // Menentukan skala maksimal (Selalu naik ke angka genap teratas)
+    const maxDataVal = Math.max(...data.map(d => d.setor), 0);
+    const maxVal = maxDataVal === 0 ? 10000 : Math.ceil(maxDataVal / 10000) * 10000; 
 
     return { data, maxVal };
   }, [riwayatKiloan]);
 
-  // Palet Warna Silinder 3D (Sesuai Foto Referensi)
   const barColors = [
-    "bg-gradient-to-r from-sky-400 via-sky-100 to-sky-500 border-sky-400",       // Bulan 1: Biru Muda
-    "bg-gradient-to-r from-amber-400 via-amber-100 to-amber-500 border-amber-400", // Bulan 2: Kuning
-    "bg-gradient-to-r from-lime-500 via-lime-200 to-lime-600 border-lime-500",     // Bulan 3: Hijau
-    "bg-gradient-to-r from-orange-400 via-orange-100 to-orange-500 border-orange-400", // Bulan 4: Oranye
-    "bg-gradient-to-r from-teal-500 via-teal-200 to-teal-600 border-teal-500",     // Bulan 5: Tosca
-    "bg-gradient-to-r from-rose-500 via-rose-200 to-rose-600 border-rose-500"      // Bulan 6: Merah
+    "bg-gradient-to-r from-sky-400 via-sky-100 to-sky-500 border-sky-400",       
+    "bg-gradient-to-r from-amber-400 via-amber-100 to-amber-500 border-amber-400", 
+    "bg-gradient-to-r from-lime-500 via-lime-200 to-lime-600 border-lime-500",     
+    "bg-gradient-to-r from-orange-400 via-orange-100 to-orange-500 border-orange-400", 
+    "bg-gradient-to-r from-teal-500 via-teal-200 to-teal-600 border-teal-500",     
+    "bg-gradient-to-r from-rose-500 via-rose-200 to-rose-600 border-rose-500"      
   ];
 
   const handleLapor = async (e: React.FormEvent) => {
@@ -105,7 +104,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
             </div>
 
             {/* ------------------------------------------------------------- */}
-            {/* INJEKSI UI: GRAFIK KLASIK EXCEL/3D CYLINDER                   */}
+            {/* GRAFIK KLASIK EXCEL (PONDASI BARU ANTI-AMBLAS)               */}
             {/* ------------------------------------------------------------- */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-300 p-6">
               
@@ -115,58 +114,58 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               </div>
 
               {/* Kontainer Utama Grafik */}
-              <div className="flex h-64 w-full">
+              <div className="flex h-64 w-full z-10">
                 
                 {/* Sumbu Y (Rupiah) */}
-                <div className="flex flex-col justify-between items-end pr-3 py-6 border-r-2 border-slate-300 text-[10px] font-bold text-slate-500 w-16 shrink-0 bg-slate-50/50">
-                  <span>{formatK(chartData.maxVal)}</span>
-                  <span>{formatK(chartData.maxVal * 0.75)}</span>
-                  <span>{formatK(chartData.maxVal * 0.5)}</span>
-                  <span>{formatK(chartData.maxVal * 0.25)}</span>
-                  <span>Rp 0</span>
+                <div className="flex flex-col justify-between items-end pr-3 pb-6 border-r-2 border-slate-300 text-[10px] font-bold text-slate-500 w-16 shrink-0 bg-slate-50/50">
+                  {[chartData.maxVal, chartData.maxVal * 0.75, chartData.maxVal * 0.5, chartData.maxVal * 0.25, 0].map((val, i) => (
+                    <span key={i} className="leading-none transform translate-y-1">{formatK(val)}</span>
+                  ))}
                 </div>
 
-                {/* Area Canvas Tiang Grafik */}
-                <div className="relative flex-1 flex justify-around items-end pl-2 md:pl-6 pb-6 border-b-2 border-slate-300">
+                {/* Kanvas & Sumbu X */}
+                <div className="relative flex-1 border-b-2 border-slate-300 mb-6">
                   
                   {/* Garis Grid Horizontal */}
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none py-6 border-l-0">
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-transparent"></div> {/* Garis 0 ditangani oleh border bawah */}
+                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                    {[1, 2, 3, 4, 5].map((_, i) => (
+                      <div key={i} className={`w-full border-t ${i === 4 ? 'border-transparent' : 'border-slate-200'}`}></div>
+                    ))}
                   </div>
 
                   {/* Looping Tiang Bulan */}
-                  {chartData.data.map((item, idx) => {
-                    const heightPct = item.setor === 0 ? 0 : Math.max((item.setor / chartData.maxVal) * 100, 2);
-                    const isAktif = item.setor > 0;
-                    
-                    return (
-                      <div key={idx} className="relative flex flex-col items-center justify-end h-full w-full group z-10">
-                        
-                        {/* Batang Silinder 3D */}
-                        <div 
-                          className={`w-6 md:w-12 rounded-t-sm border shadow-[2px_0_5px_rgba(0,0,0,0.1)] transition-all duration-700 ease-out relative ${isAktif ? barColors[idx] : 'bg-slate-100 border-slate-200 shadow-none'}`}
-                          style={{ height: `${heightPct}%` }}
-                        >
-                          {/* Pantulan Cahaya (Highlight 3D di pucuk batang) */}
-                          {isAktif && <div className="absolute inset-x-0 top-0 h-1 bg-white/60 rounded-t-sm"></div>}
+                  <div className="absolute inset-0 flex justify-around z-10">
+                    {chartData.data.map((item, idx) => {
+                      const heightPct = item.setor === 0 ? 0 : Math.max((item.setor / chartData.maxVal) * 100, 2);
+                      const isAktif = item.setor > 0;
+                      
+                      return (
+                        <div key={idx} className="relative h-full w-full flex justify-center group">
                           
-                          {/* Tooltip Hover Nilai Asli */}
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-300 text-slate-800 text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md pointer-events-none z-20">
-                            {formatRp(item.setor)}
+                          {/* Batang Silinder 3D */}
+                          <div 
+                            className={`absolute bottom-0 w-6 md:w-12 rounded-t-sm border shadow-[2px_0_5px_rgba(0,0,0,0.1)] transition-all duration-700 ease-out z-10 ${isAktif ? barColors[idx] : 'bg-slate-100 border-slate-200 shadow-none'}`}
+                            style={{ height: `${heightPct}%` }}
+                          >
+                            {/* Pantulan Cahaya (Highlight 3D di pucuk batang) */}
+                            {isAktif && <div className="absolute inset-x-0 top-0 h-1 bg-white/60 rounded-t-sm"></div>}
+                            
+                            {/* Tooltip Hover Nilai Asli */}
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-300 text-slate-800 text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md pointer-events-none z-20">
+                              {formatRp(item.setor)}
+                            </div>
+                          </div>
+                          
+                          {/* Label Sumbu X (Nama Bulan) */}
+                          <div className="absolute -bottom-6 w-full text-center">
+                            <span className={`text-[10px] font-bold ${isAktif ? 'text-slate-800' : 'text-slate-400'}`}>
+                              {item.label}
+                            </span>
                           </div>
                         </div>
-                        
-                        {/* Label Sumbu X (Nama Bulan) */}
-                        <span className={`absolute -bottom-6 text-[10px] font-bold ${isAktif ? 'text-slate-800' : 'text-slate-400'}`}>
-                          {item.label}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
