@@ -24,10 +24,15 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     return bersih;
   };
 
+  // REFACTOR MUTLAK: Membaca properti success dari Result Object
   const handleHapus = async (id: string, nama: string) => {
     if (!confirm(`PERINGATAN FATAL: Menghapus data ${nama} akan menghapus SEMUA data kas, sampah, laporan, dan siskamling yang terkait dengan warga ini (Cascade Delete). YAKIN?`)) return;
     setLoadingId(id);
-    try { await aksiHapus(id); router.refresh(); } catch (error: any) { alert("Gagal menghapus warga: " + error.message); }
+    try { 
+      const res = await aksiHapus(id); 
+      if (res.success) { router.refresh(); }
+      else { alert("GAGAL MENGHAPUS: " + res.message); }
+    } catch (error: any) { alert("Sistem Error: " + error.message); }
     setLoadingId("");
   };
 
@@ -35,14 +40,22 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     const pesan = statusBaru === "Menunggu" ? `PERINGATAN: Cabut akses login ${nama}?` : `Berikan akses login SAH kepada ${nama}?`;
     if (!confirm(pesan)) return;
     setLoadingId(id);
-    try { await aksiUbahStatus(id, statusBaru); router.refresh(); } catch (error: any) { alert("Gagal mengubah status: " + error.message); }
+    try { 
+      const res = await aksiUbahStatus(id, statusBaru); 
+      if (res.success) { router.refresh(); }
+      else { alert("Gagal mengubah status: " + res.message); }
+    } catch (error: any) { alert("Sistem Error: " + error.message); }
     setLoadingId("");
   };
 
   const handleResetPin = async (id: string, nama: string) => {
     if (!confirm(`🔑 RESET PIN\n\nAnda akan mereset sandi milik ${nama} ke (123456). Lanjutkan?`)) return;
     setLoadingId(id);
-    try { await aksiResetPin(id, "123456"); alert(`PIN ${nama} direset ke 123456.`); router.refresh(); } catch (error: any) { alert("Gagal mereset: " + error.message); }
+    try { 
+      const res = await aksiResetPin(id, "123456"); 
+      if (res.success) { alert(`PIN ${nama} direset ke 123456.`); router.refresh(); }
+      else { alert("Gagal mereset: " + res.message); }
+    } catch (error: any) { alert("Sistem Error: " + error.message); }
     setLoadingId("");
   };
 
@@ -106,9 +119,13 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
       }
       try {
         const res = await aksiImportMassal(dataWarga);
-        alert(`🏁 IMPORT SELESAI!\nSukses: ${res.berhasil} Warga\nGagal: ${res.gagal} Baris`);
-        router.refresh();
-      } catch (error: any) { alert("Gagal mengimpor: " + error.message); }
+        if (res.success) {
+          alert(`🏁 IMPORT SELESAI!\nSukses: ${res.hasil.berhasil} Warga\nGagal: ${res.hasil.gagal} Baris`);
+          router.refresh();
+        } else {
+          alert("Gagal mengimpor: " + res.message);
+        }
+      } catch (error: any) { alert("Sistem Error: " + error.message); }
       setIsUploading(false);
     };
     reader.readAsText(file);
@@ -167,7 +184,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
               <thead className="sticky top-0 z-20 bg-slate-100 text-slate-700 text-xs">
                 <tr>
                   <th className="p-4 border-b-2 border-slate-200 whitespace-nowrap min-w-[200px]">Data Utama KK</th>
-                  {/* FIX MUTLAK: Ubah Header Kolom Kedua */}
                   <th className="p-4 border-b-2 border-slate-200 min-w-[200px]">Alamat Domisili</th>
                   <th className="p-4 border-b-2 border-slate-200 min-w-[350px]">Struktur Keluarga (Daftar Jiwa)</th>
                   <th className="p-4 border-b-2 border-slate-200 text-center min-w-[150px]">Aksi</th>
@@ -204,7 +220,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                           )}
                         </div>
 
-                        {/* FIX MUTLAK: Dokumen KK & KTP dipindah ke sini */}
                         <div className="flex flex-col gap-1.5 pt-3 border-t border-slate-100">
                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dokumen Verifikasi</span>
                           {FITUR_KTP_AKTIF && (
@@ -222,7 +237,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                         </div>
                       </td>
 
-                      {/* FIX MUTLAK: Kolom Alamat menjadi bersih */}
                       <td className="p-4 align-top border-r border-slate-100">
                         <div className="text-xs text-slate-600 leading-relaxed">{w.detail_alamat || <span className="italic text-slate-400">Alamat tidak rinci</span>}</div>
                       </td>
@@ -234,7 +248,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                         </div>
 
                         <div className="flex flex-col gap-2 relative z-0">
-                          {/* ROOT: Kepala Keluarga */}
                           <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-lg shadow-sm relative z-10">
                             <div className="flex justify-between items-start mb-1">
                               <span className="font-black text-blue-900 text-xs">{w.nama_lengkap}</span>
@@ -245,13 +258,11 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                             </div>
                           </div>
 
-                          {/* BRANCHES: Anggota Keluarga */}
                           {w.anggota_keluarga && w.anggota_keluarga.length > 0 ? (
                             w.anggota_keluarga.map((ak: any, idx: number) => {
                               const isLast = idx === w.anggota_keluarga.length - 1;
                               return (
                                 <div key={ak.id} className="relative ml-5 z-10">
-                                  {/* Garis Hierarki Vertikal & Horizontal */}
                                   <div className={`absolute -left-3 border-l-2 border-slate-300 ${isLast ? 'h-[18px] top-0' : 'h-full top-0'}`}></div>
                                   <div className="absolute -left-3 top-[16px] w-3 border-t-2 border-slate-300"></div>
                                   
