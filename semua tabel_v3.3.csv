@@ -1,0 +1,101 @@
+Nama Tabel,Kolom,Tipe Data,Boleh Kosong?,Nilai Default
+anggota_keluarga,id,uuid,NO,gen_random_uuid()
+anggota_keluarga,warga_id,uuid,YES,null
+anggota_keluarga,nama_lengkap,character varying,NO,null
+anggota_keluarga,hubungan_keluarga,character varying,NO,null
+anggota_keluarga,created_at,timestamp with time zone,YES,now()
+anggota_keluarga,nik,character varying,YES,null
+anggota_keluarga,tanggal_lahir,date,YES,null
+anggota_keluarga,tempat_lahir,character varying,YES,null
+anggota_keluarga,jenis_kelamin,character varying,YES,null
+anggota_keluarga,pekerjaan,character varying,YES,null
+anggota_keluarga,ktp_path,text,YES,null
+anggota_keluarga,hubungan_detail,character varying,YES,null
+anggota_keluarga,rt_id,uuid,YES,null
+anggota_keluarga,agama,text,YES,null
+audit_log,id,uuid,NO,gen_random_uuid()
+audit_log,aktor,text,YES,'Admin RT'::text
+audit_log,aksi,text,NO,null
+audit_log,tabel_target,text,NO,null
+audit_log,detail,text,YES,null
+audit_log,created_at,timestamp with time zone,YES,now()
+audit_log,rt_id,uuid,YES,null
+jadwal_ronda,id,uuid,NO,gen_random_uuid()
+jadwal_ronda,warga_id,uuid,NO,null
+jadwal_ronda,tanggal_tugas,date,NO,null
+jadwal_ronda,status,character varying,YES,'Menunggu Konfirmasi'::character varying
+jadwal_ronda,alasan_izin,text,YES,null
+jadwal_ronda,created_at,timestamp with time zone,YES,now()
+jadwal_ronda,rt_id,uuid,YES,null
+kandidat_rt,id,uuid,NO,gen_random_uuid()
+kandidat_rt,pemilihan_id,uuid,YES,null
+kandidat_rt,nomor_urut,integer,NO,null
+kandidat_rt,nama_calon,text,NO,null
+kandidat_rt,foto_url,text,YES,null
+kandidat_rt,visi,text,YES,null
+kandidat_rt,misi,text,YES,null
+kandidat_rt,created_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+kas_rt,id,uuid,NO,gen_random_uuid()
+kas_rt,tipe_transaksi,character varying,NO,null
+kas_rt,kategori,character varying,NO,null
+kas_rt,nominal,integer,NO,null
+kas_rt,keterangan,text,NO,null
+kas_rt,warga_id,uuid,YES,null
+kas_rt,tanggal_transaksi,date,YES,CURRENT_DATE
+kas_rt,created_at,timestamp with time zone,YES,now()
+kas_rt,rt_id,uuid,YES,null
+lapak_warga,id,uuid,NO,gen_random_uuid()
+lapak_warga,warga_id,uuid,NO,null
+lapak_warga,nama_usaha,text,NO,null
+lapak_warga,kategori,text,NO,null
+lapak_warga,deskripsi,text,NO,null
+lapak_warga,nomor_wa,text,NO,null
+lapak_warga,foto_url,text,NO,null
+lapak_warga,status,text,YES,'Menunggu'::text
+lapak_warga,created_at,timestamp with time zone,YES,now()
+lapak_warga,rt_id,uuid,YES,null
+lapak_warga,tipe_lapak,character varying,YES,'Reguler'::character varying
+laporan_warga,id,uuid,NO,gen_random_uuid()
+laporan_warga,warga_id,uuid,NO,null
+laporan_warga,judul_laporan,character varying,NO,null
+laporan_warga,deskripsi,text,NO,null
+laporan_warga,status,character varying,YES,'Menunggu'::character varying
+laporan_warga,tanggapan_rt,text,YES,null
+laporan_warga,created_at,timestamp with time zone,YES,now()
+laporan_warga,rt_id,uuid,YES,null
+limbah_ekonomis,id,uuid,NO,gen_random_uuid()
+limbah_ekonomis,warga_id,uuid,YES,null
+limbah_ekonomis,nama_barang,character varying,NO,null
+limbah_ekonomis,kategori,character varying,NO,null
+limbah_ekonomis,opsi_tujuan,character varying,NO,null
+limbah_ekonomis,deskripsi,text,YES,null
+limbah_ekonomis,status,character varying,YES,'Menunggu Verifikasi'::character varying
+limbah_ekonomis,teknisi_id,uuid,YES,null
+limbah_ekonomis,biaya_reparasi,bigint,YES,0
+limbah_ekonomis,fee_rt,bigint,YES,0
+limbah_ekonomis,created_at,timestamp with time zone,YES,now()
+limbah_ekonomis,rt_id,uuid,YES,null
+master_inventaris,id,uuid,NO,gen_random_uuid()
+master_inventaris,nama_barang,text,NO,null
+master_inventaris,deskripsi,text,YES,null
+master_inventaris,total_unit,integer,YES,1
+master_inventaris,created_at,timestamp with time zone,YES,now()
+master_inventaris,rt_id,uuid,YES,null
+master_rt,id,uuid,NO,gen_random_uuid()
+master_rt,nama_rt,character varying,NO,null
+master_rt,nama_rw,character varying,NO,null
+master_rt,kelurahan,character varying,NO,null
+master_rt,status_langganan,character varying,YES,'Trial'::character varying
+master_rt,created_at,timestamp with time zone,YES,now()
+partisipasi_pemilihan,warga_id,uuid,NO,null
+partisipasi_pemilihan,pemilihan_id,uuid,NO,null
+partisipasi_pemilihan,waktu_memilih,timestamp with time zone,YES,CURRENT_TIMESTAMP
+pemilihan_rt,id,uuid,NO,gen_random_uuid()
+pemilihan_rt,judul,text,NO,null
+pemilihan_rt,deskripsi,text,YES,null
+pemilihan_rt,tanggal_mulai,timestamp with time zone,NO,null
+pemilihan_rt,tanggal_selesai,timestamp with time zone,NO,null
+pemilihan_rt,status,text,NO,'Draft'::text
+pemilihan_rt,created_at,timestamp with time zone,YES,CURRENT_TIMESTAMP
+peminjaman_inventaris,id,uuid,NO,gen_random_uuid()
+peminjaman_inventaris,warga_id,uuid,NO,null

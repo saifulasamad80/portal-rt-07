@@ -43,25 +43,61 @@ export default async function WargaAdminPage() {
     .select("*, anggota_keluarga(*)")
     .order("created_at", { ascending: false });
 
-  // REFACTOR MUTLAK: Transformasi ke Result Object untuk bunuh Error #441
+  // REFACTOR MUTLAK: Cascade Delete Terstruktur (Bypass E-Voting & All Relations)
   async function hapusWarga(id: string) {
     "use server";
     try {
-      const sesi = await pastikanOtentikasiAdmin(); 
+      const sesi = await pastikanOtentikasiAdmin();
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       
+      // 1. Identifikasi Target untuk Log Audit Nanti
       const { data: target } = await supabase.from("warga").select("nama_lengkap").eq("id", id).single();
       
-      // PERINGATAN: Modul Cascade Delete ditahan sampai komandan memberikan nama tabel relasi.
+      // 2. TEMBAKAN CASCADE KE BAWAH: Hapus data di tabel-tabel anak yang menahan Foreign Key
+      // A. Putus relasi teknisi_id di limbah_ekonomis agar lapak_warga bisa dihapus
+      const { data: lapakMilikWarga } = await supabase.from("lapak_warga").select("id").eq("warga_id", id);
+      if (lapakMilikWarga && lapakMilikWarga.length > 0) {
+        const lapakIds = lapakMilikWarga.map((l: any) => l.id);
+        await supabase.from("limbah_ekonomis").update({ teknisi_id: null }).in("teknisi_id", lapakIds);
+      }
+
+      // B. Eksekusi Bumi Hangus Massal (Hapus baris terkait warga_id di 13 Tabel Turunan)
+      const tabelTurunan = [
+        "anggota_keluarga",
+        "jadwal_ronda",
+        "kas_rt",
+        "lapak_warga",
+        "laporan_warga",
+        "limbah_ekonomis",
+        "partisipasi_pemilihan",
+        "peminjaman_inventaris",
+        "sensus_kesejahteraan",
+        "suara_voting",
+        "tabungan_kurban",
+        "transaksi_kurban",
+        "transaksi_sampah"
+      ];
+
+      for (const tabel of tabelTurunan) {
+        const { error: errCascade } = await supabase.from(tabel).delete().eq("warga_id", id);
+        if (errCascade) {
+          console.error(`Gagal Cascade Delete di tabel ${tabel}:`, errCascade.message);
+          return { success: false, message: `Gagal menghapus relasi di tabel ${tabel}: ${errCascade.message}` };
+        }
+      }
+
+      // 3. TEMBAKAN AKHIR: Eksekusi Target Utama (Warga)
+      // Karena 13 rantai pengikatnya sudah kita putus, perintah ini PASTI akan berhasil!
       const { error } = await supabase.from("warga").delete().eq("id", id);
       if (error) return { success: false, message: error.message };
 
+      // 4. Catat Jejak Pemusnahan
       if (target) {
         await supabase.from("audit_log").insert([{
           aktor: sesi.nama,
-          aksi: "Hapus Warga Secara Paksa",
+          aksi: "Hapus Warga Secara Paksa (Cascade)",
           tabel_target: "warga",
-          detail: `Menghapus seluruh data warga: ${target.nama_lengkap}`
+          detail: `Menghapus seluruh data warga & relasi 13 tabel: ${target.nama_lengkap}`
         }]);
       }
       return { success: true };
