@@ -3,26 +3,37 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export default function InventarisClient({ masterBarang, riwayat, ajukanBooking }: { masterBarang: any[], riwayat: any[], ajukanBooking: any }) {
+export default function InventarisClient({ masterBarang, riwayat, jadwalTerisi, ajukanBooking }: { masterBarang: any[], riwayat: any[], jadwalTerisi: any[], ajukanBooking: any }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const router = useRouter();
 
-  // FAKTA: Kita menggunakan nama_barang sesuai skema database lu yang sebenarnya!
   const [namaBarang, setNamaBarang] = useState(""); 
   const [tanggal, setTanggal] = useState("");
   const [keterangan, setKeterangan] = useState("");
 
+  // FUNGSI RADAR: Mengecek apakah barang X di tanggal Y sudah di-booking
+  const isTanggalBentrok = () => {
+    if (!namaBarang || !tanggal) return false;
+    return jadwalTerisi.some(j => j.nama_barang === namaBarang && j.tanggal_pinjam === tanggal);
+  };
+
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitLoading(true);
+    
+    // Gembok Front-End mencegah tombol klik
+    if (isTanggalBentrok()) {
+      alert(`⚠️ TANGGAL BENTROK!\n\nBarang "${namaBarang}" sudah di-booking oleh warga lain pada tanggal ini. Silakan cari tanggal kosong.`);
+      return;
+    }
 
+    setSubmitLoading(true);
     try {
       await ajukanBooking(namaBarang, tanggal, keterangan);
-      alert("Booking berhasil diajukan! Menunggu persetujuan RT.");
+      alert("✅ Booking berhasil diajukan! Menunggu persetujuan RT.");
       setNamaBarang(""); setTanggal(""); setKeterangan("");
       router.refresh();
     } catch (error: any) {
-      alert("Gagal melakukan booking: " + error.message);
+      alert(error.message); // Akan menampilkan error merah dari Backend
     }
     setSubmitLoading(false);
   };
@@ -34,70 +45,99 @@ export default function InventarisClient({ masterBarang, riwayat, ajukanBooking 
     return 'bg-amber-100 text-amber-700 border-amber-200'; 
   };
 
+  const statusBentrok = isTanggalBentrok();
+
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-amber-700 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
-        <div className="bg-white p-6 rounded-xl shadow border-l-8 border-amber-600">
-          <h1 className="text-2xl font-bold text-slate-800">Kalender Inventaris RT</h1>
-          <p className="text-slate-500 text-sm">Booking fasilitas RT. Pengajuan akan direview oleh pengurus.</p>
+    <div className="min-h-screen bg-slate-50 p-6 md:p-8 font-sans">
+      <div className="max-w-5xl mx-auto space-y-6">
+        
+        <Link href="/portal" className="text-amber-700 font-bold hover:underline mb-2 inline-block text-sm">&larr; Kembali ke Dasbor Warga</Link>
+        
+        <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-amber-500 mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Inventaris RT & Peminjaman</h1>
+            <p className="text-slate-400 text-sm">Fasilitas milik bersama warga RT 07. Booking lebih awal agar tidak bentrok.</p>
+          </div>
+          <div className="text-5xl hidden md:block grayscale brightness-200 opacity-80">🎪</div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          <div className="bg-white p-6 rounded-xl shadow h-fit">
-            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Form Booking</h2>
-            <form onSubmit={handleBooking} className="space-y-4">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 h-fit border-t-[6px] border-t-amber-500">
+            <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">📅 Form Peminjaman Warga</h2>
+            <form onSubmit={handleBooking} className="space-y-5">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Pilih Fasilitas / Barang</label>
-                <select required className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 font-medium" value={namaBarang} onChange={(e) => setNamaBarang(e.target.value)}>
+                <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Pilih Fasilitas / Barang</label>
+                <select required className="w-full border-2 border-slate-200 rounded-lg p-3.5 bg-white text-slate-900 font-bold outline-none focus:border-amber-500" value={namaBarang} onChange={(e) => setNamaBarang(e.target.value)}>
                   <option value="" disabled>-- Daftar Barang Tersedia --</option>
                   {masterBarang.map(b => (
-                    <option key={b.id} value={b.nama_barang}>{b.nama_barang} (Total: {b.total_unit} unit)</option>
+                    <option key={b.id} value={b.nama_barang}>{b.nama_barang} (Total Stok: {b.total_unit} unit)</option>
                   ))}
                 </select>
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Tanggal Pakai</label>
-                <input type="date" required min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]} className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+                <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide flex justify-between items-center">
+                  Tanggal Pakai
+                  {statusBentrok && <span className="text-[10px] text-white bg-rose-600 px-2 py-0.5 rounded animate-pulse">SUDAH DIBOOKING!</span>}
+                </label>
+                <input 
+                  type="date" 
+                  required 
+                  min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]} 
+                  className={`w-full border-2 rounded-lg p-3.5 text-slate-900 font-bold outline-none transition-colors ${statusBentrok ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-slate-200 focus:border-amber-500'}`} 
+                  value={tanggal} 
+                  onChange={(e) => setTanggal(e.target.value)} 
+                />
+                {statusBentrok && (
+                  <p className="text-xs text-rose-600 font-bold mt-2">
+                    ⛔ Barang ini sudah dipinjam oleh warga lain di tanggal tersebut. Mohon ubah tanggal Anda.
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Keperluan</label>
-                <input type="text" required className="w-full border border-slate-300 rounded-lg p-2.5 text-slate-900" placeholder="Cth: Acara syukuran keluarga" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
+                <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Keperluan / Keterangan</label>
+                <input type="text" required className="w-full border-2 border-slate-200 rounded-lg p-3.5 text-slate-900 text-sm outline-none focus:border-amber-500" placeholder="Cth: Acara syukuran keluarga / Kerja bakti" value={keterangan} onChange={(e) => setKeterangan(e.target.value)} />
               </div>
               
-              <button type="submit" disabled={submitLoading || masterBarang.length === 0} className="w-full bg-amber-600 text-white font-bold rounded-lg p-3 shadow-md hover:bg-amber-700 transition-colors disabled:bg-slate-400 mt-2">
-                {submitLoading ? "Mengajukan..." : "Ajukan Booking"}
+              <button type="submit" disabled={submitLoading || masterBarang.length === 0 || statusBentrok} className={`w-full text-white font-black rounded-xl p-4 shadow-md uppercase tracking-widest mt-4 transition-all ${submitLoading || statusBentrok ? 'bg-slate-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700 active:scale-95'}`}>
+                {submitLoading ? "Memproses Data..." : (statusBentrok ? "TANGGAL TIDAK TERSEDIA" : "Ajukan Permohonan")}
               </button>
             </form>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow">
-            <h2 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">Riwayat Booking Saya</h2>
-            <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 h-fit">
+            <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3 flex items-center gap-2"><span>📂</span> Riwayat Peminjaman Saya</h2>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {riwayat.length === 0 ? (
-                <p className="text-sm text-slate-500 italic">Belum ada riwayat peminjaman.</p>
+                <div className="text-center p-8 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="text-sm font-bold text-slate-500 italic">Belum ada riwayat peminjaman.</p>
+                </div>
               ) : (
                 riwayat.map(t => (
-                  <div key={t.id} className={`p-4 border rounded-lg ${getStatusColor(t.status)}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-slate-800">{t.nama_barang}</h3>
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded bg-white/60">
-                        {t.status || 'Menunggu'}
+                  <div key={t.id} className={`p-4 md:p-5 border-2 rounded-xl transition-all hover:shadow-md ${getStatusColor(t.status)}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-black text-slate-800 text-base">{t.nama_barang}</h3>
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded shadow-sm bg-white border ${getStatusColor(t.status).split(' ')[1].replace('text-', 'border-')}`}>
+                        {t.status || 'Menunggu RT'}
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 mb-2 text-xs font-bold text-slate-700 bg-white/50 inline-block px-2 py-1 rounded">
-                      <span>📅 {new Date(t.tanggal_pinjam).toLocaleDateString('id-ID')}</span>
+                    <div className="flex flex-col gap-2 text-xs font-bold text-slate-700">
+                      <div className="flex items-center gap-2 bg-white/60 w-fit px-2.5 py-1.5 rounded-lg border border-white/40">
+                        <span className="text-base">📅</span> Pakai: {new Date(t.tanggal_pinjam).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})}
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/60 w-fit px-2.5 py-1.5 rounded-lg border border-white/40">
+                        <span className="text-base">📝</span> {t.keterangan}
+                      </div>
                     </div>
-
-                    <div className="text-sm text-slate-600 italic border-t border-black/10 pt-2 mt-1">"{t.keterangan}"</div>
                   </div>
                 ))
               )}
             </div>
           </div>
+
         </div>
       </div>
     </div>

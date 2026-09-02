@@ -17,7 +17,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     w.nik.includes(search)
   );
 
-  // INJEKSI MUTLAK: Pembersih Nomor WA
   const formatWA = (nomor: string) => {
     if (!nomor) return "";
     let bersih = nomor.replace(/\D/g, '');
@@ -116,6 +115,10 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     e.target.value = ''; 
   };
 
+  const totalKK = filteredWarga.length;
+  const totalAnggota = filteredWarga.reduce((sum, w) => sum + (w.anggota_keluarga ? w.anggota_keluarga.length : 0), 0);
+  const totalJiwa = totalKK + totalAnggota;
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -129,8 +132,23 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-blue-500">
-          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 border-b border-slate-200 pb-4">
-            <h2 className="font-black text-xl text-slate-800 shrink-0">Daftar Warga Terdaftar</h2>
+          
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-6 border-b border-slate-200 pb-6">
+            <div>
+              <h2 className="font-black text-xl text-slate-800 mb-3">Daftar Warga Terdaftar</h2>
+              <div className="flex gap-2">
+                <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border border-blue-200 shadow-sm">
+                  {totalKK} KK
+                </span>
+                <span className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest border border-emerald-200 shadow-sm">
+                  + {totalAnggota} Tanggungan
+                </span>
+                <span className="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-md">
+                  = {totalJiwa} TOTAL JIWA
+                </span>
+              </div>
+            </div>
+
             <div className="w-full xl:w-auto flex flex-col sm:flex-row flex-wrap gap-2">
               <input type="text" placeholder="🔍 Cari Nama atau NIK..." className="flex-1 sm:flex-none sm:w-64 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50" value={search} onChange={(e) => setSearch(e.target.value)} />
               <button onClick={downloadTemplateCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">📥 Template CSV</button>
@@ -146,85 +164,132 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
 
           <div className="overflow-x-auto max-h-[700px] overflow-y-auto custom-scrollbar rounded-xl border border-slate-200">
             <table className="w-full text-left border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-100 text-slate-700 text-xs">
+              <thead className="sticky top-0 z-20 bg-slate-100 text-slate-700 text-xs">
                 <tr>
-                  <th className="p-4 border-b-2 border-slate-200 whitespace-nowrap">Nama & Kontak</th>
-                  <th className="p-4 border-b-2 border-slate-200">Demografi & Status</th>
-                  <th className="p-4 border-b-2 border-slate-200">Anggota Keluarga</th>
-                  <th className="p-4 border-b-2 border-slate-200">Dokumen Validasi</th>
-                  <th className="p-4 border-b-2 border-slate-200 text-center">Aksi (Bahaya)</th>
+                  <th className="p-4 border-b-2 border-slate-200 whitespace-nowrap min-w-[200px]">Data Utama KK</th>
+                  {/* FIX MUTLAK: Ubah Header Kolom Kedua */}
+                  <th className="p-4 border-b-2 border-slate-200 min-w-[200px]">Alamat Domisili</th>
+                  <th className="p-4 border-b-2 border-slate-200 min-w-[350px]">Struktur Keluarga (Daftar Jiwa)</th>
+                  <th className="p-4 border-b-2 border-slate-200 text-center min-w-[150px]">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredWarga.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold italic">Tidak ada data warga ditemukan.</td></tr>
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-400 font-bold italic">Tidak ada data warga ditemukan.</td></tr>
                 ) : (
-                  filteredWarga.map((w) => (
-                    <tr key={w.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 align-top">
-                        <div className="font-black text-slate-800 text-base mb-1">{w.nama_lengkap}</div>
-                        <div className="text-[10px] text-slate-500 font-mono font-bold bg-slate-200 px-2 py-0.5 rounded w-fit mb-1">
-                          NIK: {w.nik ? `${w.nik.slice(0, 4)}********${w.nik.slice(-4)}` : '-'}
-                        </div>
+                  filteredWarga.map((w) => {
+                    const totalJiwaDalamKK = 1 + (w.anggota_keluarga ? w.anggota_keluarga.length : 0);
+                    
+                    return (
+                    <tr key={w.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4 align-top border-r border-slate-100">
+                        <div className="font-black text-slate-800 text-base mb-2">{w.nama_lengkap}</div>
                         
-                        {/* REFACTOR MUTLAK: Sensor WA dicabut, diganti Tombol Direct Link WhatsApp */}
-                        <div className="mt-1.5 mb-2.5">
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {w.status_verifikasi === 'Disetujui' ? 'SAH' : 'DIBLOKIR'}
+                            </span>
+                            <span className="text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-700 px-2 py-1 rounded shadow-sm">
+                              {w.status_tinggal}
+                            </span>
+                          </div>
+                          
                           {w.no_whatsapp ? (
-                            <a href={`https://wa.me/${formatWA(w.no_whatsapp)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2.5 py-1 rounded-md transition-colors inline-flex items-center gap-1 shadow-sm active:scale-95 border border-emerald-200">
+                            <a href={`https://wa.me/${formatWA(w.no_whatsapp)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 border border-emerald-200 w-fit">
                               💬 {w.no_whatsapp}
                             </a>
                           ) : (
-                            <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">WA: Kosong</span>
+                            <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 w-fit">WA: Kosong</span>
                           )}
-                        </div>  
-                        
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm inline-block ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          Login: {w.status_verifikasi === 'Disetujui' ? 'SAH' : 'DIBLOKIR'}
-                        </span>
-                      </td>
-                      <td className="p-4 align-top">
-                        <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider block w-fit mb-1.5 shadow-sm">{w.status_tinggal}</span>
-                        <div className="text-xs text-slate-600 max-w-[200px] leading-relaxed">{w.detail_alamat}</div>
-                      </td>
-                      <td className="p-4 align-top">
-                        {(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? (
-                          <span className="text-xs italic text-slate-400 font-bold">Tidak ada tanggungan</span>
-                        ) : (
-                          <ul className="list-disc list-inside text-xs text-slate-600 space-y-1">
-                            {w.anggota_keluarga.map((ak: any) => (
-                              <li key={ak.id}><b>{ak.nama_lengkap}</b> <span className="text-[10px] text-slate-400">({ak.hubungan_keluarga})</span></li>
-                            ))}
-                          </ul>
-                        )}
-                      </td>
-                      <td className="p-4 align-top">
-                        <div className="flex flex-col gap-1.5">
+                        </div>
+
+                        {/* FIX MUTLAK: Dokumen KK & KTP dipindah ke sini */}
+                        <div className="flex flex-col gap-1.5 pt-3 border-t border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Dokumen Verifikasi</span>
                           {FITUR_KTP_AKTIF && (
                             w.ktp_path && w.ktp_path !== 'MENYUSUL' ? (
-                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 KTP Warga</a>
+                              <a href={`/api/admin/dokumen?path=${w.ktp_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Cek KTP</a>
                             ) : (
-                              <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Fisik</span>
+                              <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KTP Kosong</span>
                             )
                           )}
                           {w.kk_path && w.kk_path !== 'MENYUSUL' ? (
-                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Kartu Keluarga</a>
+                            <a href={`/api/admin/dokumen?path=${w.kk_path}`} target="_blank" className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded font-bold hover:bg-slate-700 transition-colors shadow-sm text-center">📄 Cek Kartu Keluarga</a>
                           ) : (
-                            <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Fisik</span>
+                            <span className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1.5 rounded font-bold border border-rose-100 text-center">KK Kosong</span>
                           )}
                         </div>
                       </td>
-                      <td className="p-4 align-top text-center">
-                        <Link href={`/admin/warga/${w.id}`} className="bg-blue-100 hover:bg-blue-500 hover:text-white text-blue-700 border border-blue-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm uppercase tracking-wider w-full mb-2 inline-block">Detail Warga</Link>
-                        <button onClick={() => handleResetPin(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-700 border border-slate-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">🔑 Reset PIN</button>
-                        {w.status_verifikasi === 'Disetujui' ? (
-                          <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Menunggu')} disabled={loadingId === w.id} className="bg-amber-100 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">Batal Sah</button>
-                        ) : (
-                          <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Disetujui')} disabled={loadingId === w.id} className="bg-emerald-100 hover:bg-emerald-500 hover:text-white text-emerald-700 border border-emerald-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full mb-2">Setujui</button>
-                        )}
-                        <button onClick={() => handleHapus(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 border border-rose-200 text-[10px] font-black px-4 py-2 rounded transition-colors shadow-sm disabled:opacity-50 uppercase tracking-wider w-full">Hapus</button>
+
+                      {/* FIX MUTLAK: Kolom Alamat menjadi bersih */}
+                      <td className="p-4 align-top border-r border-slate-100">
+                        <div className="text-xs text-slate-600 leading-relaxed">{w.detail_alamat || <span className="italic text-slate-400">Alamat tidak rinci</span>}</div>
+                      </td>
+
+                      <td className="p-4 align-top border-r border-slate-100 bg-white">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-200 pb-1">Daftar Individu</span>
+                          <span className="text-[10px] bg-slate-800 text-white font-black px-2 py-0.5 rounded shadow-sm">{totalJiwaDalamKK} Jiwa</span>
+                        </div>
+
+                        <div className="flex flex-col gap-2 relative z-0">
+                          {/* ROOT: Kepala Keluarga */}
+                          <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-lg shadow-sm relative z-10">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-black text-blue-900 text-xs">{w.nama_lengkap}</span>
+                              <span className="text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm">Kepala Keluarga</span>
+                            </div>
+                            <div className="font-mono text-[10px] text-blue-700 font-bold bg-white px-1.5 py-0.5 rounded border border-blue-100 w-fit">
+                              NIK: {w.nik ? `${w.nik.slice(0, 4)}********${w.nik.slice(-4)}` : '-'}
+                            </div>
+                          </div>
+
+                          {/* BRANCHES: Anggota Keluarga */}
+                          {w.anggota_keluarga && w.anggota_keluarga.length > 0 ? (
+                            w.anggota_keluarga.map((ak: any, idx: number) => {
+                              const isLast = idx === w.anggota_keluarga.length - 1;
+                              return (
+                                <div key={ak.id} className="relative ml-5 z-10">
+                                  {/* Garis Hierarki Vertikal & Horizontal */}
+                                  <div className={`absolute -left-3 border-l-2 border-slate-300 ${isLast ? 'h-[18px] top-0' : 'h-full top-0'}`}></div>
+                                  <div className="absolute -left-3 top-[16px] w-3 border-t-2 border-slate-300"></div>
+                                  
+                                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg shadow-sm hover:border-blue-300 transition-colors">
+                                    <div className="flex justify-between items-start mb-1">
+                                      <span className="font-bold text-slate-800 text-xs">{ak.nama_lengkap}</span>
+                                      <span className="text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{ak.hubungan_keluarga}</span>
+                                    </div>
+                                    <div className="font-mono text-[10px] text-slate-500 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200 w-fit">
+                                      NIK: {ak.nik ? `${ak.nik.slice(0, 4)}********${ak.nik.slice(-4)}` : <span className="text-rose-400 italic">Belum diisi</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="text-[10px] italic text-slate-400 font-bold mt-2 ml-1">Tidak ada tanggungan tambahan.</div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="p-4 align-top text-center bg-slate-50/50">
+                        <Link href={`/admin/warga/${w.id}`} className="bg-white hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600 text-[10px] font-black px-4 py-2.5 rounded-lg transition-all shadow-sm uppercase tracking-wider w-full mb-2 inline-flex justify-center items-center gap-1 active:scale-95"><span>🔍</span> Buka Profil</Link>
+                        
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <button onClick={() => handleResetPin(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-slate-800 hover:bg-slate-700 text-white text-[9px] font-black px-2 py-2.5 rounded-lg transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95"><span>🔑</span> Reset PIN</button>
+                          {w.status_verifikasi === 'Disetujui' ? (
+                            <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Menunggu')} disabled={loadingId === w.id} className="bg-amber-100 hover:bg-amber-500 text-amber-700 hover:text-white border border-amber-200 text-[9px] font-black px-2 py-2.5 rounded-lg transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider flex items-center justify-center active:scale-95">Cabut Sah</button>
+                          ) : (
+                            <button onClick={() => handleUbahStatus(w.id, w.nama_lengkap, 'Disetujui')} disabled={loadingId === w.id} className="bg-emerald-100 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 text-[9px] font-black px-2 py-2.5 rounded-lg transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider flex items-center justify-center active:scale-95">Setujui</button>
+                          )}
+                        </div>
+
+                        <button onClick={() => handleHapus(w.id, w.nama_lengkap)} disabled={loadingId === w.id} className="bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 text-[9px] font-black px-4 py-2.5 rounded-lg transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider w-full flex items-center justify-center gap-1 active:scale-95"><span>🗑️</span> Hapus Permanen</button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

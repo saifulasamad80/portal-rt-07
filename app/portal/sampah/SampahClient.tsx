@@ -2,6 +2,18 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan, riwayatRakBin, aksiLaporLimbah }: { wargaAktif: any, saldo: number, totalKg: number, riwayatKiloan: any[], riwayatRakBin: any[], aksiLaporLimbah: any }) {
   const router = useRouter();
@@ -16,48 +28,90 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const [isSetuju, setIsSetuju] = useState(false);
 
   const formatRp = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
-  
-  // FIX: Membunuh bug pembulatan 8k dan 3k
-  const formatK = (angka: number) => {
-    if (angka === 0) return "Rp 0";
-    return `Rp ${(angka / 1000).toFixed(1).replace(/\.0$/, '')}k`;
-  };
-  
   const formatWA = (nomor: string) => { if (!nomor) return ""; let bersih = nomor.replace(/\D/g, ''); if (bersih.startsWith('0')) bersih = '62' + bersih.slice(1); return bersih; };
 
-  const chartData = useMemo(() => {
-    const data: { label: string, month: number, year: number, setor: number }[] = [];
+  // ------------------------------------------------------------------
+  // CHART.JS ENGINE
+  // ------------------------------------------------------------------
+  const chartDataRaw = useMemo(() => {
+    const data: { label: string, setor: number }[] = [];
     const now = new Date();
     
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const label = d.toLocaleDateString('id-ID', { month: 'short' });
-      data.push({ label, month: d.getMonth(), year: d.getFullYear(), setor: 0 });
+      const label = d.toLocaleDateString('id-ID', { month: 'short' }).toUpperCase();
+      data.push({ label, setor: 0 });
     }
 
     riwayatKiloan.forEach(trx => {
       if (trx.jenis_transaksi === 'Setor') {
         const trxDate = new Date(trx.tanggal_transaksi);
-        const targetNode = data.find(d => d.month === trxDate.getMonth() && d.year === trxDate.getFullYear());
+        const labelBulan = trxDate.toLocaleDateString('id-ID', { month: 'short' }).toUpperCase();
+        const targetNode = data.find(d => d.label === labelBulan);
         if (targetNode) targetNode.setor += trx.nominal_warga;
       }
     });
 
-    // Menentukan skala maksimal (Selalu naik ke angka genap teratas)
-    const maxDataVal = Math.max(...data.map(d => d.setor), 0);
-    const maxVal = maxDataVal === 0 ? 10000 : Math.ceil(maxDataVal / 10000) * 10000; 
-
-    return { data, maxVal };
+    return data;
   }, [riwayatKiloan]);
 
-  const barColors = [
-    "bg-gradient-to-r from-sky-400 via-sky-100 to-sky-500 border-sky-400",       
-    "bg-gradient-to-r from-amber-400 via-amber-100 to-amber-500 border-amber-400", 
-    "bg-gradient-to-r from-lime-500 via-lime-200 to-lime-600 border-lime-500",     
-    "bg-gradient-to-r from-orange-400 via-orange-100 to-orange-500 border-orange-400", 
-    "bg-gradient-to-r from-teal-500 via-teal-200 to-teal-600 border-teal-500",     
-    "bg-gradient-to-r from-rose-500 via-rose-200 to-rose-600 border-rose-500"      
-  ];
+  // Warna-warni Tiang Sesuai Request
+  const bgColors = ['#38bdf8', '#fbbf24', '#84cc16', '#fb923c', '#14b8a6', '#f43f5e'];
+
+  const chartData = {
+    labels: chartDataRaw.map(d => d.label),
+    datasets: [
+      {
+        label: 'Pemasukan Warga (Rp)',
+        data: chartDataRaw.map(d => d.setor),
+        backgroundColor: bgColors,
+        borderColor: bgColors,
+        borderWidth: 1,
+        borderRadius: 4,
+        barThickness: 35,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#ffffff',
+        titleColor: '#64748b',
+        bodyColor: '#0f172a',
+        borderColor: '#e2e8f0',
+        borderWidth: 1,
+        titleFont: { size: 11 },
+        bodyFont: { size: 14, weight: 'bold' as const },
+        padding: 10,
+        displayColors: false,
+        callbacks: {
+          label: function (context: any) { return formatRp(context.raw); }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          color: '#64748b', font: { size: 11, weight: 'bold' as const },
+          callback: function(value: any) {
+            if (value === 0) return 'Rp 0';
+            return `Rp ${value / 1000}k`;
+          }
+        }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#475569', font: { size: 11, weight: 'bold' as const } }
+      }
+    }
+  };
+  // ------------------------------------------------------------------
 
   const handleLapor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,73 +157,16 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
               </div>
             </div>
 
-            {/* ------------------------------------------------------------- */}
-            {/* GRAFIK KLASIK EXCEL (PONDASI BARU ANTI-AMBLAS)               */}
-            {/* ------------------------------------------------------------- */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-300 p-6">
-              
-              <div className="text-center mb-6">
-                <h3 className="font-bold text-slate-800 text-base">Statistik Pemasukan (6 Bulan)</h3>
-                <p className="text-xs text-slate-500 mt-1">Pemasukan Bank Sampah</p>
+            {/* CHART.JS RENDER AREA */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+              <div className="text-center mb-8">
+                <h3 className="font-black text-slate-800 text-lg">Statistik Pemasukan (6 Bulan)</h3>
+                <p className="text-xs text-slate-500 mt-1">Pemasukan Pribadi Anda</p>
               </div>
-
-              {/* Kontainer Utama Grafik */}
-              <div className="flex h-64 w-full z-10">
-                
-                {/* Sumbu Y (Rupiah) */}
-                <div className="flex flex-col justify-between items-end pr-3 pb-6 border-r-2 border-slate-300 text-[10px] font-bold text-slate-500 w-16 shrink-0 bg-slate-50/50">
-                  {[chartData.maxVal, chartData.maxVal * 0.75, chartData.maxVal * 0.5, chartData.maxVal * 0.25, 0].map((val, i) => (
-                    <span key={i} className="leading-none transform translate-y-1">{formatK(val)}</span>
-                  ))}
-                </div>
-
-                {/* Kanvas & Sumbu X */}
-                <div className="relative flex-1 border-b-2 border-slate-300 mb-6">
-                  
-                  {/* Garis Grid Horizontal */}
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                    {[1, 2, 3, 4, 5].map((_, i) => (
-                      <div key={i} className={`w-full border-t ${i === 4 ? 'border-transparent' : 'border-slate-200'}`}></div>
-                    ))}
-                  </div>
-
-                  {/* Looping Tiang Bulan */}
-                  <div className="absolute inset-0 flex justify-around z-10">
-                    {chartData.data.map((item, idx) => {
-                      const heightPct = item.setor === 0 ? 0 : Math.max((item.setor / chartData.maxVal) * 100, 2);
-                      const isAktif = item.setor > 0;
-                      
-                      return (
-                        <div key={idx} className="relative h-full w-full flex justify-center group">
-                          
-                          {/* Batang Silinder 3D */}
-                          <div 
-                            className={`absolute bottom-0 w-6 md:w-12 rounded-t-sm border shadow-[2px_0_5px_rgba(0,0,0,0.1)] transition-all duration-700 ease-out z-10 ${isAktif ? barColors[idx] : 'bg-slate-100 border-slate-200 shadow-none'}`}
-                            style={{ height: `${heightPct}%` }}
-                          >
-                            {/* Pantulan Cahaya (Highlight 3D di pucuk batang) */}
-                            {isAktif && <div className="absolute inset-x-0 top-0 h-1 bg-white/60 rounded-t-sm"></div>}
-                            
-                            {/* Tooltip Hover Nilai Asli */}
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white border border-slate-300 text-slate-800 text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-md pointer-events-none z-20">
-                              {formatRp(item.setor)}
-                            </div>
-                          </div>
-                          
-                          {/* Label Sumbu X (Nama Bulan) */}
-                          <div className="absolute -bottom-6 w-full text-center">
-                            <span className={`text-[10px] font-bold ${isAktif ? 'text-slate-800' : 'text-slate-400'}`}>
-                              {item.label}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+              <div className="relative h-[250px] w-full">
+                <Bar data={chartData} options={chartOptions} />
               </div>
             </div>
-            {/* ------------------------------------------------------------- */}
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-black text-slate-800 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><span>💡</span> Cara Menabung Sampah</h3>

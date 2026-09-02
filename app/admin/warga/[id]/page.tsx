@@ -8,9 +8,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
-// REFACTOR MUTLAK: Mengubah params menjadi Promise sesuai standar Next.js 15+
 export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // FAKTA: Wajib di-await sebelum ID bisa digunakan!
   const resolvedParams = await params;
   const idWarga = resolvedParams.id;
 
@@ -26,7 +24,6 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // FAKTA: Gunakan idWarga yang sudah di-resolve
   const { data: wargaRes } = await supabaseAdmin
     .from("warga")
     .select("*, anggota_keluarga(*)")
@@ -36,7 +33,6 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
   async function verifikasiWarga(wargaId: string, statusBaru: string) {
     "use server";
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
     const { error } = await supabase.from("warga").update({ status_verifikasi: statusBaru }).eq("id", wargaId);
     if (error) throw new Error(error.message);
 
@@ -48,5 +44,24 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     }]);
   }
 
-  return <WargaDetailClient warga={wargaRes} aksiVerifikasi={verifikasiWarga} />;
+  // OPERASI MUTLAK: Fungsi pembaruan data tanpa merusak kunci NIK
+  async function editWarga(wargaId: string, dataBaru: any) {
+    "use server";
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // FAKTA: Hapus NIK dari payload untuk mencegah perubahan Kunci Utama (Primary Key)
+    const { nik, ...dataAman } = dataBaru;
+
+    const { error } = await supabase.from("warga").update(dataAman).eq("id", wargaId);
+    if (error) throw new Error(error.message);
+
+    await supabase.from("audit_log").insert([{
+      aktor: adminAktif.nama,
+      aksi: `Edit Data Warga`,
+      tabel_target: "warga",
+      detail: `Memperbarui biodata NIK ${wargaRes?.nik} (${dataAman.nama_lengkap})`
+    }]);
+  }
+
+  return <WargaDetailClient warga={wargaRes} aksiVerifikasi={verifikasiWarga} aksiEdit={editWarga} />;
 }

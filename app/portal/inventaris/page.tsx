@@ -35,18 +35,35 @@ export default async function InventarisPage() {
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  const [masterRes, riwayatRes] = await Promise.all([
+  const [masterRes, riwayatRes, semuaPinjamRes] = await Promise.all([
     supabaseAdmin.from("master_inventaris").select("*").order("nama_barang", { ascending: true }),
-    supabaseAdmin.from("peminjaman_inventaris").select("*").eq("warga_id", wargaAktif.id).order("tanggal_pinjam", { ascending: true })
+    supabaseAdmin.from("peminjaman_inventaris").select("*").eq("warga_id", wargaAktif.id).order("tanggal_pinjam", { ascending: true }),
+    // FAKTA: Tarik jadwal barang yang sudah SUKSES DIPINJAM orang lain untuk dilempar ke kalender warga
+    supabaseAdmin.from("peminjaman_inventaris").select("nama_barang, tanggal_pinjam").eq("status", "Disetujui")
   ]);
 
-  // REFACTOR: Eksekusi Validasi Lapis Baja
+  // REFACTOR MUTLAK: Eksekusi Validasi Lapis Baja Anti Double-Booking
   async function ajukanBooking(namaBarang: string, tanggal: string, keterangan: string) {
     "use server";
     const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
     
     const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     
+    // ----------------------------------------------------------------------------------
+    // PENGECEKAN DOUBLE-BOOKING DI BACKEND (Menahan serangan brutal / glitch)
+    // ----------------------------------------------------------------------------------
+    const { data: cekBentrok } = await supabaseAdmin
+      .from("peminjaman_inventaris")
+      .select("id")
+      .eq("nama_barang", namaBarang)
+      .eq("tanggal_pinjam", tanggal)
+      .eq("status", "Disetujui"); // Hanya mengecek yang sudah beneran di-ACC Pak RT
+
+    if (cekBentrok && cekBentrok.length > 0) {
+      throw new Error(`PERINGATAN: Fasilitas "${namaBarang}" sudah di-Booking & Disetujui untuk warga lain pada tanggal tersebut. Silakan pilih tanggal lain.`);
+    }
+    // ----------------------------------------------------------------------------------
+
     const { error } = await supabaseAdmin.from("peminjaman_inventaris").insert([{
       warga_id: sesi.id, // Gunakan ID asli
       nama_barang: namaBarang,
@@ -55,8 +72,13 @@ export default async function InventarisPage() {
       status: "Menunggu"
     }]);
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error("Database Error: " + error.message);
   }
 
-  return <InventarisClient masterBarang={masterRes.data || []} riwayat={riwayatRes.data || []} ajukanBooking={ajukanBooking} />;
+  return <InventarisClient 
+           masterBarang={masterRes.data || []} 
+           riwayat={riwayatRes.data || []} 
+           jadwalTerisi={semuaPinjamRes.data || []} // Lemparkan jadwal yang bentrok ke Client
+           ajukanBooking={ajukanBooking} 
+         />;
 }

@@ -6,9 +6,10 @@ import Link from "next/link";
 
 const FITUR_KTP_AKTIF = false; 
 
+// FIX: Tambahkan properti agama
 type AnggotaKeluarga = {
   nama: string; nik: string; hubungan: string; hubunganDetail: string;
-  tglLahir: string; tempatLahir: string; gender: string; pekerjaan: string;
+  tglLahir: string; tempatLahir: string; gender: string; agama: string; pekerjaan: string;
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
@@ -19,7 +20,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
   const [wa, setWa] = useState(""); const [pin, setPin] = useState(""); 
   const [statusTinggal, setStatusTinggal] = useState(""); const [detailAlamat, setDetailAlamat] = useState("");
   const [tglLahir, setTglLahir] = useState(""); const [tempatLahir, setTempatLahir] = useState("");
-  const [gender, setGender] = useState(""); const [pekerjaan, setPekerjaan] = useState("");
+  const [gender, setGender] = useState(""); const [agama, setAgama] = useState(""); const [pekerjaan, setPekerjaan] = useState("");
   const [pendapatan, setPendapatan] = useState(""); const [listrik, setListrik] = useState("");
   const [fileKtp, setFileKtp] = useState<File | null>(null); const [fileKk, setFileKk] = useState<File | null>(null);
   const [dokumenMenyusul, setDokumenMenyusul] = useState(false);
@@ -64,15 +65,9 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
     } catch (err: any) { throw new Error("Kompresi gambar gagal: " + err.message); }
   };
 
-  const tambahAnggota = () => setAnggota([...anggota, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", pekerjaan: "", fileKtp: null, ktpMenyusul: false }]);
+  const tambahAnggota = () => setAnggota([...anggota, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", agama: "", pekerjaan: "", fileKtp: null, ktpMenyusul: false }]);
   const ubahAnggota = (index: number, field: keyof AnggotaKeluarga, value: any) => { const dataBaru = [...anggota]; (dataBaru[index][field] as any) = value; setAnggota(dataBaru); };
   const hapusAnggota = (index: number) => setAnggota(anggota.filter((_, i) => i !== index));
-
-  const handleFileAnggota = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith("image/")) ubahAnggota(index, "fileKtp", file);
-    else e.target.value = "";
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,14 +111,15 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             nama_lengkap: a.nama, nik: a.nik, hubungan_keluarga: a.hubungan,
             hubungan_detail: a.hubungan === "Lainnya" ? a.hubunganDetail : null,
             tanggal_lahir: a.tglLahir, tempat_lahir: a.tempatLahir, jenis_kelamin: a.gender,
-            pekerjaan: a.pekerjaan, ktp_path: pathKtpAnggota
+            agama: a.agama, pekerjaan: a.pekerjaan, ktp_path: pathKtpAnggota // FIX INJEKSI AGAMA
           };
         })
       );
 
+      // FIX INJEKSI AGAMA
       const payloadKepala = {
         nik, nama_lengkap: nama, no_whatsapp: wa, pin, status_tinggal: statusTinggal, detail_alamat: detailAlamat,
-        tanggal_lahir: tglLahir, tempat_lahir: tempatLahir, jenis_kelamin: gender, pekerjaan,
+        tanggal_lahir: tglLahir, tempat_lahir: tempatLahir, jenis_kelamin: gender, agama, pekerjaan,
         pendapatan_bulanan: pendapatan, daya_listrik: listrik, ktp_path: pathKtpKK, kk_path: pathKkKK
       };
 
@@ -131,7 +127,7 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       await aksiRegister(payloadKepala, anggotaPayload);
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
-      window.location.href = "/login"; // FIX: Langsung banting cache
+      window.location.href = "/login"; 
       
     } catch (err: any) {
       alert("TERJADI KESALAHAN: " + err.message);
@@ -163,12 +159,21 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Tempat Lahir</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={tempatLahir} onChange={(e) => setTempatLahir(e.target.value)} /></div>
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Tanggal Lahir</label><input type="date" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={tglLahir} onChange={(e) => setTglLahir(e.target.value)} /></div>
               
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Jenis Kelamin</label>
-                <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={gender} onChange={(e) => setGender(e.target.value)}>
-                  <option value="" disabled>Pilih...</option><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option>
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Gender</label>
+                  <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={gender} onChange={(e) => setGender(e.target.value)}>
+                    <option value="" disabled>Pilih...</option><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Agama</label>
+                  <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={agama} onChange={(e) => setAgama(e.target.value)}>
+                    <option value="" disabled>Pilih...</option><option value="Islam">Islam</option><option value="Kristen/Katolik">Kristen/Katolik</option><option value="Hindu">Hindu</option><option value="Budha">Budha</option><option value="Konghucu">Konghucu</option>
+                  </select>
+                </div>
               </div>
+              
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Pekerjaan</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={pekerjaan} onChange={(e) => setPekerjaan(e.target.value)} /></div>
               
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">No. WhatsApp</label><input type="tel" minLength={10} maxLength={15} required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-bold" value={wa} onChange={(e) => setWa(e.target.value.replace(/[^0-9]/g, ''))} /></div>
@@ -259,8 +264,6 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
             
             {anggota.map((item, index) => {
               const umur = hitungUmur(item.tglLahir);
-              const wajibKtp = umur >= 17;
-
               return (
                 <div key={index} className="bg-slate-50 p-4 md:p-6 rounded-xl border-2 border-slate-200 shadow-sm relative pt-10">
                   <span className="absolute top-0 left-0 bg-slate-200 text-slate-600 text-[10px] font-black px-3 py-1 rounded-br-lg uppercase tracking-widest">Warga #{index + 1}</span>
@@ -276,17 +279,23 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
                       <input type="date" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded p-2.5 text-sm font-bold" value={item.tglLahir} onChange={(e) => ubahAnggota(index, "tglLahir", e.target.value)} />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Gender</label>
                         <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded p-2.5 text-xs font-bold" value={item.gender} onChange={(e) => ubahAnggota(index, "gender", e.target.value)}>
-                          <option value="" disabled>Pilih...</option><option value="Laki-laki">L</option><option value="Perempuan">P</option>
+                          <option value="" disabled>Pilih</option><option value="Laki-laki">L</option><option value="Perempuan">P</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Agama</label>
+                        <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded p-2.5 text-xs font-bold" value={item.agama} onChange={(e) => ubahAnggota(index, "agama", e.target.value)}>
+                          <option value="" disabled>Pilih</option><option value="Islam">Islam</option><option value="Kristen/Katolik">Kristen</option><option value="Hindu">Hindu</option><option value="Budha">Budha</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Hubungan</label>
                         <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded p-2.5 text-xs font-bold" value={item.hubungan} onChange={(e) => ubahAnggota(index, "hubungan", e.target.value)}>
-                          <option value="" disabled>Pilih...</option><option value="Istri">Istri</option><option value="Suami">Suami</option><option value="Anak">Anak</option><option value="Lainnya">Lainnya</option>
+                          <option value="" disabled>Pilih</option><option value="Istri">Istri</option><option value="Suami">Suami</option><option value="Anak">Anak</option><option value="Lainnya">Lainnya</option>
                         </select>
                       </div>
                     </div>

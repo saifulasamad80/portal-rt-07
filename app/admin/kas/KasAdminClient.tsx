@@ -2,7 +2,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-// INJEKSI MUTLAK: Static Import untuk jaminan tombol PDF berfungsi
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -13,7 +12,11 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
 
   const [wargaId, setWargaId] = useState("");
   const [tipe, setTipe] = useState("Pemasukan");
-  const [kategori, setKategori] = useState("Iuran Wajib Bulanan");
+  
+  // FIX MUTLAK: State untuk Jenis Iuran Pemasukan
+  const [jenisPemasukan, setJenisPemasukan] = useState("Iuran Wajib"); 
+  
+  const [kategori, setKategori] = useState("");
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
 
@@ -28,6 +31,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
     return bersih;
   };
 
+  // Hanya memindai "Iuran Wajib" untuk sistem penagihan tunggakan
   const getBulanTunggakan = (lastDateStr: string | null) => {
     if (!lastDateStr) return { bulan: 3, teks: "Belum Pernah Bayar / > 3 Bulan" };
     const now = new Date();
@@ -39,7 +43,8 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
   };
 
   const statusTunggakanWarga = wargaList.map(w => {
-    const iuranWarga = transaksiList.filter(t => t.warga_id === w.id && t.tipe_transaksi === "Pemasukan");
+    // Filter hanya transaksi Pemasukan berlabel Iuran Wajib
+    const iuranWarga = transaksiList.filter(t => t.warga_id === w.id && t.tipe_transaksi === "Pemasukan" && t.kategori.includes("Iuran Wajib"));
     const lastPayment = iuranWarga.length > 0 ? iuranWarga[0].created_at : null;
     const tunggakan = getBulanTunggakan(lastPayment);
     return { ...w, lastPayment, tunggakan };
@@ -49,10 +54,24 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
 
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitLoading(true);
     const uang = parseInt(nominal);
+    
+    // VALIDASI BRUTAL: Penguncian Minimum Rp 5.000 untuk Iuran Wajib
+    if (tipe === "Pemasukan" && jenisPemasukan === "Iuran Wajib" && uang < 5000) {
+      alert("PELANGGARAN SISTEM: Iuran Wajib tidak boleh kurang dari Rp 5.000!");
+      return;
+    }
+
+    setSubmitLoading(true);
+    
+    // Merakit nama kategori final
+    let kategoriFinal = kategori;
+    if (tipe === "Pemasukan") {
+      kategoriFinal = jenisPemasukan === "Iuran Wajib" ? "Iuran Wajib (Kas Bulanan)" : "Iuran Sosial (Sumbangan/Donasi)";
+    }
+
     try {
-      const res = await aksiSimpan(tipe, wargaId, kategori, uang, keterangan);
+      const res = await aksiSimpan(tipe, wargaId, kategoriFinal, uang, keterangan);
       if (res && !res.success) { alert("Gagal: " + res.message); } 
       else { setNominal(""); setKeterangan(""); router.refresh(); }
     } catch (error: any) { alert("Sistem Error: " + error.message); }
@@ -93,22 +112,12 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
 
         <div className="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
           <div><h1 className="text-2xl md:text-3xl font-black text-white mb-1">Manajemen Kas RT</h1><p className="text-slate-300 text-sm">Rekapitulasi iuran warga dan biaya operasional.</p></div>
-          {/* TOMBOL DESKTOP */}
-          <button 
-            onClick={handleExportPDF} 
-            disabled={pdfLoading || transaksiList.length === 0}
-            className={`hidden md:flex items-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all ${pdfLoading || transaksiList.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
-          >
+          <button onClick={handleExportPDF} disabled={pdfLoading || transaksiList.length === 0} className={`hidden md:flex items-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all ${pdfLoading || transaksiList.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
             {pdfLoading ? "Merakit PDF..." : "📄 Cetak Laporan PDF"}
           </button>
         </div>
 
-        {/* TOMBOL MOBILE */}
-        <button 
-            onClick={handleExportPDF} 
-            disabled={pdfLoading || transaksiList.length === 0}
-            className={`w-full md:hidden flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all mb-4 ${pdfLoading || transaksiList.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}
-          >
+        <button onClick={handleExportPDF} disabled={pdfLoading || transaksiList.length === 0} className={`w-full md:hidden flex items-center justify-center gap-2 px-5 py-3 rounded-lg font-black text-sm shadow-md transition-all mb-4 ${pdfLoading || transaksiList.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
             {pdfLoading ? "Merakit PDF..." : "📄 Cetak Laporan PDF"}
         </button>
 
@@ -122,37 +131,66 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1 h-fit border-t-[6px] border-t-slate-800">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">✍️ Catat Transaksi</h2>
             <form onSubmit={handleSimpan} className="space-y-4">
-              {/* INJEKSI MUTLAK: bg-white text-slate-900 PADA SEMUA INPUT */}
+              
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Tipe Transaksi</label>
-                <select className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold outline-none focus:border-blue-500" value={tipe} onChange={(e) => setTipe(e.target.value)}>
+                <select className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold outline-none focus:border-blue-500" value={tipe} onChange={(e) => { setTipe(e.target.value); setKategori(""); }}>
                   <option value="Pemasukan" className="text-emerald-600">Pemasukan (+)</option><option value="Pengeluaran" className="text-rose-600">Pengeluaran (-)</option>
                 </select>
               </div>
               
-              {tipe === "Pemasukan" && (
+              {tipe === "Pemasukan" ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Sumber Dana (Warga)</label>
+                    <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 outline-none focus:border-blue-500 text-sm" value={wargaId} onChange={(e) => setWargaId(e.target.value)}>
+                      <option value="" disabled>-- Wajib Pilih Warga --</option>
+                      {wargaList.map(w => <option key={w.id} value={w.id}>{w.nama_lengkap}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Jenis Iuran Masuk</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setJenisPemasukan("Iuran Wajib")} className={`py-2 px-3 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-all ${jenisPemasukan === 'Iuran Wajib' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300'}`}>Iuran Wajib</button>
+                      <button type="button" onClick={() => setJenisPemasukan("Iuran Sosial")} className={`py-2 px-3 rounded-lg text-xs font-black uppercase tracking-widest border-2 transition-all ${jenisPemasukan === 'Iuran Sosial' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-300'}`}>Iuran Sosial</button>
+                    </div>
+                  </div>
+                </>
+              ) : (
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Sumber Dana (Warga)</label>
-                  <select className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 outline-none focus:border-blue-500 text-sm" value={wargaId} onChange={(e) => setWargaId(e.target.value)}>
-                    <option value="">-- Pemasukan Umum / Eksternal --</option>
-                    {wargaList.map(w => <option key={w.id} value={w.id}>{w.nama_lengkap}</option>)}
-                  </select>
+                  <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Kategori Pengeluaran</label>
+                  <input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 outline-none focus:border-blue-500 text-sm" placeholder="Cth: Perbaikan Lampu / Tukang Sampah" value={kategori} onChange={(e) => setKategori(e.target.value)} />
                 </div>
               )}
 
-              <div><label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Kategori / Judul</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 outline-none focus:border-blue-500 text-sm" placeholder="Cth: Iuran Sampah / Perbaikan Lampu" value={kategori} onChange={(e) => setKategori(e.target.value)} /></div>
-              <div><label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Nominal (Rp)</label><input type="number" required min="100" className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-black text-lg outline-none focus:border-blue-500" placeholder="50000" value={nominal} onChange={(e) => setNominal(e.target.value)} /></div>
-              <div><label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Keterangan (Opsional)</label><input type="text" className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Catatan tambahan..." value={keterangan} onChange={(e) => setKeterangan(e.target.value)} /></div>
+              {/* FIX MUTLAK: Mengunci Input Minimal Angka */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wide flex justify-between">
+                  <span>Nominal (Rp)</span>
+                  {tipe === "Pemasukan" && jenisPemasukan === "Iuran Wajib" && <span className="text-rose-500">Min. Rp 5.000</span>}
+                </label>
+                <input 
+                  type="number" 
+                  required 
+                  min={tipe === "Pemasukan" && jenisPemasukan === "Iuran Wajib" ? "5000" : "100"} 
+                  className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-black text-lg outline-none focus:border-blue-500" 
+                  placeholder={tipe === "Pemasukan" && jenisPemasukan === "Iuran Wajib" ? "5000" : "50000"} 
+                  value={nominal} 
+                  onChange={(e) => setNominal(e.target.value)} 
+                />
+              </div>
+
+              <div><label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Keterangan (Opsional)</label><input type="text" className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder={tipe === "Pemasukan" ? "Cth: Bayar kas bulan Agustus..." : "Catatan bon/nota..."} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} /></div>
               
-              <button type="submit" disabled={submitLoading} className={`w-full text-white font-black rounded-lg p-3.5 shadow-md mt-4 transition-colors ${submitLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {submitLoading ? "Mencatat..." : "Simpan ke Buku Kas"}
+              <button type="submit" disabled={submitLoading} className={`w-full text-white font-black rounded-lg p-3.5 shadow-md mt-4 transition-colors uppercase tracking-widest ${submitLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'}`}>
+                {submitLoading ? "Mencatat..." : "Simpan Transaksi"}
               </button>
             </form>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
             <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-200 pb-3">📒 Buku Besar Transaksi</h2>
-            <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto rounded-xl border border-slate-200 custom-scrollbar">
               <table className="w-full text-left border-collapse text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-800 text-white text-xs">
                   <tr><th className="p-4 border-b-2 border-slate-900">Tanggal & Kategori</th><th className="p-4 border-b-2 border-slate-900">Detail Sumber/Keterangan</th><th className="p-4 border-b-2 border-slate-900 text-right">Nominal</th></tr>
@@ -165,11 +203,15 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
                       <tr key={t.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                         <td className="p-4 align-top">
                           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{new Date(t.created_at).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'})}</div>
-                          <div className={`font-black mt-1.5 text-xs px-2 py-1 inline-block rounded-md ${t.tipe_transaksi === 'Pemasukan' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{t.kategori}</div>
+                          <div className={`font-black mt-1.5 text-[10px] px-2 py-1 inline-block rounded-md uppercase tracking-wide ${t.tipe_transaksi === 'Pemasukan' ? (t.kategori.includes('Wajib') ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700') : 'bg-rose-100 text-rose-700'}`}>{t.kategori}</div>
                         </td>
                         <td className="p-4 align-top">
-                          {t.warga_id && <div className="font-black text-slate-800 mb-1">{t.warga?.nama_lengkap}</div>}
-                          <div className="text-slate-500 text-xs">{t.keterangan || <span className="italic opacity-50">Tanpa keterangan</span>}</div>
+                          {t.warga_id ? (
+                            <div className="font-black text-slate-800 mb-1">{t.warga?.nama_lengkap}</div>
+                          ) : (
+                            <div className="font-black text-slate-500 mb-1 italic">Dana Eksternal / Operasional</div>
+                          )}
+                          <div className="text-slate-500 text-xs">{t.keterangan || <span className="italic opacity-50">Tanpa keterangan tambahan</span>}</div>
                         </td>
                         <td className={`p-4 align-top text-right font-mono font-black text-sm md:text-base ${t.tipe_transaksi === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {t.tipe_transaksi === 'Pemasukan' ? '+' : '-'} Rp {t.nominal.toLocaleString('id-ID')}
@@ -183,18 +225,19 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
           </div>
         </div>
 
+        {/* RADAR TUNGGAKAN TETAP JALAN - KINI HANYA MENGHITUNG IURAN WAJIB */}
         <div className="bg-rose-50 p-6 md:p-8 rounded-2xl shadow-sm border border-rose-200 mt-8 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-rose-200 pb-4 gap-4">
-            <div><h2 className="font-black text-xl text-rose-800 flex items-center gap-2">📡 Radar Tunggakan Iuran Warga</h2><p className="text-xs text-rose-600 font-medium mt-1">Estimasi keterlambatan berdasarkan jarak bulan dari pembayaran terakhir.</p></div>
+            <div><h2 className="font-black text-xl text-rose-800 flex items-center gap-2">📡 Radar Tunggakan Iuran Wajib</h2><p className="text-xs text-rose-600 font-medium mt-1">Sistem hanya melacak keterlambatan warga berdasarkan setoran "Iuran Wajib".</p></div>
             <div className="bg-white border border-rose-200 px-4 py-2 rounded-lg text-rose-700 text-xs font-black shadow-sm shrink-0">Total Nunggak: {wargaNunggak.length} Warga</div>
           </div>
           {wargaNunggak.length === 0 ? (
-            <div className="text-center p-8 bg-white/60 rounded-xl border border-rose-100"><span className="text-4xl mb-3 block">🎉</span><p className="text-emerald-600 font-black">Luar Biasa! Seluruh warga tertib membayar iuran bulan ini.</p></div>
+            <div className="text-center p-8 bg-white/60 rounded-xl border border-rose-100"><span className="text-4xl mb-3 block">🎉</span><p className="text-emerald-600 font-black">Luar Biasa! Seluruh warga tertib membayar Iuran Wajib bulan ini.</p></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {wargaNunggak.map(w => {
-                const waPesan = encodeURIComponent(`Halo Bapak/Ibu ${w.nama_lengkap},\n\nKami dari Pengurus RT 07 menginformasikan bahwa berdasarkan catatan kas, belum ada pembayaran iuran atas nama Bapak/Ibu untuk *${w.tunggakan.teks}* terakhir.\n\nMohon konfirmasi dan partisipasinya untuk kas lingkungan kita. Terima kasih! 🙏`);
+                const waPesan = encodeURIComponent(`Halo Bapak/Ibu ${w.nama_lengkap},\n\nKami dari Pengurus RT 07 menginformasikan bahwa berdasarkan catatan kas, belum ada pembayaran *Iuran Wajib Bulanan* atas nama Bapak/Ibu untuk *${w.tunggakan.teks}* terakhir.\n\nMohon konfirmasi dan partisipasinya untuk kelancaran operasional lingkungan kita. Terima kasih! 🙏`);
                 const waLink = w.no_whatsapp ? `https://wa.me/${formatWA(w.no_whatsapp)}?text=${waPesan}` : '#';
                 return (
                   <div key={w.id} className="bg-white p-4 rounded-xl shadow-sm border border-rose-100 flex flex-col justify-between">
@@ -204,7 +247,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
                       <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-100 mb-4">
                         <div className="text-[9px] text-rose-600 font-black uppercase tracking-widest mb-1">Status Keterlambatan:</div>
                         <div className="font-black text-rose-700 text-sm">{w.tunggakan.teks}</div>
-                        <div className="text-[10px] text-slate-500 mt-1">Terakhir bayar: {w.lastPayment ? new Date(w.lastPayment).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) : 'Tidak ada data'}</div>
+                        <div className="text-[10px] text-slate-500 mt-1">Terakhir bayar Wajib: {w.lastPayment ? new Date(w.lastPayment).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) : 'Tidak ada data'}</div>
                       </div>
                     </div>
                     {w.no_whatsapp ? (
