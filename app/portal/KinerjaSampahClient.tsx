@@ -42,6 +42,7 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
   return (
     <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 relative overflow-hidden group/wrapper">
       
+      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full blur-3xl opacity-50 pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6 relative z-10">
@@ -63,10 +64,9 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
         </div>
       </div>
 
-      {/* FIX MUTLAK CSS: Parent dirubah jadi blok absolut murni tanpa flex layout yang menghancurkan persentase */}
       <div className="relative h-64 w-full mt-4 z-10">
         
-        {/* Wadah Garis Grid */}
+        {/* Wadah Garis Grid Sumbu Y */}
         <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-6">
           {[chartData.maxVal, chartData.maxVal * 0.75, chartData.maxVal * 0.5, chartData.maxVal * 0.25, 0].map((val, i) => (
             <div key={i} className="flex items-center w-full gap-4 opacity-70 h-0">
@@ -76,41 +76,48 @@ export default function KinerjaSampahClient({ dataSampah }: { dataSampah: any[] 
           ))}
         </div>
 
-        {/* Wadah Tiang Grafik */}
+        {/* Wadah Tiang Grafik Sumbu X */}
         <div className="absolute inset-0 flex justify-between items-end pl-14 pr-2 md:pr-8 z-10 pb-6">
           {chartData.data.map((item, idx) => {
+            // Minimal tinggi 2% biar garis tiang tetap keliatan walau kecil banget
             const heightPct = item.nominal === 0 ? 0 : Math.max((item.nominal / chartData.maxVal) * 100, 2);
             const isAktif = item.nominal > 0;
 
             return (
-              <div key={idx} className="relative flex flex-col items-center justify-end h-full w-full group">
+              // Cell untuk 1 bulan (Tinggi full dari garis 0 sampai atas)
+              <div key={idx} className="relative h-full w-full group">
                 
-                {/* Ghost Bar untuk kemudahan Hover */}
-                <div className="absolute bottom-0 w-10 md:w-16 h-full bg-transparent group-hover:bg-slate-50/60 rounded-t-xl transition-colors pointer-events-auto"></div>
+                {/* Ghost Area untuk deteksi Hover (Lebar) */}
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 md:w-16 h-full bg-transparent group-hover:bg-slate-50/60 rounded-t-xl transition-colors cursor-pointer"></div>
 
-                {/* Tiang Utama */}
+                {/* FIX MUTLAK: Tiang Utama menggunakan ABSOLUTE BOTTOM-0 agar tidak amblas */}
                 <div
-                  className={`relative w-8 md:w-14 rounded-t-lg transition-all duration-1000 ease-out flex justify-center pointer-events-none ${isAktif ? 'bg-gradient-to-t from-emerald-500 to-teal-400 shadow-[0_4px_15px_rgba(20,184,166,0.3)] group-hover:from-emerald-400 group-hover:to-teal-300 group-hover:shadow-[0_4px_20px_rgba(20,184,166,0.5)]' : 'bg-transparent'}`}
+                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-8 md:w-12 rounded-t-lg transition-all duration-1000 ease-out pointer-events-none
+                  ${isAktif ? 'bg-gradient-to-t from-emerald-500 to-teal-400 shadow-[0_4px_15px_rgba(20,184,166,0.3)] group-hover:from-emerald-400 group-hover:to-teal-300 group-hover:shadow-[0_4px_20px_rgba(20,184,166,0.5)]' : 'bg-transparent'}`}
                   style={{ height: `${heightPct}%` }}
                 >
+                  {/* Label KG (Nangkring di pucuk tiang) */}
                   {isAktif && (
-                    <div className="absolute -top-7 text-[10px] font-black text-slate-600 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md shadow-sm border border-slate-100 transition-transform duration-300 group-hover:-translate-y-1">
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-slate-600 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded shadow-sm border border-slate-100 transition-transform duration-300 group-hover:-translate-y-1">
                       {item.kg.toFixed(1)} Kg
                     </div>
                   )}
 
+                  {/* Tooltip Nominal Uang (Pop-up saat di-hover) */}
                   {isAktif && (
-                    <div className="absolute -top-16 bg-slate-900 text-white text-[11px] font-black px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl transform translate-y-2 group-hover:translate-y-0 whitespace-nowrap z-20">
+                    <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl whitespace-nowrap z-20 pointer-events-none transform translate-y-2 group-hover:translate-y-0">
                       {formatRp(item.nominal)}
                       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 rotate-45"></div>
                     </div>
                   )}
                 </div>
                 
-                {/* Label Sumbu X */}
-                <span className={`absolute -bottom-6 text-[10px] font-bold uppercase tracking-widest transition-colors ${isAktif ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-600'}`}>
-                  {item.label}
-                </span>
+                {/* Label Sumbu X (Nama Bulan) */}
+                <div className="absolute -bottom-6 w-full text-center">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isAktif ? 'text-slate-800' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                    {item.label}
+                  </span>
+                </div>
               </div>
             );
           })}
