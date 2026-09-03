@@ -13,9 +13,12 @@ export function proxy(request: NextRequest) {
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval';
-    style-src 'self'; 
+    style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://*.supabase.co;
     font-src 'self' data:;
+    connect-src 'self' https://*.supabase.co https://fcm.googleapis.com https://android.googleapis.com https://updates.push.services.mozilla.com https://web.push.apple.com;
+    worker-src 'self';
+    manifest-src 'self';
     object-src 'none';
     base-uri 'self';
     form-action 'self';

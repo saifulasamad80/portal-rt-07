@@ -5,11 +5,19 @@ import { useRouter } from "next/navigation";
 
 const FITUR_KTP_AKTIF = false;
 
-// INJEKSI: Tambahkan properti statistik ke parameter
+type Notifikasi = { tipe: "sukses" | "gagal"; pesan: string } | null;
+
 export default function AdminDashboardClient({ adminAktif, wargaList, statistik, prosesValidasi, logoutAction }: { adminAktif: any, wargaList: any[], statistik: any, prosesValidasi: any, logoutAction: any }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
   const [isLocked, setIsLocked] = useState(false);
+  const [notifikasi, setNotifikasi] = useState<Notifikasi>(null);
+
+  const namaAdmin = String(adminAktif?.nama || "Pengurus");
+  const sampahKg = Number(statistik?.sampahKg) || 0;
+  const sampahRp = Number(statistik?.sampahRp) || 0;
+  const kurbanRp = Number(statistik?.kurbanRp) || 0;
+  const jumlahWargaSah = Number(statistik?.warga) || 0;
 
   useEffect(() => {
     const BATAS_WAKTU_IDLE = 10 * 60 * 1000; 
@@ -47,8 +55,29 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
     } else if (status !== "Menunggu" && !confirm(`Yakin menandai ${namaWarga} sebagai: ${status}?`)) { return; }
 
     setLoadingId(idWarga);
-    try { await prosesValidasi(idWarga, status); router.refresh(); } 
-    catch (error: any) { alert("Gagal memproses validasi: " + error.message); }
+    setNotifikasi(null);
+    try {
+      // Server Action memakai Result Object Pattern: tidak pernah melempar
+      // exception, jadi keberhasilan dibaca dari properti success.
+      const hasil = await prosesValidasi(idWarga, status);
+
+      if (hasil?.success) {
+        setNotifikasi({ tipe: "sukses", pesan: hasil.message || `${namaWarga} berhasil divalidasi.` });
+        router.refresh();
+      } else {
+        setNotifikasi({
+          tipe: "gagal",
+          pesan: hasil?.message || "Validasi gagal diproses tanpa keterangan dari server.",
+        });
+        // Data di layar mungkin sudah usang (mis. baris dihapus admin lain).
+        router.refresh();
+      }
+    } catch (error: any) {
+      setNotifikasi({
+        tipe: "gagal",
+        pesan: "Jaringan atau server tidak merespons: " + (error?.message || "kesalahan tidak diketahui"),
+      });
+    }
     setLoadingId("");
   };
 
@@ -69,12 +98,12 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
         <div className="bg-slate-900 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-xl font-black text-white uppercase shadow-inner">
-              {adminAktif.nama.charAt(0)}
+              {namaAdmin.charAt(0)}
             </div>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-white mb-1">Pusat Komando RT 07</h1>
               <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded w-fit mt-1 border border-slate-700">
-                Akses: {adminAktif.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
+                Akses: {adminAktif?.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
               </p>
             </div>
           </div>
@@ -85,32 +114,41 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
           </form>
         </div>
 
+        {notifikasi && (
+          <div className={`rounded-xl border p-4 flex items-start justify-between gap-4 shadow-sm ${notifikasi.tipe === 'sukses' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+            <div className="flex items-start gap-3">
+              <span className="text-lg leading-none mt-0.5">{notifikasi.tipe === 'sukses' ? '✅' : '⚠️'}</span>
+              <p className="text-xs font-bold leading-relaxed">{notifikasi.pesan}</p>
+            </div>
+            <button onClick={() => setNotifikasi(null)} className="text-[10px] font-black uppercase tracking-widest opacity-60 hover:opacity-100 shrink-0">Tutup</button>
+          </div>
+        )}
+
         {/* HUD STATISTIK (Merespons coretan "Di Depan" Pak RT) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
             <div className="text-xl mb-1">👥</div>
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Warga Sah</div>
-            <div className="text-lg font-black text-blue-600">{statistik.warga} KK</div>
+            <div className="text-lg font-black text-blue-600">{jumlahWargaSah} KK</div>
           </div>
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center border-b-4 border-b-emerald-500">
             <div className="text-xl mb-1">♻️</div>
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sampah Berkurang</div>
-            <div className="text-lg font-black text-emerald-600">{statistik.sampahKg.toFixed(1)} Kg</div>
+            <div className="text-lg font-black text-emerald-600">{sampahKg.toFixed(1)} Kg</div>
           </div>
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
             <div className="text-xl mb-1">💸</div>
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Bank Sampah</div>
-            <div className="text-lg font-black text-amber-500">Rp {(statistik.sampahRp / 1000).toFixed(0)}k</div>
+            <div className="text-lg font-black text-amber-500">Rp {(sampahRp / 1000).toFixed(0)}k</div>
           </div>
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center border-b-4 border-b-pink-500">
             <div className="text-xl mb-1">🐄</div>
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dana Qurban</div>
-            <div className="text-lg font-black text-pink-600">Rp {(statistik.kurbanRp / 1000000).toFixed(1)} Jt</div>
+            <div className="text-lg font-black text-pink-600">Rp {(kurbanRp / 1000000).toFixed(1)} Jt</div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-2">
-          {/* ... (Semua 12 Bento Box Link Tetap Sama Persis) ... */}
           <Link href="/admin/warga" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3 text-blue-500">👥</div><h2 className="font-black text-slate-800 text-sm">Buku Induk Warga</h2><p className="text-[10px] text-slate-500 mt-1">Data demografi & NIK</p>
           </Link>
@@ -144,8 +182,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
           <Link href="/admin/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
             <div className="text-3xl mb-3">🔦</div><h2 className="font-black text-white text-sm">Jadwal Siskamling</h2><p className="text-[10px] text-slate-400 mt-1">Atur regu ronda malam</p>
           </Link>
+          <Link href="/admin/ibu-ibu" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-rose-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
+            <div className="text-3xl mb-3">🌸</div><h2 className="font-black text-slate-800 text-sm">Modul Ibu-ibu</h2><p className="text-[10px] text-slate-500 mt-1">Posyandu & arisan</p>
+          </Link>
           
-          {adminAktif.role === 'webmaster' ? (
+          {adminAktif?.role === 'webmaster' ? (
             <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
               <div className="text-3xl mb-3">🔍</div><h2 className="font-black text-white text-sm">Log Audit</h2><p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
             </Link>
@@ -156,7 +197,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             </div>
           )}
 
-          {adminAktif.role === 'webmaster' ? (
+          {adminAktif?.role === 'webmaster' ? (
             <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
               <div className="text-3xl mb-3 text-indigo-500">👔</div><h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2><p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun</p>
             </Link>
@@ -170,7 +211,6 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
 
         <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
           <h2 className="text-lg font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">Validasi Pendaftaran Warga Baru</h2>
-          {/* ... (Tabel Validasi Warga Tetap Sama Persis) ... */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
@@ -189,14 +229,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
                 ) : (
                   wargaList.map((w) => (
                     <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-black text-slate-800">{w.nama_lengkap}</td>
-                      <td className="p-4"><div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik}</div><div className="text-[11px] text-slate-600 font-mono mt-1">WA: {w.no_whatsapp}</div></td>
-                      <td className="p-4"><span className="bg-slate-200 text-slate-700 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider block w-fit mb-1.5">{w.status_tinggal}</span><div className="text-[11px] text-slate-600 truncate max-w-[150px] leading-relaxed">{w.detail_alamat}</div></td>
+                      <td className="p-4 font-black text-slate-800">{w.nama_lengkap || <span className="italic font-medium text-slate-400">Tanpa nama</span>}</td>
+                      <td className="p-4"><div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik || '-'}</div><div className="text-[11px] text-slate-600 font-mono mt-1">WA: {w.no_whatsapp || '-'}</div></td>
+                      <td className="p-4"><span className="bg-slate-200 text-slate-700 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider block w-fit mb-1.5">{w.status_tinggal || 'Tidak diisi'}</span><div className="text-[11px] text-slate-600 truncate max-w-[150px] leading-relaxed">{w.detail_alamat || '-'}</div></td>
                       <td className="p-4">{(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? <span className="text-[11px] text-slate-400 font-medium">Sendiri</span> : <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-1">{w.anggota_keluarga.map((ak: any, idx: number) => <li key={idx}><span className="font-bold">{ak.nama_lengkap}</span></li>)}</ul>}</td>
                       <td className="p-4 text-center"><span className={`font-black text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{w.status_verifikasi}</span></td>
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-2">
-                          <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">Sah</button>
+                          <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">{loadingId === w.id ? '...' : 'Sah'}</button>
                           <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">Tolak</button>
                         </div>
                       </td>

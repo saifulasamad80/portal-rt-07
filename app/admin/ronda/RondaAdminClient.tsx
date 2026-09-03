@@ -11,22 +11,34 @@ export default function RondaAdminClient({ adminAktif, jadwalList, wargaList, ak
   const [tanggal, setTanggal] = useState("");
   const [wargaId, setWargaId] = useState("");
 
+  // Server Action memakai Result Object Pattern: keberhasilan dibaca dari
+  // properti success, bukan dari ada/tidaknya exception.
   const handleSimpan = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitLoading(true);
     try {
-      await aksiSimpan(wargaId, tanggal);
-      setWargaId(""); 
-      alert("Jadwal berhasil ditambahkan!");
-      router.refresh();
-    } catch (error: any) { alert("Gagal menyimpan jadwal: " + error.message); }
+      const hasil = await aksiSimpan(wargaId, tanggal);
+      if (hasil?.success) {
+        setWargaId("");
+        alert(hasil.message || "Jadwal berhasil ditambahkan!");
+        router.refresh();
+      } else {
+        alert("Gagal menyimpan jadwal: " + (hasil?.message || "server tidak memberi keterangan."));
+      }
+    } catch (error: any) { alert("Gagal menyimpan jadwal: " + (error?.message || "kesalahan tidak diketahui")); }
     setSubmitLoading(false);
   };
 
   const handleHapus = async (id: string, namaWarga: string) => {
-    if (!confirm(`Yakin ingin membatalkan jadwal ronda untuk ${namaWarga}?`)) return;
+    if (!confirm(`Yakin ingin membatalkan jadwal ronda untuk ${namaWarga || "warga ini"}?`)) return;
     setDeleteLoadingId(id);
-    try { await aksiHapus(id); router.refresh(); } catch (error: any) { alert("Gagal menghapus jadwal: " + error.message); }
+    try {
+      const hasil = await aksiHapus(id);
+      if (!hasil?.success) {
+        alert("Gagal menghapus jadwal: " + (hasil?.message || "server tidak memberi keterangan."));
+      }
+      router.refresh();
+    } catch (error: any) { alert("Gagal menghapus jadwal: " + (error?.message || "kesalahan tidak diketahui")); }
     setDeleteLoadingId("");
   };
 

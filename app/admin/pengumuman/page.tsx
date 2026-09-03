@@ -3,6 +3,7 @@ import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import PengumumanAdminClient from "./PengumumanAdminClient";
+import { kirimNotifikasiKeSemuaWarga } from "@/lib/notifikasi-push";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -63,14 +64,25 @@ export default async function AdminPengumumanPage() {
     const sesi = await pastikanOtentikasiAdmin(); // BARRIER AKTIF
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { error } = await supabase.from("pengumuman_rt").insert([
+    const { data: barisBaru, error } = await supabase.from("pengumuman_rt").insert([
       { judul, deskripsi, link_dokumen: linkDokumen, rt_id: rtIdAktif }
-    ]);
+    ]).select("id").single();
     if (error) throw new Error(error.message);
 
     await supabase.from("audit_log").insert([{
       aktor: sesi.nama, aksi: "Buat Pengumuman Baru", tabel_target: "pengumuman_rt", detail: `Judul: ${judul}`, rt_id: rtIdAktif
     }]);
+
+    try {
+      await kirimNotifikasiKeSemuaWarga({
+        title: "Pengumuman baru dari pengurus RT",
+        body: judul.length > 120 ? `${judul.slice(0, 117)}...` : judul,
+        url: "/",
+        tag: `pengumuman-${barisBaru?.id || "baru"}`,
+      });
+    } catch (pushErr) {
+      console.error("Pengumuman tersimpan, namun notifikasi push gagal:", pushErr);
+    }
   }
 
   async function editPengumuman(id: string, judul: string, deskripsi: string, linkDokumen: string) {

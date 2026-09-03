@@ -12,11 +12,21 @@ export async function POST(req: Request) {
     const { nik, pin, newPin } = await req.json();
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    const { data: warga, error } = await supabase
+    let { data: warga, error } = await supabase
       .from("warga")
-      .select("id, nik, nama_lengkap, rt_id, pin, status_verifikasi, percobaan_gagal, terkunci_sampai")
+      .select("id, nik, nama_lengkap, rt_id, pin, status_verifikasi, status_aktif, percobaan_gagal, terkunci_sampai")
       .eq("nik", nik)
       .single();
+
+    if (error && (error.message || "").toLowerCase().includes("status_aktif")) {
+      const ulang = await supabase
+        .from("warga")
+        .select("id, nik, nama_lengkap, rt_id, pin, status_verifikasi, percobaan_gagal, terkunci_sampai")
+        .eq("nik", nik)
+        .single();
+      warga = ulang.data as any;
+      error = ulang.error;
+    }
 
     if (error || !warga) return NextResponse.json({ success: false, message: "NIK tidak terdaftar di sistem." }, { status: 401 });
 
@@ -26,6 +36,7 @@ export async function POST(req: Request) {
 
     if (warga.status_verifikasi === "Menunggu") return NextResponse.json({ success: false, message: "AKSES DITOLAK: Pendaftaran masih dalam antrean." }, { status: 403 });
     if (warga.status_verifikasi === "Ditolak") return NextResponse.json({ success: false, message: "AKSES DITOLAK: Pendaftaran ditolak RT." }, { status: 403 });
+    if (warga.status_aktif === false) return NextResponse.json({ success: false, message: "AKSES DITOLAK: Akun ini sudah dinonaktifkan (arsip kependudukan)." }, { status: 403 });
 
     let isMatch = false;
     let isLegacyPlaintext = false;

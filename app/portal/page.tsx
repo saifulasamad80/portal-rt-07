@@ -3,12 +3,23 @@ import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
+import KartuLayanan from "@/components/portal/KartuLayanan";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const FITUR_LAPOR_AKTIF = false;
+
+function formatTanggalId(nilai: string) {
+  return new Date(nilai).toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 export default async function PortalWarga() {
   const cookieStore = await cookies();
@@ -17,72 +28,50 @@ export default async function PortalWarga() {
   if (!token) redirect("/login");
 
   let wargaAktif: any;
-  try { 
-    const { payload } = await jwtVerify(token, JWT_SECRET); 
-    wargaAktif = payload; 
-  } catch (error) { 
-    redirect("/login"); 
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    wargaAktif = payload;
+  } catch {
+    redirect("/login");
   }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  
-  // -------------------------------------------------------------------------
-  // INJEKSI MUTLAK: MESIN WAKTU & RADAR PERINGATAN DINI (WIB - Jakarta)
-  // -------------------------------------------------------------------------
+
   const currDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
   const currentMonth = currDate.getMonth() + 1;
   const currentDay = currDate.getDate();
-  const todayStr = `${currDate.getFullYear()}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
-  
+  const todayStr = `${currDate.getFullYear()}-${String(currentMonth).padStart(2, "0")}-${String(currentDay).padStart(2, "0")}`;
+
   const threeDaysAgo = new Date(currDate);
   threeDaysAgo.setDate(currDate.getDate() - 3);
-  const threeDaysAgoStr = `${threeDaysAgo.getFullYear()}-${String(threeDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(threeDaysAgo.getDate()).padStart(2, '0')}`;
+  const threeDaysAgoStr = `${threeDaysAgo.getFullYear()}-${String(threeDaysAgo.getMonth() + 1).padStart(2, "0")}-${String(threeDaysAgo.getDate()).padStart(2, "0")}`;
 
-  // 1. Tarik Data Utama Warga + Anggota Keluarga (Untuk Cek Ultah)
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
     .select("*, anggota_keluarga(*)")
     .eq("id", wargaAktif.id)
     .single();
 
-  // 2. Tarik Status Verifikasi Carik
-  const { data: statusCarik } = await supabaseAdmin
-    .from("sensus_kesejahteraan")
-    .select("id")
-    .eq("warga_id", wargaAktif.id)
-    .maybeSingle();
+  if (profilWarga?.status_aktif === false) {
+    redirect("/api/warga/logout");
+  }
 
-  // 3. Tarik Jadwal Ronda (Filter: Mulai hari ini ke depan)
-  const { data: jadwalRonda } = await supabaseAdmin
-    .from("jadwal_ronda")
-    .select("*")
-    .eq("warga_id", wargaAktif.id)
-    .gte("tanggal_tugas", todayStr)
-    .order("tanggal_tugas", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  // 4. Tarik Pengumuman Terbaru (Filter: 3 Hari Terakhir)
-  const { data: pengumumanBaru } = await supabaseAdmin
-    .from("pengumuman_rt")
-    .select("id, judul, tanggal_publikasi")
-    .gte("tanggal_publikasi", threeDaysAgoStr)
-    .order("tanggal_publikasi", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: statusCarik }, { data: jadwalRonda }, { data: pengumumanBaru }, { data: iuranTerakhir }] = await Promise.all([
+    supabaseAdmin.from("sensus_kesejahteraan").select("id").eq("warga_id", wargaAktif.id).maybeSingle(),
+    supabaseAdmin.from("jadwal_ronda").select("*").eq("warga_id", wargaAktif.id).gte("tanggal_tugas", todayStr).order("tanggal_tugas", { ascending: true }).limit(1).maybeSingle(),
+    supabaseAdmin.from("pengumuman_rt").select("id, judul, tanggal_publikasi").gte("tanggal_publikasi", threeDaysAgoStr).order("tanggal_publikasi", { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from("kas_rt").select("created_at, nominal, tipe_transaksi").eq("warga_id", wargaAktif.id).eq("tipe_transaksi", "Pemasukan").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
 
   const isDataTervalidasiWarga = !!statusCarik;
 
-  // MESIN PENGECEKAN ULANG TAHUN (KK & Anggota)
-  let birthdayNames: string[] = [];
-  
+  const birthdayNames: string[] = [];
   if (profilWarga?.tanggal_lahir) {
     const bdate = new Date(profilWarga.tanggal_lahir);
     if (bdate.getMonth() + 1 === currentMonth && bdate.getDate() === currentDay) {
       birthdayNames.push(`Anda (${profilWarga.nama_lengkap})`);
     }
   }
-  
   if (profilWarga?.anggota_keluarga) {
     profilWarga.anggota_keluarga.forEach((ak: any) => {
       if (ak.tanggal_lahir) {
@@ -93,190 +82,193 @@ export default async function PortalWarga() {
       }
     });
   }
-  // -------------------------------------------------------------------------
 
   const handleLogout = async () => {
     "use server";
-    const cookieStore = await cookies();
-    cookieStore.delete("warga_session");
+    const store = await cookies();
+    store.delete("warga_session");
     redirect("/");
   };
 
+  const namaTampil = profilWarga?.nama_lengkap || wargaAktif.nama;
+  const inisial = String(namaTampil || "W").charAt(0).toUpperCase();
+  const jumlahJiwa = 1 + (profilWarga?.anggota_keluarga?.length || 0);
+
+  let statusIuran = "Belum ada catatan iuran";
+  let aksenIuran = "text-slate-600";
+  if (iuranTerakhir?.created_at) {
+    const lastDate = new Date(iuranTerakhir.created_at);
+    const diffMonths = (currDate.getFullYear() - lastDate.getFullYear()) * 12 + (currDate.getMonth() - lastDate.getMonth());
+    if (diffMonths <= 0) {
+      statusIuran = "Iuran bulan ini tercatat lunas";
+      aksenIuran = "text-emerald-700";
+    } else if (diffMonths >= 3) {
+      statusIuran = `Tunggakan ${diffMonths} bulan`;
+      aksenIuran = "text-rose-700";
+    } else {
+      statusIuran = `Menunggak ${diffMonths} bulan`;
+      aksenIuran = "text-amber-700";
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 font-sans">
-      
-      <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6 mt-2">
-        
-        {/* HEADER UTAMA */}
-        <div className="bg-slate-900 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
+    <div className="min-h-screen bg-[#eef2f6] pb-20 font-sans text-slate-800">
+      <header className="bg-slate-900">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 md:py-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-xl font-black text-white uppercase shadow-inner shrink-0">
-              {(profilWarga?.nama_lengkap || wargaAktif.nama).charAt(0)}
+            <div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-inner">
+              {inisial}
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-black text-white mb-1">
-                Halo, {profilWarga?.nama_lengkap || wargaAktif.nama}!
-              </h1>
-              <div className="flex flex-wrap gap-2 mt-1">
-                <span className="text-blue-400 font-bold text-[10px] uppercase tracking-widest bg-slate-800 px-2.5 py-1 rounded border border-slate-700 shadow-sm">
-                  NIK: {wargaAktif.nik}
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-300 mb-1">Portal Warga · Wargaku</p>
+              <h1 className="text-2xl font-bold text-white leading-tight">Halo, {namaTampil}</h1>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-200 bg-white/10 px-2.5 py-1 rounded-md">
+                  NIK {wargaAktif.nik}
                 </span>
-                <span className="text-emerald-400 font-bold text-[10px] uppercase tracking-widest bg-slate-800 px-2.5 py-1 rounded border border-slate-700 shadow-sm">
-                  {profilWarga?.status_tinggal || "Warga Aktif"}
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200 bg-emerald-500/15 px-2.5 py-1 rounded-md">
+                  {profilWarga?.status_tinggal || "Warga aktif"}
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-200 bg-white/10 px-2.5 py-1 rounded-md">
+                  {jumlahJiwa} jiwa dalam KK
                 </span>
               </div>
             </div>
           </div>
-          <form action={handleLogout} className="w-full md:w-auto mt-2 md:mt-0">
-            <button type="submit" className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-3 px-6 rounded-lg transition-all shadow-md active:scale-95">
-              Keluar Portal
-            </button>
-          </form>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <TombolNotifikasiPush />
+            <form action={handleLogout}>
+              <button type="submit" className="w-full bg-white/10 hover:bg-rose-600 text-white text-xs font-semibold py-2.5 px-5 rounded-lg border border-white/10 transition-colors">
+                Keluar
+              </button>
+            </form>
+          </div>
         </div>
+      </header>
 
-        {/* ------------------------------------------------------------- */}
-        {/* WADAH NOTIFIKASI & PERINGATAN DINI (SMART ALERTS)           */}
-        {/* ------------------------------------------------------------- */}
-        <div className="space-y-4">
-          
-          {/* RADAR 1: ULANG TAHUN */}
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-5 space-y-8">
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Siskamling</p>
+            <p className="text-sm font-semibold text-slate-900 leading-snug">
+              {jadwalRonda ? formatTanggalId(jadwalRonda.tanggal_tugas) : "Tidak ada jadwal terdekat"}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">{jadwalRonda?.status || "Anda sedang tidak bertugas"}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Iuran RT</p>
+            <p className={`text-sm font-semibold leading-snug ${aksenIuran}`}>{statusIuran}</p>
+            <Link href="/portal/keuangan" className="text-xs text-blue-700 font-semibold mt-2 inline-block hover:underline">
+              Lihat transparansi kas
+            </Link>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Pengumuman</p>
+            <p className="text-sm font-semibold text-slate-900 leading-snug truncate">
+              {pengumumanBaru?.judul || "Tidak ada siaran baru"}
+            </p>
+            <Link href="/" className="text-xs text-blue-700 font-semibold mt-2 inline-block hover:underline">
+              Buka mading RT
+            </Link>
+          </div>
+        </section>
+
+        <section className="space-y-3">
           {birthdayNames.length > 0 && (
-            <div className="bg-gradient-to-r from-pink-500 to-rose-500 p-5 rounded-2xl shadow-lg flex items-center gap-4 text-white relative overflow-hidden animate-in fade-in slide-in-from-top-4">
-              <div className="absolute -right-4 -top-6 text-7xl opacity-20">🎂</div>
-              <div className="text-4xl animate-bounce">🎉</div>
-              <div className="relative z-10">
-                <h3 className="font-black text-sm md:text-base uppercase tracking-widest mb-1 text-pink-100">Selamat Ulang Tahun!</h3>
-                <p className="text-xs md:text-sm font-medium leading-relaxed">
-                  Segenap Pengurus RT 07 mengucapkan selamat bertambah usia untuk: <strong className="bg-white/20 px-2 py-0.5 rounded">{birthdayNames.join(", ")}</strong>. Semoga senantiasa diberikan kesehatan, keberkahan, dan perlindungan.
+            <div className="bg-white border border-rose-100 rounded-2xl p-5 flex gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-2xl shrink-0">🎉</div>
+              <div>
+                <h3 className="font-bold text-rose-800 text-sm mb-1">Selamat ulang tahun</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Pengurus RT 07 mengucapkan selamat bertambah usia untuk <strong>{birthdayNames.join(", ")}</strong>. Semoga sehat dan berkah.
                 </p>
               </div>
             </div>
           )}
 
-          {/* RADAR 2: JADWAL RONDA / SISKAMLING */}
           {jadwalRonda && (
-            <div className={`p-5 md:p-6 rounded-2xl shadow-sm border flex items-start md:items-center justify-between gap-4 flex-col md:flex-row transition-all animate-in fade-in slide-in-from-top-4 ${jadwalRonda.tanggal_tugas === todayStr ? 'bg-rose-50 border-rose-300 shadow-rose-100' : 'bg-amber-50 border-amber-300'}`}>
-              <div className="flex items-start md:items-center gap-4">
-                <div className={`text-4xl mt-1 md:mt-0 ${jadwalRonda.tanggal_tugas === todayStr ? 'animate-pulse' : ''}`}>🔦</div>
+            <div className={`rounded-2xl p-5 border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${jadwalRonda.tanggal_tugas === todayStr ? "bg-rose-50 border-rose-200" : "bg-white border-amber-200"}`}>
+              <div className="flex gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl shrink-0">🔦</div>
                 <div>
-                  <h3 className={`font-black text-sm uppercase tracking-widest mb-1 flex items-center gap-2 ${jadwalRonda.tanggal_tugas === todayStr ? 'text-rose-800' : 'text-amber-800'}`}>
-                    {jadwalRonda.tanggal_tugas === todayStr ? 'Panggilan Tugas Malam Ini!' : 'Panggilan Tugas Siskamling'}
-                    {jadwalRonda.status === 'Menunggu Konfirmasi' && <span className="bg-rose-600 text-white text-[8px] px-1.5 py-0.5 rounded-full animate-pulse">ACTION REQUIRED</span>}
+                  <h3 className="font-bold text-sm text-slate-900 mb-1">
+                    {jadwalRonda.tanggal_tugas === todayStr ? "Tugas siskamling malam ini" : "Jadwal siskamling Anda"}
                   </h3>
-                  <p className={`text-xs md:text-sm font-medium leading-relaxed ${jadwalRonda.tanggal_tugas === todayStr ? 'text-rose-700' : 'text-amber-700'}`}>
-                    Anda dijadwalkan bertugas jaga malam pada <strong className="underline decoration-2 underline-offset-2">{new Date(jadwalRonda.tanggal_tugas).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>. Status Anda saat ini: <strong className="uppercase bg-white/50 px-1.5 py-0.5 rounded">{jadwalRonda.status || 'Menunggu Konfirmasi'}</strong>.
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {formatTanggalId(jadwalRonda.tanggal_tugas)}
+                    {" · "}
+                    {jadwalRonda.status || "Menunggu konfirmasi"}
                   </p>
                 </div>
               </div>
-              <Link href="/portal/ronda" className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-black text-xs text-center shadow-md whitespace-nowrap active:scale-95 transition-all uppercase tracking-widest shrink-0 ${jadwalRonda.tanggal_tugas === todayStr ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-amber-500 text-white hover:bg-amber-600'}`}>
-                Konfirmasi Sekarang
+              <Link href="/portal/ronda" className="text-center text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800">
+                Konfirmasi
               </Link>
             </div>
           )}
 
-          {/* RADAR 3: PENGUMUMAN BARU */}
           {pengumumanBaru && (
-            <div className="bg-blue-50 p-5 rounded-2xl shadow-sm border border-blue-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4">
-              <div className="flex items-start md:items-center gap-4 w-full">
-                <div className="text-3xl mt-1 md:mt-0">📢</div>
-                <div className="flex-1">
-                  <h3 className="font-black text-blue-800 text-xs uppercase tracking-widest mb-1 flex items-center gap-2">
-                    Siaran Pengurus RT
-                    <span className="bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded-full animate-pulse">BARU</span>
-                  </h3>
-                  <p className="text-xs text-blue-700 font-bold truncate max-w-[280px] md:max-w-2xl">{pengumumanBaru.judul}</p>
+            <div className="bg-white border border-blue-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+              <div className="flex gap-4 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-2xl shrink-0">📢</div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm text-slate-900 mb-1">Pengumuman pengurus</h3>
+                  <p className="text-sm text-slate-600 truncate">{pengumumanBaru.judul}</p>
                 </div>
               </div>
-              <Link href="/" className="w-full md:w-auto bg-white border-2 border-blue-600 text-blue-700 px-6 py-3 rounded-xl text-xs font-black whitespace-nowrap shadow-sm hover:bg-blue-50 active:scale-95 transition-all uppercase tracking-widest text-center">
-                Baca di Beranda
+              <Link href="/" className="text-center text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+                Baca
               </Link>
             </div>
           )}
 
-          {/* RADAR 4: SENSUS CARIK (EXISTING) */}
           {!isDataTervalidasiWarga && (
-            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md hover:border-amber-300">
-              <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
-              <div className="flex items-start md:items-center gap-4 w-full">
-                <div className="text-3xl animate-pulse hidden md:block">📋</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <h2 className="font-black text-amber-800 text-sm uppercase tracking-widest">Verifikasi Data Carik</h2>
-                    <span className="bg-rose-600 text-white text-[9px] px-2 py-0.5 rounded font-black shadow-sm animate-pulse">WAJIB</span>
-                  </div>
-                  <p className="text-xs text-amber-900 font-medium leading-relaxed max-w-2xl">
-                    Pengurus RT telah memperbarui data demografi Anda sesuai catatan <strong>Buku Carik Kelurahan</strong>. Mohon periksa dan verifikasi kesesuaian data keluarga Anda.
-                  </p>
-                </div>
+            <div className="bg-white border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+              <div>
+                <h3 className="font-bold text-sm text-amber-900 mb-1">Verifikasi data Carik masih diperlukan</h3>
+                <p className="text-sm text-slate-600">Mohon periksa kesesuaian data keluarga dengan catatan kelurahan.</p>
               </div>
-              <Link href="/portal/profil" className="w-full md:w-auto bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] px-6 py-3.5 rounded-lg shadow-md transition-all active:scale-95 text-center shrink-0 uppercase tracking-widest">
-                Cek & Verifikasi Data
+              <Link href="/portal/sensus" className="text-center text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl bg-amber-500 text-white hover:bg-amber-600">
+                Periksa data
               </Link>
             </div>
           )}
-        </div>
-        {/* ------------------------------------------------------------- */}
+        </section>
 
-        {/* MENU DASHBOARD UTAMA - KLONING BENTO BOX APPLE/ADMIN STYLE */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-4">
-          
-          <Link href="/portal/keuangan" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-amber-500 group-hover:scale-110 transition-transform origin-left">💰</div>
-            <h2 className="font-black text-slate-800 text-sm">Transparansi Kas</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Cek tagihan & riwayat</p>
-          </Link>
+        <section>
+          <div className="flex items-end justify-between mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Layanan administrasi</h2>
+            <p className="text-[11px] text-slate-400 hidden md:block">Urusan surat, kas, suara, dan aset RT</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" />
+            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" />
+            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" />
+            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" />
+          </div>
+        </section>
 
-          <Link href="/portal/surat" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-blue-500 group-hover:scale-110 transition-transform origin-left">📄</div>
-            <h2 className="font-black text-slate-800 text-sm">Layanan Surat</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Cetak pengantar mandiri</p>
-          </Link>
-          
-          <Link href="/portal/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-orange-500 group-hover:scale-110 transition-transform origin-left">🏪</div>
-            <h2 className="font-black text-slate-800 text-sm">Pasar Warga</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Katalog jasa & UMKM</p>
-          </Link>
-          
-          <Link href="/portal/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-purple-500 group-hover:scale-110 transition-transform origin-left">🎪</div>
-            <h2 className="font-black text-slate-800 text-sm">Inventaris RT</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Booking tenda & kursi</p>
-          </Link>
+        <section>
+          <div className="flex items-end justify-between mb-3">
+            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Ekonomi, lingkungan, dan keluarga</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="UMKM & jasa tetangga" />
+            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" />
+            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" />
+            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" aksen="bg-rose-50 border-rose-100 text-rose-950" />
+          </div>
+        </section>
 
-          <Link href="/portal/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-emerald-500 group-hover:scale-110 transition-transform origin-left">♻️</div>
-            <h2 className="font-black text-slate-800 text-sm">Tabungan Sampah</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Saldo setor anorganik</p>
-          </Link>
-
-          <Link href="/portal/kurban" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-pink-500 group-hover:scale-110 transition-transform origin-left">🐄</div>
-            <h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
-          </Link>
-          
-          <Link href="/portal/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-indigo-500 group-hover:scale-110 transition-transform origin-left">📊</div>
-            <h2 className="font-black text-slate-800 text-sm">E-Voting Warga</h2>
-            <p className="text-[10px] text-slate-500 mt-1">Suara digital transparan</p>
-          </Link>
-
-          <Link href="/portal/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block group">
-            <div className="text-3xl mb-3 text-yellow-400 group-hover:scale-110 transition-transform origin-left">🔦</div>
-            <h2 className="font-black text-white text-sm">Siskamling</h2>
-            <p className="text-[10px] text-slate-400 mt-1">Jadwal ronda Anda</p>
-          </Link>
-
-          {FITUR_LAPOR_AKTIF && (
-            <Link href="/portal/lapor" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block col-span-2 md:col-span-4 group">
-              <div className="text-3xl mb-3 text-rose-500 group-hover:scale-110 transition-transform origin-left">🚨</div>
-              <h2 className="font-black text-slate-800 text-sm">Sistem Lapor Warga</h2>
-              <p className="text-[10px] text-slate-500 mt-1">Tiket kerusakan fasilitas & keamanan</p>
-            </Link>
-          )}
-
-        </div>
+        <section>
+          <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500 mb-3">Keamanan lingkungan</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" aksen="bg-slate-900 border-slate-800 text-white" />
+            {FITUR_LAPOR_AKTIF && (
+              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" />
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

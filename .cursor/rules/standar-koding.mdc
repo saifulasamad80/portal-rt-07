@@ -1,0 +1,102 @@
+---
+description: Standar koding aplikasi RT (penamaan, struktur, keamanan, error handling, UI)
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+JIKA perbaikan hanya melibatkan 1-2 fungsi, HARAM memberikan keseluruhan isi file. Berikan FULL CODE hanya untuk fungsi/komponen yang diubah saja agar menghemat token. Saya akan melakukan inline edit. Dilarang menggunakan komentar pemalas seperti // ...kode lainnya sama... di dalam blok fungsi yang diperbaiki!
+
+Dilarang menyuruh pengguna melakukan copy-paste manual. Berikan blok kode yang utuh dan siap di-Apply.
+# Standar Koding Aplikasi RT
+
+## Penamaan: Bahasa Indonesia
+
+Domain aplikasi ini berbahasa Indonesia (warga, ronda, arisan, kas). Nama variabel,
+fungsi, tipe, dan file mengikuti domain, bukan diterjemahkan ke Inggris.
+
+```typescript
+// ❌ BAD
+const activeResident = ...;
+async function deleteOrArchiveResident() {}
+
+// ✅ GOOD
+const wargaAktif = ...;
+async function prosesHapusAtauArsipWarga() {}
+type HasilHapusWarga = { success: boolean; message: string };
+```
+
+Kolom database tetap `snake_case` (`nama_lengkap`, `status_verifikasi`). Nama file
+komponen `PascalCase` (`WargaAdminClient.tsx`), file helper `kebab-case`
+(`arsip-warga.ts`).
+
+## Struktur: Server Page + Client Component
+
+`page.tsx` adalah Server Component: mengambil sesi, query Supabase, lalu mengoper
+data sebagai props. Semua state dan event handler tinggal di `XxxClient.tsx`
+bertanda `"use client"` pada baris pertama.
+
+```typescript
+// app/portal/ronda/page.tsx  -> server: auth + fetch
+export default async function RondaPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("warga_session")?.value;
+  if (!token) redirect("/login");
+  ...
+  return <RondaClient jadwal={jadwal} />;
+}
+```
+
+Import antar-modul selalu lewat alias `@/` (`@/lib/arsip-warga`), bukan `../../lib`.
+Middleware Next.js 16 di proyek ini bernama `proxy.ts` dengan fungsi `proxy()` —
+jangan diubah menjadi `middleware`.
+
+## Keamanan
+
+- Sesi berupa JWT `jose` di cookie HttpOnly: `warga_session` / `admin_session`.
+  Verifikasi dengan `jwtVerify` di server sebelum merender halaman terproteksi.
+- `SUPABASE_SERVICE_ROLE_KEY` **hanya** boleh dibaca di Server Component, Route
+  Handler, atau `lib/*` sisi server. Tidak pernah di file `"use client"`.
+- Default gunakan `getSupabaseServerClient()` agar RLS tetap berlaku.
+  `getSupabaseAdminClient()` hanya untuk operasi yang memang harus bypass RLS.
+- PIN/sandi selalu di-hash `bcrypt`, tidak pernah disimpan atau dibalas apa adanya.
+
+## Error Handling: Result Object
+
+Fungsi domain di `lib/` mengembalikan objek hasil, bukan melempar exception mentah.
+Route Handler membungkus seluruh badan fungsi dengan `try/catch`.
+
+```typescript
+// ❌ BAD
+if (error) throw new Error("Gagal");
+
+// ✅ GOOD
+if (error) {
+  return { success: false, mode: "gagal", message: `Gagal membaca warga: ${error.message}` };
+}
+```
+
+Pesan error yang sampai ke pengguna ditulis dalam Bahasa Indonesia dan menjelaskan
+langkah berikutnya, bukan menyalin pesan teknis PostgreSQL mentah-mentah.
+
+## UI
+
+Styling memakai utility class Tailwind langsung di JSX — tanpa file CSS modul atau
+`styled-components`. Ikuti gaya kartu yang sudah ada:
+`rounded-2xl border border-slate-200 p-4 shadow-sm`, ikon emoji dalam kotak
+`rounded-xl`. Seluruh teks yang dilihat warga berbahasa Indonesia.
+
+## Komentar
+
+Tulis komentar hanya untuk menjelaskan **alasan** atau batasan yang tidak terlihat
+dari kode (mis. kolom NOT NULL sehingga tidak bisa diisi NULL), bukan menarasikan
+ulang baris di bawahnya. Gunakan Bahasa Indonesia.
+
+```typescript
+// ❌ BAD
+// Loop semua tabel turunan
+for (const tabel of TABEL_TURUNAN_WARGA) {
+
+// ✅ GOOD
+// Tabel/kolom yang belum ada di skema bukan kegagalan: memang tidak ada
+// data turunan untuk dibersihkan.
+if (skemaBelumSiap(error)) continue;
+```
