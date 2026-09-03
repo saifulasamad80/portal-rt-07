@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 
 // INJEKSI MUTLAK: Deklarasi PWA Manifest & Open Graph (Preview WhatsApp) digabung!
 export const metadata: Metadata = {
+  metadataBase: new URL("https://wargaku-six.vercel.app"), // INJEKSI MUTLAK: Hilangkan Warning Build
   title: "Portal Warga",
   description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
   manifest: "/manifest.json", // KUNCI MUTLAK PWA TETAP AMAN
