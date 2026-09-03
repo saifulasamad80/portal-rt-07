@@ -68,7 +68,7 @@ export default function TombolNotifikasiPush() {
   if (status === "tidak-didukung") return null;
 
   return (
-    <div className="flex flex-col items-stretch md:items-end gap-1">
+    <div className="relative flex flex-col items-stretch md:items-end">
       <button
         type="button"
         onClick={aktifkan}
@@ -81,7 +81,18 @@ export default function TombolNotifikasiPush() {
       >
         {status === "aktif" ? "Notifikasi aktif" : status === "menunggu" ? "Mengaktifkan..." : "Aktifkan notifikasi HP"}
       </button>
-      {pesan ? <p className="text-[10px] text-slate-300 text-right max-w-xs">{pesan}</p> : null}
+
+      {/* Tooltip mengambang: dipasang absolute supaya munculnya pesan tidak
+          menambah tinggi elemen dan ikut menggeser tata letak header. */}
+      {pesan ? (
+        <div
+          role="status"
+          className="absolute top-full right-0 mt-2 z-50 w-max max-w-[220px] bg-slate-800 text-white text-[10px] font-medium leading-relaxed px-3 py-1.5 rounded-md shadow-lg ring-1 ring-white/10"
+        >
+          <span className="absolute -top-1 right-5 w-2 h-2 rotate-45 bg-slate-800"></span>
+          <span className="relative">{pesan}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

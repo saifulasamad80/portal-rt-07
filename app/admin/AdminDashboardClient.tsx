@@ -92,152 +92,234 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
-        <div className="bg-slate-900 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4 border border-slate-800">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-xl font-black text-white uppercase shadow-inner">
+    <div className="min-h-screen bg-slate-50 pb-20 font-sans text-slate-800">
+      <header className="bg-slate-900 relative rounded-b-3xl shadow-xl">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-emerald-500"></div>
+        <div className="max-w-6xl mx-auto px-4 md:px-6 pt-8 pb-14 flex flex-col md:flex-row md:items-start justify-between gap-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center text-2xl font-bold text-white uppercase shrink-0 ring-1 ring-white/15 shadow-lg">
               {namaAdmin.charAt(0)}
             </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-black text-white mb-1">Pusat Komando RT 07</h1>
-              <p className="text-emerald-400 font-bold text-xs uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded w-fit mt-1 border border-slate-700">
-                Akses: {adminAktif?.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
-              </p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 mb-1">Pusat Komando · Wargaku</p>
+              <h1 className="text-xl md:text-2xl font-bold text-white leading-tight truncate">Pusat Komando RT 07</h1>
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                <span className="text-[10px] font-semibold text-slate-300 bg-white/5 border border-white/10 px-2 py-1 rounded-md truncate max-w-[180px]">
+                  {namaAdmin}
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-400/20 px-2 py-1 rounded-md">
+                  {adminAktif?.role === 'webmaster' ? 'Super Admin / Webmaster' : 'Pengurus RT'}
+                </span>
+              </div>
             </div>
           </div>
-          <form action={logoutAction} className="w-full md:w-auto">
-            <button type="submit" className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-3 px-6 rounded-lg transition-all shadow-md active:scale-95">
+          <form action={logoutAction} className="shrink-0">
+            <button type="submit" className="w-full md:w-auto bg-white/5 hover:bg-rose-600 hover:border-rose-500 text-slate-200 hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg border border-white/10 transition-colors active:scale-95">
               Keluar Dasbor
             </button>
           </form>
         </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-9 relative z-10 space-y-6">
 
         {notifikasi && (
-          <div className={`rounded-xl border p-4 flex items-start justify-between gap-4 shadow-sm ${notifikasi.tipe === 'sukses' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
-            <div className="flex items-start gap-3">
-              <span className="text-lg leading-none mt-0.5">{notifikasi.tipe === 'sukses' ? '✅' : '⚠️'}</span>
-              <p className="text-xs font-bold leading-relaxed">{notifikasi.pesan}</p>
+          <div className={`rounded-2xl border p-4 flex items-start justify-between gap-4 shadow-sm ${notifikasi.tipe === 'sukses' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="w-8 h-8 rounded-xl bg-white/70 border border-white flex items-center justify-center text-sm shrink-0">{notifikasi.tipe === 'sukses' ? '✅' : '⚠️'}</span>
+              <p className="text-[13px] font-semibold leading-relaxed pt-1.5">{notifikasi.pesan}</p>
             </div>
-            <button onClick={() => setNotifikasi(null)} className="text-[10px] font-black uppercase tracking-widest opacity-60 hover:opacity-100 shrink-0">Tutup</button>
+            <button onClick={() => setNotifikasi(null)} className="text-[10px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 shrink-0 pt-2 transition-opacity">Tutup</button>
           </div>
         )}
 
         {/* HUD STATISTIK (Merespons coretan "Di Depan" Pak RT) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-            <div className="text-xl mb-1">👥</div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Warga Sah</div>
-            <div className="text-lg font-black text-blue-600">{jumlahWargaSah} KK</div>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center border-b-4 border-b-emerald-500">
-            <div className="text-xl mb-1">♻️</div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sampah Berkurang</div>
-            <div className="text-lg font-black text-emerald-600">{sampahKg.toFixed(1)} Kg</div>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center">
-            <div className="text-xl mb-1">💸</div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Bank Sampah</div>
-            <div className="text-lg font-black text-amber-500">Rp {(sampahRp / 1000).toFixed(0)}k</div>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center text-center border-b-4 border-b-pink-500">
-            <div className="text-xl mb-1">🐄</div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dana Qurban</div>
-            <div className="text-lg font-black text-pink-600">Rp {(kurbanRp / 1000000).toFixed(1)} Jt</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 pt-2">
-          <Link href="/admin/warga" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3 text-blue-500">👥</div><h2 className="font-black text-slate-800 text-sm">Buku Induk Warga</h2><p className="text-[10px] text-slate-500 mt-1">Data demografi & NIK</p>
-          </Link>
-          <Link href="/admin/pengumuman" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">📢</div><h2 className="font-black text-slate-800 text-sm">Pengumuman RT</h2><p className="text-[10px] text-slate-500 mt-1">Buat edaran ke warga</p>
-          </Link>
-          <Link href="/admin/lapak" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3 text-orange-500">🏪</div><h2 className="font-black text-slate-800 text-sm">Pasar Warga (UMKM)</h2><p className="text-[10px] text-slate-500 mt-1">Validasi lapak dagangan</p>
-          </Link>
-          <Link href="/admin/kas" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3 text-amber-500">💰</div><h2 className="font-black text-slate-800 text-sm">Kas & Keuangan</h2><p className="text-[10px] text-slate-500 mt-1">Rekap iuran bulanan</p>
-          </Link>
-          <Link href="/admin/sampah" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3 text-emerald-500">♻️</div><h2 className="font-black text-slate-800 text-sm">Tabungan Sampah</h2><p className="text-[10px] text-slate-500 mt-1">Manajemen bank sampah</p>
-          </Link>
-          <Link href="/admin/kurban" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🐄</div><h2 className="font-black text-slate-800 text-sm">Tabungan Kurban</h2><p className="text-[10px] text-slate-500 mt-1">Persiapan Idul Adha</p>
-          </Link>
-          
-          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
-            <div className="absolute top-2 right-2 bg-slate-200 text-slate-600 text-[8px] font-black px-2 py-1 rounded flex items-center gap-1">🔒 DIGEMBOK</div>
-            <div className="text-3xl mb-3 grayscale">🚨</div><h2 className="font-black text-slate-500 text-sm">Laporan Warga</h2><p className="text-[10px] text-slate-400 mt-1">Ditunda instruksi RT</p>
-          </div>
-
-          <Link href="/admin/inventaris" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🎪</div><h2 className="font-black text-slate-800 text-sm">Inventaris</h2><p className="text-[10px] text-slate-500 mt-1">Setujui peminjaman alat</p>
-          </Link>
-          <Link href="/admin/voting" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">📊</div><h2 className="font-black text-slate-800 text-sm">Manajemen Voting</h2><p className="text-[10px] text-slate-500 mt-1">Buat topik pemilihan</p>
-          </Link>
-          <Link href="/admin/ronda" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🔦</div><h2 className="font-black text-white text-sm">Jadwal Siskamling</h2><p className="text-[10px] text-slate-400 mt-1">Atur regu ronda malam</p>
-          </Link>
-          <Link href="/admin/ibu-ibu" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-rose-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-            <div className="text-3xl mb-3">🌸</div><h2 className="font-black text-slate-800 text-sm">Modul Ibu-ibu</h2><p className="text-[10px] text-slate-500 mt-1">Posyandu & arisan</p>
-          </Link>
-          
-          {adminAktif?.role === 'webmaster' ? (
-            <Link href="/admin/audit" className="bg-slate-900 p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-800 hover:shadow-lg hover:-translate-y-1 transition-all block">
-              <div className="text-3xl mb-3">🔍</div><h2 className="font-black text-white text-sm">Log Audit</h2><p className="text-[10px] text-slate-400 mt-1">Pantau pergerakan pengurus</p>
-            </Link>
-          ) : (
-            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
-              <div className="absolute top-2 right-2 bg-rose-100 text-rose-700 text-[8px] font-black px-2 py-1 rounded">🔒 WEBMASTER</div>
-              <div className="text-3xl mb-3 grayscale">🔍</div><h2 className="font-black text-slate-500 text-sm">Log Audit</h2><p className="text-[10px] text-slate-400 mt-1">Akses khusus Webmaster</p>
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Warga Sah</span>
+              <span className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-xs shrink-0">👥</span>
             </div>
-          )}
-
-          {adminAktif?.role === 'webmaster' ? (
-            <Link href="/admin/pengurus" className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all block">
-              <div className="text-3xl mb-3 text-indigo-500">👔</div><h2 className="font-black text-slate-800 text-sm">Akses Pengurus</h2><p className="text-[10px] text-slate-500 mt-1">Tambah & Reset Akun</p>
-            </Link>
-          ) : (
-            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 opacity-60 cursor-not-allowed relative overflow-hidden">
-              <div className="absolute top-2 right-2 bg-rose-100 text-rose-700 text-[8px] font-black px-2 py-1 rounded">🔒 WEBMASTER</div>
-              <div className="text-3xl mb-3 grayscale">👔</div><h2 className="font-black text-slate-500 text-sm">Akses Pengurus</h2><p className="text-[10px] text-slate-400 mt-1">Akses khusus Webmaster</p>
+            <div className="text-lg font-bold text-slate-900 tabular-nums tracking-tight">{jumlahWargaSah} KK</div>
+            <p className="text-[10px] text-slate-400 mt-1">Kepala keluarga terverifikasi</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Sampah Berkurang</span>
+              <span className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xs shrink-0">♻️</span>
             </div>
-          )}
-        </div>
+            <div className="text-lg font-bold text-emerald-700 tabular-nums tracking-tight">{sampahKg.toFixed(1)} Kg</div>
+            <p className="text-[10px] text-slate-400 mt-1">Total anorganik tersetor</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Saldo Bank Sampah</span>
+              <span className="w-6 h-6 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-xs shrink-0">💸</span>
+            </div>
+            <div className="text-lg font-bold text-amber-600 tabular-nums tracking-tight">Rp {(sampahRp / 1000).toFixed(0)}k</div>
+            <p className="text-[10px] text-slate-400 mt-1">Dana tersimpan warga</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Dana Qurban</span>
+              <span className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-xs shrink-0">🐄</span>
+            </div>
+            <div className="text-lg font-bold text-rose-600 tabular-nums tracking-tight">Rp {(kurbanRp / 1000000).toFixed(1)} Jt</div>
+            <p className="text-[10px] text-slate-400 mt-1">Tabungan Idul Adha</p>
+          </div>
+        </section>
 
-        <div className="bg-white rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 p-6 md:p-8 overflow-hidden mt-8">
-          <h2 className="text-lg font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">Validasi Pendaftaran Warga Baru</h2>
+        <section>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-blue-500 shrink-0"></span> Kependudukan &amp; informasi
+            </h2>
+            <p className="text-[11px] text-slate-400 hidden md:block">Buku induk, edaran, dan kegiatan keluarga</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link href="/admin/warga" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">👥</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Buku Induk Warga</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Data demografi &amp; NIK</p>
+            </Link>
+            <Link href="/admin/pengumuman" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">📢</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Pengumuman RT</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Buat edaran ke warga</p>
+            </Link>
+            <Link href="/admin/ibu-ibu" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🌸</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Modul Ibu-ibu</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Posyandu &amp; arisan</p>
+            </Link>
+            {adminAktif?.role === 'webmaster' ? (
+              <Link href="/admin/pengurus" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+                <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">👔</div>
+                <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Akses Pengurus</h2>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Tambah &amp; Reset Akun</p>
+              </Link>
+            ) : (
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
+                <span className="absolute top-3 right-3 bg-rose-100 text-rose-700 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Webmaster</span>
+                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 grayscale opacity-70">👔</div>
+                <h2 className="font-semibold text-slate-500 text-[13px] leading-snug tracking-tight">Akses Pengurus</h2>
+                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Akses khusus Webmaster</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-emerald-500 shrink-0"></span> Keuangan &amp; sirkular ekonomi
+            </h2>
+            <p className="text-[11px] text-slate-400 hidden md:block">Kas, bank sampah, kurban, dan aset RT</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link href="/admin/kas" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">💰</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Kas &amp; Keuangan</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Rekap iuran bulanan</p>
+            </Link>
+            <Link href="/admin/sampah" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">♻️</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Tabungan Sampah</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Manajemen bank sampah</p>
+            </Link>
+            <Link href="/admin/kurban" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🐄</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Tabungan Kurban</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Persiapan Idul Adha</p>
+            </Link>
+            <Link href="/admin/lapak" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🏪</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Pasar Warga (UMKM)</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Validasi lapak dagangan</p>
+            </Link>
+            <Link href="/admin/inventaris" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🎪</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Inventaris</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Setujui peminjaman alat</p>
+            </Link>
+          </div>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-amber-500 shrink-0"></span> Keamanan &amp; tata kelola
+            </h2>
+            <p className="text-[11px] text-slate-400 hidden md:block">Ronda, e-voting, dan log pengurus</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link href="/admin/ronda" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🔦</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Jadwal Siskamling</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Atur regu ronda malam</p>
+            </Link>
+            <Link href="/admin/voting" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">📊</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Manajemen Voting</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Buat topik pemilihan</p>
+            </Link>
+            <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
+              <span className="absolute top-3 right-3 bg-slate-200 text-slate-600 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Digembok</span>
+              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 grayscale opacity-70">🚨</div>
+              <h2 className="font-semibold text-slate-500 text-[13px] leading-snug tracking-tight">Laporan Warga</h2>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Ditunda instruksi RT</p>
+            </div>
+            {adminAktif?.role === 'webmaster' ? (
+              <Link href="/admin/audit" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🔍</div>
+                <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Log Audit</h2>
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Pantau pergerakan pengurus</p>
+              </Link>
+            ) : (
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
+                <span className="absolute top-3 right-3 bg-rose-100 text-rose-700 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Webmaster</span>
+                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 grayscale opacity-70">🔍</div>
+                <h2 className="font-semibold text-slate-500 text-[13px] leading-snug tracking-tight">Log Audit</h2>
+                <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Akses khusus Webmaster</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 md:px-5 py-3.5 border-b border-slate-100">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-amber-500 shrink-0"></span> Validasi pendaftaran warga baru
+            </h2>
+            <span className="text-[10px] font-semibold text-slate-400 tabular-nums">{wargaList.length} antrean</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-slate-600 text-xs border-b border-slate-200">
-                  <th className="p-4 font-bold w-[20%]">Nama Kepala Keluarga</th>
-                  <th className="p-4 font-bold w-[25%]">NIK & Kontak</th>
-                  <th className="p-4 font-bold w-[15%]">Status & Alamat</th>
-                  <th className="p-4 font-bold w-[20%]">Anggota Keluarga</th>
-                  <th className="p-4 font-bold text-center w-[10%]">Status Saat Ini</th>
-                  <th className="p-4 font-bold text-center w-[10%]">Aksi (Validasi)</th>
+                <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
+                  <th className="px-4 py-2.5 font-bold w-[20%]">Nama Kepala Keluarga</th>
+                  <th className="px-4 py-2.5 font-bold w-[25%]">NIK &amp; Kontak</th>
+                  <th className="px-4 py-2.5 font-bold w-[15%]">Status &amp; Alamat</th>
+                  <th className="px-4 py-2.5 font-bold w-[20%]">Anggota Keluarga</th>
+                  <th className="px-4 py-2.5 font-bold text-center w-[10%]">Status Saat Ini</th>
+                  <th className="px-4 py-2.5 font-bold text-center w-[10%]">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {wargaList.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-medium italic border-b border-slate-100">Belum ada data pendaftaran warga terbaru.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[13px] text-slate-400 font-medium italic">Belum ada data pendaftaran warga terbaru.</td></tr>
                 ) : (
                   wargaList.map((w) => (
                     <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-black text-slate-800">{w.nama_lengkap || <span className="italic font-medium text-slate-400">Tanpa nama</span>}</td>
-                      <td className="p-4"><div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik || '-'}</div><div className="text-[11px] text-slate-600 font-mono mt-1">WA: {w.no_whatsapp || '-'}</div></td>
-                      <td className="p-4"><span className="bg-slate-200 text-slate-700 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider block w-fit mb-1.5">{w.status_tinggal || 'Tidak diisi'}</span><div className="text-[11px] text-slate-600 truncate max-w-[150px] leading-relaxed">{w.detail_alamat || '-'}</div></td>
-                      <td className="p-4">{(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? <span className="text-[11px] text-slate-400 font-medium">Sendiri</span> : <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-1">{w.anggota_keluarga.map((ak: any, idx: number) => <li key={idx}><span className="font-bold">{ak.nama_lengkap}</span></li>)}</ul>}</td>
-                      <td className="p-4 text-center"><span className={`font-black text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{w.status_verifikasi}</span></td>
-                      <td className="p-4 text-center">
-                        <div className="flex justify-center gap-2">
-                          <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">{loadingId === w.id ? '...' : 'Sah'}</button>
-                          <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold px-4 py-2 rounded-lg disabled:opacity-50 transition-colors shadow-sm active:scale-95">Tolak</button>
+                      <td className="px-4 py-3 font-semibold text-[13px] text-slate-800">{w.nama_lengkap || <span className="italic font-medium text-slate-400">Tanpa nama</span>}</td>
+                      <td className="px-4 py-3"><div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik || '-'}</div><div className="text-[11px] text-slate-600 font-mono mt-0.5">WA: {w.no_whatsapp || '-'}</div></td>
+                      <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider inline-block mb-1">{w.status_tinggal || 'Tidak diisi'}</span><div className="text-[11px] text-slate-500 truncate max-w-[150px] leading-relaxed">{w.detail_alamat || '-'}</div></td>
+                      <td className="px-4 py-3">{(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? <span className="text-[11px] text-slate-400 font-medium">Sendiri</span> : <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-0.5">{w.anggota_keluarga.map((ak: any, idx: number) => <li key={idx}><span className="font-semibold">{ak.nama_lengkap}</span></li>)}</ul>}</td>
+                      <td className="px-4 py-3 text-center"><span className={`font-bold text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>{w.status_verifikasi}</span></td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-1.5">
+                          <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors active:scale-95">{loadingId === w.id ? '...' : 'Sah'}</button>
+                          <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors active:scale-95">Tolak</button>
                         </div>
                       </td>
                     </tr>
@@ -246,7 +328,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
       </div>
     </div>

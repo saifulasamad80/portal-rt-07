@@ -82,73 +82,88 @@ export default async function LandingPage() {
         <p className="text-slate-400 text-sm max-w-lg mx-auto leading-relaxed">
           Platform terpadu untuk pelayanan surat, pelaporan darurat, manajemen fasilitas, dan transparansi keuangan lingkungan.
         </p>
+
+        <div className="mt-7 flex flex-row items-center justify-center gap-3">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-2.5 rounded-lg shadow-sm transition-colors active:scale-95"
+          >
+            <span className="text-sm">👤</span> Login Warga
+          </Link>
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-5 py-2.5 rounded-lg border border-slate-700 shadow-sm transition-colors active:scale-95"
+          >
+            <span className="text-sm">🏛️</span> Dasbor Admin
+          </Link>
+        </div>
       </div>
 
-      <div className="w-full max-w-5xl space-y-8 px-4 md:px-6 -mt-20 relative z-10">
+      <div className="w-full max-w-6xl space-y-8 px-4 md:px-6 -mt-20 relative z-10">
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 flex flex-col transition-all duration-300 hover:border-blue-300 hover:shadow-xl hover:-translate-y-1">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl shadow-inner shrink-0">👤</div>
-              <div>
-                <h3 className="font-black text-slate-800 text-xl">Portal Warga</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Akses Mandiri</p>
-              </div>
+        <section>
+          <div className="flex items-end justify-between gap-3 mb-3">
+            <div>
+              <h2 className="font-bold text-slate-800 text-sm tracking-tight flex items-center gap-2">
+                <span>📊</span> Transparansi Kas Lingkungan
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">Laporan keuangan terbuka, disegarkan otomatis tiap 60 detik.</p>
             </div>
-            <p className="text-xs text-slate-500 mb-6 flex-1 leading-relaxed">Masuk untuk mengecek tagihan iuran, cetak surat pengantar, lapor kejadian darurat, dan ikut e-voting.</p>
-            <Link href="/login" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-sm transition-colors text-center shadow-md active:scale-95 uppercase tracking-wide">
-              Masuk Portal
-            </Link>
+            <span className="hidden sm:inline-flex items-center gap-1.5 bg-white border border-slate-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Data
+            </span>
           </div>
-          
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 flex flex-col transition-all duration-300 hover:border-emerald-300 hover:shadow-xl hover:-translate-y-1">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl shadow-inner shrink-0">🏛️</div>
-              <div>
-                <h3 className="font-black text-slate-800 text-xl">Pengurus RT</h3>
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pusat Komando</h4>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:border-slate-300 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Pemasukan</span>
+                <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs shrink-0">↑</span>
               </div>
+              <div className="font-bold text-slate-900 text-sm md:text-lg tabular-nums tracking-tight">{formatRp(pemasukan)}</div>
+              <p className="text-[10px] text-slate-400 mt-1">Akumulasi iuran &amp; donasi warga</p>
             </div>
-            <p className="text-xs text-slate-500 mb-6 flex-1 leading-relaxed">Akses khusus admin untuk validasi warga baru, buku induk demografi, dan manajemen kas lingkungan.</p>
-            <Link href="/admin" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl text-sm transition-colors text-center shadow-md active:scale-95 uppercase tracking-wide">
-              Masuk Dasbor Admin
-            </Link>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:border-slate-300 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Pengeluaran</span>
+                <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs shrink-0">↓</span>
+              </div>
+              <div className="font-bold text-slate-900 text-sm md:text-lg tabular-nums tracking-tight">{formatRp(pengeluaran)}</div>
+              <p className="text-[10px] text-slate-400 mt-1">Belanja operasional lingkungan</p>
+            </div>
+
+            <div className="bg-white border border-slate-200 ring-1 ring-blue-100 rounded-xl p-4 shadow-sm hover:border-blue-300 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Saldo Akhir</span>
+                <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs shrink-0">💰</span>
+              </div>
+              <div className="font-bold text-blue-700 text-sm md:text-lg tabular-nums tracking-tight">{formatRp(saldoAkhir)}</div>
+              <p className="text-[10px] text-slate-400 mt-1">Kas tersedia per hari ini</p>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:border-slate-300 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Transaksi Tercatat</span>
+                <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs shrink-0">🧾</span>
+              </div>
+              <div className="font-bold text-slate-900 text-sm md:text-lg tabular-nums tracking-tight">{kasData?.length || 0} entri</div>
+              <p className="text-[10px] text-slate-400 mt-1">Seluruh mutasi masuk &amp; keluar</p>
+            </div>
           </div>
-        </div>
+        </section>
 
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-2">
+          <div className="flex items-end justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
             <div>
-              <h2 className="font-black text-slate-800 text-lg flex items-center gap-2"><span>📊</span> Transparansi Kas Lingkungan</h2>
-              <p className="text-[11px] text-slate-500 font-medium">Laporan keuangan terbuka (*Public Dashboard*).</p>
+              <h2 className="font-bold text-slate-800 text-sm tracking-tight flex items-center gap-2">
+                <span>📈</span> Peta Demografi Warga
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">Statistik kependudukan RT 07 ditarik otomatis dari Buku Induk yang sah.</p>
             </div>
-            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-emerald-200 shadow-sm animate-pulse">Live Data</span>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl text-left shadow-sm hover:border-slate-300 transition-colors">
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Pemasukan</div>
-              <div className="font-black text-emerald-600 text-sm md:text-xl tabular-nums">{formatRp(pemasukan)}</div>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl text-left shadow-sm hover:border-slate-300 transition-colors">
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Pengeluaran</div>
-              <div className="font-black text-rose-600 text-sm md:text-xl tabular-nums">{formatRp(pengeluaran)}</div>
-            </div>
-            <div className="col-span-2 md:col-span-1 bg-gradient-to-br from-blue-600 to-indigo-800 border border-blue-500 p-5 rounded-xl text-left shadow-md relative overflow-hidden">
-              <div className="absolute -right-4 -top-4 text-6xl opacity-10">💰</div>
-              <div className="text-[9px] font-black text-blue-200 uppercase tracking-widest mb-1">Saldo Akhir Saat Ini</div>
-              <div className="font-black text-white text-xl md:text-2xl tabular-nums">{formatRp(saldoAkhir)}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase tracking-widest border-b border-l border-amber-200">
-            Realtime Database
-          </div>
-          <div className="mb-6 border-b border-slate-100 pb-4">
-            <h2 className="font-black text-slate-800 text-lg flex items-center gap-2"><span>📈</span> Peta Demografi Warga</h2>
-            <p className="text-[11px] text-slate-500 font-medium mt-1">Statistik kependudukan terpadu RT 07 ditarik otomatis dari Buku Induk yang sah.</p>
+            <span className="hidden sm:inline-flex items-center gap-1.5 bg-white border border-slate-200 text-amber-700 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Realtime
+            </span>
           </div>
 
           <DemografiClient dataWarga={dataDemografiReal} />
@@ -158,7 +173,32 @@ export default async function LandingPage() {
 
         <JalurDaruratClient />
 
-        <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-3">
+              <h2 className="font-black text-slate-800 text-sm tracking-wide">📸 Galeri Kegiatan Warga</h2>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dokumentasi</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {["Kerja Bakti", "Posyandu", "HUT Kemerdekaan", "Rapat Warga"].map((judul) => (
+                <div
+                  key={judul}
+                  className="aspect-square rounded-xl border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-500 transition-colors"
+                >
+                  <span className="text-2xl">🖼️</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-center px-2 leading-tight">{judul}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-slate-400 mt-4 pt-3 border-t border-slate-100">
+              Foto kegiatan akan tampil di sini setelah diunggah pengurus.
+            </p>
+          </div>
+        </section>
 
       </div>
 

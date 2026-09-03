@@ -112,33 +112,34 @@ export default async function PortalWarga() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eef2f6] pb-20 font-sans text-slate-800">
-      <header className="bg-slate-900">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-7 md:py-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-inner">
+    <div className="min-h-screen bg-slate-50 pb-20 font-sans text-slate-800">
+      <header className="bg-slate-900 relative rounded-b-3xl shadow-xl">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-emerald-500 to-blue-500"></div>
+        <div className="max-w-6xl mx-auto px-4 md:px-6 pt-8 pb-14 flex flex-col md:flex-row md:items-start justify-between gap-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl font-bold text-white shrink-0 ring-1 ring-white/15 shadow-lg">
               {inisial}
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-300 mb-1">Portal Warga · Wargaku</p>
-              <h1 className="text-2xl font-bold text-white leading-tight">Halo, {namaTampil}</h1>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-200 bg-white/10 px-2.5 py-1 rounded-md">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-300 mb-1">Portal Warga · Wargaku</p>
+              <h1 className="text-xl md:text-2xl font-bold text-white leading-tight truncate">Halo, {namaTampil}</h1>
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                <span className="text-[10px] font-semibold text-slate-300 bg-white/5 border border-white/10 px-2 py-1 rounded-md tabular-nums">
                   NIK {wargaAktif.nik}
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200 bg-emerald-500/15 px-2.5 py-1 rounded-md">
+                <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-400/20 px-2 py-1 rounded-md">
                   {profilWarga?.status_tinggal || "Warga aktif"}
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-200 bg-white/10 px-2.5 py-1 rounded-md">
+                <span className="text-[10px] font-semibold text-slate-300 bg-white/5 border border-white/10 px-2 py-1 rounded-md">
                   {jumlahJiwa} jiwa dalam KK
                 </span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <div className="flex flex-row items-start gap-2 shrink-0">
             <TombolNotifikasiPush />
             <form action={handleLogout}>
-              <button type="submit" className="w-full bg-white/10 hover:bg-rose-600 text-white text-xs font-semibold py-2.5 px-5 rounded-lg border border-white/10 transition-colors">
+              <button type="submit" className="bg-white/5 hover:bg-rose-600 hover:border-rose-500 text-slate-200 hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg border border-white/10 transition-colors">
                 Keluar
               </button>
             </form>
@@ -146,40 +147,49 @@ export default async function PortalWarga() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-5 space-y-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-9 relative z-10 space-y-6">
         <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Siskamling</p>
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Siskamling</p>
+              <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">🔦</span>
+            </div>
             <p className="text-sm font-semibold text-slate-900 leading-snug">
               {jadwalRonda ? formatTanggalId(jadwalRonda.tanggal_tugas) : "Tidak ada jadwal terdekat"}
             </p>
-            <p className="text-xs text-slate-500 mt-1">{jadwalRonda?.status || "Anda sedang tidak bertugas"}</p>
+            <p className="text-[11px] text-slate-500 mt-1">{jadwalRonda?.status || "Anda sedang tidak bertugas"}</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Iuran RT</p>
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Iuran RT</p>
+              <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">💰</span>
+            </div>
             <p className={`text-sm font-semibold leading-snug ${aksenIuran}`}>{statusIuran}</p>
-            <Link href="/portal/keuangan" className="text-xs text-blue-700 font-semibold mt-2 inline-block hover:underline">
-              Lihat transparansi kas
+            <Link href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
+              Lihat transparansi kas →
             </Link>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Pengumuman</p>
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Pengumuman</p>
+              <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">📢</span>
+            </div>
             <p className="text-sm font-semibold text-slate-900 leading-snug truncate">
               {pengumumanBaru?.judul || "Tidak ada siaran baru"}
             </p>
-            <Link href="/" className="text-xs text-blue-700 font-semibold mt-2 inline-block hover:underline">
-              Buka mading RT
+            <Link href="/" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
+              Buka mading RT →
             </Link>
           </div>
         </section>
 
         <section className="space-y-3">
           {birthdayNames.length > 0 && (
-            <div className="bg-white border border-rose-100 rounded-2xl p-5 flex gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-2xl shrink-0">🎉</div>
+            <div className="bg-white border border-rose-100 rounded-2xl p-4 flex gap-3.5 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-xl shrink-0">🎉</div>
               <div>
-                <h3 className="font-bold text-rose-800 text-sm mb-1">Selamat ulang tahun</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <h3 className="font-bold text-rose-800 text-[13px] mb-0.5">Selamat ulang tahun</h3>
+                <p className="text-[13px] text-slate-600 leading-relaxed">
                   Pengurus RT 07 mengucapkan selamat bertambah usia untuk <strong>{birthdayNames.join(", ")}</strong>. Semoga sehat dan berkah.
                 </p>
               </div>
@@ -187,48 +197,51 @@ export default async function PortalWarga() {
           )}
 
           {jadwalRonda && (
-            <div className={`rounded-2xl p-5 border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${jadwalRonda.tanggal_tugas === todayStr ? "bg-rose-50 border-rose-200" : "bg-white border-amber-200"}`}>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl shrink-0">🔦</div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900 mb-1">
+            <div className={`rounded-2xl p-4 border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 ${jadwalRonda.tanggal_tugas === todayStr ? "bg-rose-50 border-rose-200" : "bg-white border-amber-200"}`}>
+              <div className="flex gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/70 flex items-center justify-center text-xl shrink-0">🔦</div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[13px] text-slate-900 mb-0.5">
                     {jadwalRonda.tanggal_tugas === todayStr ? "Tugas siskamling malam ini" : "Jadwal siskamling Anda"}
                   </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
+                  <p className="text-[13px] text-slate-600 leading-relaxed">
                     {formatTanggalId(jadwalRonda.tanggal_tugas)}
                     {" · "}
                     {jadwalRonda.status || "Menunggu konfirmasi"}
                   </p>
                 </div>
               </div>
-              <Link href="/portal/ronda" className="text-center text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl bg-slate-900 text-white hover:bg-slate-800">
+              <Link href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
                 Konfirmasi
               </Link>
             </div>
           )}
 
           {pengumumanBaru && (
-            <div className="bg-white border border-blue-100 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-              <div className="flex gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-2xl shrink-0">📢</div>
+            <div className="bg-white border border-blue-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+              <div className="flex gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-xl shrink-0">📢</div>
                 <div className="min-w-0">
-                  <h3 className="font-bold text-sm text-slate-900 mb-1">Pengumuman pengurus</h3>
-                  <p className="text-sm text-slate-600 truncate">{pengumumanBaru.judul}</p>
+                  <h3 className="font-bold text-[13px] text-slate-900 mb-0.5">Pengumuman pengurus</h3>
+                  <p className="text-[13px] text-slate-600 truncate">{pengumumanBaru.judul}</p>
                 </div>
               </div>
-              <Link href="/" className="text-center text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+              <Link href="/" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
                 Baca
               </Link>
             </div>
           )}
 
           {!isDataTervalidasiWarga && (
-            <div className="bg-white border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-              <div>
-                <h3 className="font-bold text-sm text-amber-900 mb-1">Verifikasi data Carik masih diperlukan</h3>
-                <p className="text-sm text-slate-600">Mohon periksa kesesuaian data keluarga dengan catatan kelurahan.</p>
+            <div className="bg-white border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+              <div className="flex gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-xl shrink-0">📋</div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[13px] text-amber-900 mb-0.5">Verifikasi data Carik masih diperlukan</h3>
+                  <p className="text-[13px] text-slate-600">Mohon periksa kesesuaian data keluarga dengan catatan kelurahan.</p>
+                </div>
               </div>
-              <Link href="/portal/sensus" className="text-center text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl bg-amber-500 text-white hover:bg-amber-600">
+              <Link href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
                 Periksa data
               </Link>
             </div>
@@ -236,11 +249,13 @@ export default async function PortalWarga() {
         </section>
 
         <section>
-          <div className="flex items-end justify-between mb-3">
-            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Layanan administrasi</h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-blue-500 shrink-0"></span> Layanan administrasi
+            </h2>
             <p className="text-[11px] text-slate-400 hidden md:block">Urusan surat, kas, suara, dan aset RT</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" />
             <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" />
             <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" />
@@ -249,10 +264,13 @@ export default async function PortalWarga() {
         </section>
 
         <section>
-          <div className="flex items-end justify-between mb-3">
-            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Ekonomi, lingkungan, dan keluarga</h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-emerald-500 shrink-0"></span> Ekonomi, lingkungan, dan keluarga
+            </h2>
+            <p className="text-[11px] text-slate-400 hidden md:block">Sirkular ekonomi &amp; kegiatan keluarga</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="UMKM & jasa tetangga" />
             <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" />
             <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" />
@@ -262,7 +280,12 @@ export default async function PortalWarga() {
         </section>
 
         <section>
-          <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500 mb-3">Keamanan lingkungan</h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
+              <span className="w-1 h-3.5 rounded-full bg-amber-500 shrink-0"></span> Keamanan lingkungan
+            </h2>
+            <p className="text-[11px] text-slate-400 hidden md:block">Ronda dan pelaporan fasilitas</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Atribut warna gelap dicabut */}
             <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" />

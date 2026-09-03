@@ -1,6 +1,81 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 
+type SegmenDemografi = { label: string; nilai: number; persen: number; warna: string };
+
+/**
+ * Donat CSS murni (conic-gradient) sebagai dudukan grafik.
+ *
+ * Warna dikirim sebagai nilai hex, bukan class Tailwind, karena conic-gradient
+ * hanya menerima warna CSS sungguhan. Bila nanti diganti Pie/Donut Chart dari
+ * chart.js, cukup tukar isi komponen ini — ukuran slot dan legenda di sebelahnya
+ * tidak perlu ikut berubah.
+ */
+function DonutDemografi({ total, segmen }: { total: number; segmen: SegmenDemografi[] }) {
+  const terisi = segmen.filter((s) => s.nilai > 0);
+
+  let mulai = 0;
+  const potongan = terisi.map((s, i) => {
+    // Persen sudah dibulatkan di demoStat, jadi jumlahnya bisa meleset dari 100.
+    // Segmen terakhir dipaksa menutup lingkaran agar tidak menyisakan celah.
+    const akhir = i === terisi.length - 1 ? 100 : mulai + s.persen;
+    const bagian = `${s.warna} ${mulai}% ${akhir}%`;
+    mulai = akhir;
+    return bagian;
+  });
+
+  const gradien = potongan.length > 0 ? `conic-gradient(${potongan.join(", ")})` : "conic-gradient(#e2e8f0 0% 100%)";
+
+  return (
+    <div className="relative w-24 h-24 shrink-0 rounded-full shadow-inner" style={{ background: gradien }}>
+      <div className="absolute inset-[26%] bg-white rounded-full flex flex-col items-center justify-center">
+        <span className="text-sm font-bold text-slate-800 tabular-nums leading-none">{total}</span>
+        <span className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">Jiwa</span>
+      </div>
+    </div>
+  );
+}
+
+function KartuDemografi({
+  ikon,
+  judul,
+  total,
+  segmen,
+}: {
+  ikon: string;
+  judul: string;
+  total: number;
+  segmen: SegmenDemografi[];
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:border-slate-300 transition-colors">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-sm">{ikon}</span> {judul}
+        </h3>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <DonutDemografi total={total} segmen={segmen} />
+
+        <ul className="flex-1 min-w-0 space-y-1.5">
+          {segmen.map((s) => (
+            <li key={s.label} className="flex items-center justify-between gap-2 text-[10px]">
+              <span className="flex items-center gap-1.5 font-semibold text-slate-500 truncate">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.warna }}></span>
+                {s.label}
+              </span>
+              <span className="font-bold text-slate-700 tabular-nums shrink-0">
+                {s.nilai} <span className="font-semibold text-slate-400">({s.persen}%)</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export default function DemografiClient({ dataWarga }: { dataWarga: any[] }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -59,83 +134,66 @@ export default function DemografiClient({ dataWarga }: { dataWarga: any[] }) {
   // SKELETON LOADER (Mencegah Hydration Error)
   if (!mounted) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {[1, 2, 3, 4].map(i => <div key={i} className="bg-slate-100 animate-pulse h-32 rounded-xl border border-slate-200"></div>)}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <div key={i} className="bg-slate-100 animate-pulse h-36 rounded-xl border border-slate-200"></div>)}
+        </div>
+        <div className="bg-slate-100 animate-pulse h-36 rounded-xl border border-slate-200"></div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-      {/* Widget 1: Gender */}
-      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-        <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3 flex justify-between items-center">
-          <span>🚻 Gender</span> <span className="text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">{demoStat.jiwa} Jiwa</span>
-        </h3>
-        <div className="w-full flex h-2 rounded-full overflow-hidden mb-3 bg-slate-200 shadow-inner">
-          {demoStat.laki_c > 0 && <div className="bg-blue-500 transition-all duration-1000 ease-out" style={{ width: `${demoStat.laki_p}%` }}></div>}
-          {demoStat.perempuan_c > 0 && <div className="bg-pink-500 transition-all duration-1000 ease-out" style={{ width: `${demoStat.perempuan_p}%` }}></div>}
-        </div>
-        <div className="flex flex-col gap-1.5 text-[9px] font-bold text-slate-500">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 shadow-sm"></span>Laki-laki</div> <span>{demoStat.laki_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-pink-500 shadow-sm"></span>Perempuan</div> <span>{demoStat.perempuan_c}</span></div>
-        </div>
+    <div className="space-y-4">
+      {/* Tiga pilar utama sejajar: Gender, Usia, Pekerjaan */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KartuDemografi
+          ikon="🚻"
+          judul="Gender"
+          total={demoStat.jiwa}
+          segmen={[
+            { label: "Laki-laki", nilai: demoStat.laki_c, persen: demoStat.laki_p, warna: "#3b82f6" },
+            { label: "Perempuan", nilai: demoStat.perempuan_c, persen: demoStat.perempuan_p, warna: "#ec4899" },
+          ]}
+        />
+
+        <KartuDemografi
+          ikon="🎂"
+          judul="Kategori Usia"
+          total={demoStat.jiwa}
+          segmen={[
+            { label: "Dewasa", nilai: demoStat.dewasa_c, persen: demoStat.dewasa_p, warna: "#10b981" },
+            { label: "Anak", nilai: demoStat.anak_c, persen: demoStat.anak_p, warna: "#2dd4bf" },
+            { label: "Balita", nilai: demoStat.balita_c, persen: demoStat.balita_p, warna: "#22d3ee" },
+            { label: "Lansia", nilai: demoStat.lansia_c, persen: demoStat.lansia_p, warna: "#94a3b8" },
+          ]}
+        />
+
+        <KartuDemografi
+          ikon="💼"
+          judul="Pekerjaan"
+          total={demoStat.jiwa}
+          segmen={[
+            { label: "Swasta", nilai: demoStat.swasta_c, persen: demoStat.swasta_p, warna: "#2563eb" },
+            { label: "Wirausaha", nilai: demoStat.wirausaha_c, persen: demoStat.wirausaha_p, warna: "#f97316" },
+            { label: "PNS/TNI", nilai: demoStat.pns_c, persen: demoStat.pns_p, warna: "#334155" },
+            { label: "Lainnya", nilai: demoStat.lainKerja_c, persen: demoStat.lainKerja_p, warna: "#cbd5e1" },
+          ]}
+        />
       </div>
 
-      {/* Widget 2: Usia */}
-      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-        <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3 flex justify-between items-center">
-          <span>🎂 Kategori Usia</span> <span className="text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">{demoStat.jiwa} Jiwa</span>
-        </h3>
-        <div className="w-full flex h-2 rounded-full overflow-hidden mb-3 bg-slate-200 shadow-inner">
-          {demoStat.dewasa_c > 0 && <div className="bg-emerald-500 transition-all duration-1000 ease-out" style={{ width: `${demoStat.dewasa_p}%` }}></div>}
-          {demoStat.anak_c > 0 && <div className="bg-teal-400 transition-all duration-1000 ease-out" style={{ width: `${demoStat.anak_p}%` }}></div>}
-          {demoStat.balita_c > 0 && <div className="bg-cyan-400 transition-all duration-1000 ease-out" style={{ width: `${demoStat.balita_p}%` }}></div>}
-          {demoStat.lansia_c > 0 && <div className="bg-slate-400 transition-all duration-1000 ease-out" style={{ width: `${demoStat.lansia_p}%` }}></div>}
-        </div>
-        <div className="grid grid-cols-1 gap-1.5 text-[9px] font-bold text-slate-500">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm"></span>Dewasa</div> <span>{demoStat.dewasa_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-teal-400 shadow-sm"></span>Anak</div> <span>{demoStat.anak_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm"></span>Balita</div> <span>{demoStat.balita_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 shadow-sm"></span>Lansia</div> <span>{demoStat.lansia_c}</span></div>
-        </div>
-      </div>
-
-      {/* Widget 3: Agama */}
-      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-        <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3 flex justify-between items-center">
-          <span>🕌 Agama</span> <span className="text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">{demoStat.jiwa} Jiwa</span>
-        </h3>
-        <div className="w-full flex h-2 rounded-full overflow-hidden mb-3 bg-slate-200 shadow-inner">
-          {demoStat.islam_c > 0 && <div className="bg-emerald-600 transition-all duration-1000 ease-out" style={{ width: `${demoStat.islam_p}%` }}></div>}
-          {demoStat.kristen_c > 0 && <div className="bg-indigo-400 transition-all duration-1000 ease-out" style={{ width: `${demoStat.kristen_p}%` }}></div>}
-          {demoStat.lainAgama_c > 0 && <div className="bg-amber-400 transition-all duration-1000 ease-out" style={{ width: `${demoStat.lainAgama_p}%` }}></div>}
-        </div>
-        <div className="grid grid-cols-1 gap-1.5 text-[9px] font-bold text-slate-500">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-600 shadow-sm"></span>Islam</div> <span>{demoStat.islam_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400 shadow-sm"></span>Kristen/Katolik</div> <span>{demoStat.kristen_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 shadow-sm"></span>Lainnya</div> <span>{demoStat.lainAgama_c}</span></div>
-        </div>
-      </div>
-
-      {/* Widget 4: Pekerjaan */}
-      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-        <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3 flex justify-between items-center">
-          <span>💼 Pekerjaan</span> <span className="text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">{demoStat.jiwa} Jiwa</span>
-        </h3>
-        <div className="w-full flex h-2 rounded-full overflow-hidden mb-3 bg-slate-200 shadow-inner">
-          {demoStat.swasta_c > 0 && <div className="bg-blue-600 transition-all duration-1000 ease-out" style={{ width: `${demoStat.swasta_p}%` }}></div>}
-          {demoStat.wirausaha_c > 0 && <div className="bg-orange-500 transition-all duration-1000 ease-out" style={{ width: `${demoStat.wirausaha_p}%` }}></div>}
-          {demoStat.pns_c > 0 && <div className="bg-slate-700 transition-all duration-1000 ease-out" style={{ width: `${demoStat.pns_p}%` }}></div>}
-          {demoStat.lainKerja_c > 0 && <div className="bg-slate-300 transition-all duration-1000 ease-out" style={{ width: `${demoStat.lainKerja_p}%` }}></div>}
-        </div>
-        <div className="grid grid-cols-1 gap-1.5 text-[9px] font-bold text-slate-500">
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-600 shadow-sm"></span>Swasta</div> <span>{demoStat.swasta_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500 shadow-sm"></span>Wirausaha</div> <span>{demoStat.wirausaha_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-700 shadow-sm"></span>PNS/TNI</div> <span>{demoStat.pns_c}</span></div>
-          <div className="flex items-center justify-between"><div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-300 shadow-sm"></span>Lainnya</div> <span>{demoStat.lainKerja_c}</span></div>
-        </div>
-      </div>
+      {/* Agama tetap ditampilkan penuh di bawah supaya tiga pilar di atas
+          benar-benar sejajar bertiga, tanpa membuang data yang sudah dihitung. */}
+      <KartuDemografi
+        ikon="🕌"
+        judul="Agama"
+        total={demoStat.jiwa}
+        segmen={[
+          { label: "Islam", nilai: demoStat.islam_c, persen: demoStat.islam_p, warna: "#059669" },
+          { label: "Kristen/Katolik", nilai: demoStat.kristen_c, persen: demoStat.kristen_p, warna: "#818cf8" },
+          { label: "Lainnya", nilai: demoStat.lainAgama_c, persen: demoStat.lainAgama_p, warna: "#fbbf24" },
+        ]}
+      />
     </div>
   );
 }
