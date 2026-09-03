@@ -59,6 +59,17 @@ export default function WargaDetailClient({ warga, aksiVerifikasi, aksiEdit }: {
     return bersih;
   };
 
+  // INJEKSI MUTLAK: Fungsi Intelijen Pengecekan Dokumen
+  const renderDokumenBadge = (path: string | null, label: string) => {
+    if (!path || path === "MENYUSUL") {
+      return <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ {label} Menyusul (Fisik)</div>;
+    }
+    if (path === "-") {
+      return <div className="bg-slate-700 text-slate-400 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 italic">🗄️ {label} Telah Diarsip / Dikosongkan</div>;
+    }
+    return <a href={`/api/admin/dokumen?path=${path}`} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-500 px-4 py-3 rounded-lg font-bold text-sm border border-blue-500 shadow transition-colors text-white">📄 Lihat {label}</a>;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans pb-20 relative">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -98,7 +109,7 @@ export default function WargaDetailClient({ warga, aksiVerifikasi, aksiEdit }: {
               <div className="grid grid-cols-3 items-center">
                 <span className="text-slate-500 font-bold">WhatsApp</span>
                 <span className="col-span-2">
-                  {warga.no_whatsapp ? (
+                  {warga.no_whatsapp && warga.no_whatsapp !== "-" ? (
                     <a href={`https://wa.me/${formatWA(warga.no_whatsapp)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 w-fit bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md border border-emerald-200 font-mono font-bold transition-colors shadow-sm">
                       💬 {warga.no_whatsapp}
                     </a>
@@ -124,12 +135,11 @@ export default function WargaDetailClient({ warga, aksiVerifikasi, aksiEdit }: {
             </div>
           </div>
 
-          {/* Sisa konten dokumen digital dan anggota keluarga tetap sama */}
           <div className="bg-slate-800 p-6 rounded-2xl shadow-sm text-white md:col-span-2">
             <h2 className="font-black text-slate-200 border-b border-slate-700 pb-2 mb-4">🔒 Brankas Dokumen Digital</h2>
             <div className="flex flex-wrap gap-4">
-              {FITUR_KTP_AKTIF && (warga.ktp_path && warga.ktp_path !== 'MENYUSUL' ? <a href={`/api/admin/dokumen?path=${warga.ktp_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat KTP Warga</a> : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KTP Menyusul (Fisik)</div>)}
-              {warga.kk_path && warga.kk_path !== 'MENYUSUL' ? <a href={`/api/admin/dokumen?path=${warga.kk_path}`} className="bg-slate-700 hover:bg-slate-600 px-4 py-3 rounded-lg font-bold text-sm border border-slate-600 shadow transition-colors">📄 Lihat Kartu Keluarga</a> : <div className="bg-rose-900/50 text-rose-300 px-4 py-3 rounded-lg font-bold text-sm border border-rose-800">⚠️ KK Menyusul (Fisik)</div>}
+              {FITUR_KTP_AKTIF && renderDokumenBadge(warga.ktp_path, "KTP")}
+              {renderDokumenBadge(warga.kk_path, "Kartu Keluarga")}
             </div>
           </div>
 
@@ -152,7 +162,13 @@ export default function WargaDetailClient({ warga, aksiVerifikasi, aksiEdit }: {
                         <td className="p-3 text-xs font-bold text-slate-600">{ak.pekerjaan || '-'}</td>
                         {FITUR_KTP_AKTIF && (
                           <td className="p-3 text-center">
-                            {ak.ktp_path && ak.ktp_path !== 'MENYUSUL' ? <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a> : <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>}
+                            {(!ak.ktp_path || ak.ktp_path === 'MENYUSUL') ? (
+                              <span className="text-[9px] text-rose-500 bg-rose-50 border border-rose-100 px-2 py-1 rounded font-bold">Tdk Ada/Menyusul</span>
+                            ) : ak.ktp_path === '-' ? (
+                              <span className="text-[9px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded font-bold italic">Diarsip</span>
+                            ) : (
+                              <a href={`/api/admin/dokumen?path=${ak.ktp_path}`} target="_blank" rel="noopener noreferrer" className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1.5 rounded font-bold hover:bg-blue-200 shadow-sm">Lihat KTP</a>
+                            )}
                           </td>
                         )}
                       </tr>
