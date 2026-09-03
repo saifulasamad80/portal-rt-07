@@ -256,14 +256,16 @@ export default async function PortalWarga() {
             <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="UMKM & jasa tetangga" />
             <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" />
             <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" />
-            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" aksen="bg-rose-50 border-rose-100 text-rose-950" />
+            {/* Atribut warna pink dicabut */}
+            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" />
           </div>
         </section>
 
         <section>
           <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500 mb-3">Keamanan lingkungan</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" aksen="bg-slate-900 border-slate-800 text-white" />
+            {/* Atribut warna gelap dicabut */}
+            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" />
             {FITUR_LAPOR_AKTIF && (
               <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" />
             )}
