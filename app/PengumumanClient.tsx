@@ -74,7 +74,7 @@ export default function PengumumanClient({ pengumumanReguler, rekapVoting }: { p
             <h3 className="font-bold text-slate-800 text-[10px] leading-snug line-clamp-2 px-1 group-hover:text-blue-700">
               {p.judul}
             </h3>
-            <span className="text-[8px] text-slate-400 font-bold mt-auto pt-2 uppercase tracking-widest">
+            <span className="text-[8px] text-slate-400 font-bold mt-auto pt-2 uppercase tracking-widest" suppressHydrationWarning>
               {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
             </span>
           </div>
