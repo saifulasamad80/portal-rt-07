@@ -1,186 +1,619 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  hitungKelengkapan,
+  nilaiKosong,
+  PILIHAN_AGAMA,
+  PILIHAN_DAYA_LISTRIK,
+  PILIHAN_HUBUNGAN,
+  PILIHAN_JENIS_KELAMIN,
+  PILIHAN_PENDAPATAN,
+  PILIHAN_STATUS_TINGGAL,
+  type AnggotaInput,
+  type DuplikatWarga,
+  type HasilCarik,
+} from "@/lib/verifikasi-carik";
 
-export default function SensusClient({ warga, aksiKirim }: { warga: any, aksiKirim: any }) {
+const LANGKAH = [
+  { id: "nik", judul: "Identitas NIK" },
+  { id: "biodata", judul: "Biodata" },
+  { id: "keluarga", judul: "Keluarga" },
+  { id: "ekonomi", judul: "Ekonomi" },
+  { id: "pernyataan", judul: "Pernyataan" },
+];
+
+const kelasLabel = "block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-1.5";
+const kelasInput =
+  "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+const kelasKunci =
+  "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-600 bg-slate-50 cursor-not-allowed";
+
+function normalisasiGender(nilai: unknown) {
+  const n = String(nilai || "").toLowerCase();
+  if (n.startsWith("l")) return "Laki-laki";
+  if (n.startsWith("p")) return "Perempuan";
+  return "";
+}
+
+function opsiDenganNilaiLama(daftar: readonly string[], nilaiLama: string) {
+  if (!nilaiLama || daftar.includes(nilaiLama)) return [...daftar];
+  return [nilaiLama, ...daftar];
+}
+
+function anggotaKosong(): AnggotaInput {
+  return {
+    nama_lengkap: "",
+    nik: "",
+    hubungan_keluarga: "",
+    hubungan_detail: "",
+    tanggal_lahir: "",
+    tempat_lahir: "",
+    jenis_kelamin: "",
+    agama: "",
+    pekerjaan: "",
+  };
+}
+
+function dariWarga(warga: any): AnggotaInput[] {
+  return (warga?.anggota_keluarga || []).map((ak: any) => ({
+    id: ak.id,
+    nama_lengkap: ak.nama_lengkap || "",
+    nik: ak.nik || "",
+    hubungan_keluarga: ak.hubungan_keluarga || "",
+    hubungan_detail: ak.hubungan_detail || "",
+    tanggal_lahir: String(ak.tanggal_lahir || "").slice(0, 10),
+    tempat_lahir: ak.tempat_lahir || "",
+    jenis_kelamin: normalisasiGender(ak.jenis_kelamin) || ak.jenis_kelamin || "",
+    agama: ak.agama || "",
+    pekerjaan: ak.pekerjaan || "",
+  }));
+}
+
+export default function SensusClient({
+  warga,
+  duplikat,
+  aksiSimpan,
+  aksiNikTidakSesuai,
+}: {
+  warga: any;
+  duplikat: DuplikatWarga[];
+  aksiSimpan: (biodata: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
+  aksiNikTidakSesuai: () => Promise<HasilCarik>;
+}) {
   const router = useRouter();
+  const [langkah, setLangkah] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [pesan, setPesan] = useState<{ tipe: "sukses" | "gagal"; teks: string } | null>(null);
+  const [nikDikonfirmasi, setNikDikonfirmasi] = useState(false);
+  const [modalNikSalah, setModalNikSalah] = useState(false);
+  const [modalLanjutKeluarga, setModalLanjutKeluarga] = useState(false);
+  const [setujuData, setSetujuData] = useState(false);
+  const [setujuTanggungJawab, setSetujuTanggungJawab] = useState(false);
   const [catatan, setCatatan] = useState("");
-  const [isSetuju, setIsSetuju] = useState(false);
 
-  // META & CAPTCHA ENGINE
-  const [mathTask, setMathTask] = useState({ a: 0, b: 0, operator: '+', result: 0 });
-  const [captchaInput, setCaptchaInput] = useState("");
+  const [biodata, setBiodata] = useState({
+    nama_lengkap: warga?.nama_lengkap || "",
+    tempat_lahir: warga?.tempat_lahir || "",
+    tanggal_lahir: String(warga?.tanggal_lahir || "").slice(0, 10),
+    jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
+    agama: warga?.agama || "",
+    pekerjaan: warga?.pekerjaan || "",
+    no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
+    status_tinggal: warga?.status_tinggal || "",
+    detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
+    pendapatan_bulanan: warga?.pendapatan_bulanan || "",
+    daya_listrik: warga?.daya_listrik || "",
+  });
 
-  const generateCaptcha = () => {
-    const isPlus = Math.random() > 0.5;
-    const a = Math.floor(Math.random() * 10) + 1;
-    const b = Math.floor(Math.random() * 10) + 1;
-    if (isPlus) {
-      setMathTask({ a, b, operator: '+', result: a + b });
-    } else {
-      const max = Math.max(a, b);
-      const min = Math.min(a, b);
-      setMathTask({ a: max, b: min, operator: '-', result: max - min });
-    }
-    setCaptchaInput("");
+  const [anggota, setAnggota] = useState<AnggotaInput[]>(dariWarga(warga));
+
+  const kelengkapan = useMemo(() => hitungKelengkapan(biodata), [biodata]);
+
+  const ubahBiodata = (nama: keyof typeof biodata, nilai: string) => {
+    setBiodata((sebelum) => ({ ...sebelum, [nama]: nilai }));
   };
 
-  useEffect(() => { generateCaptcha(); }, []);
+  const ubahAnggota = (index: number, nama: keyof AnggotaInput, nilai: string) => {
+    setAnggota((sebelum) => {
+      const salinan = [...sebelum];
+      salinan[index] = { ...salinan[index], [nama]: nilai };
+      return salinan;
+    });
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validasiLangkah = (index: number) => {
+    if (index === 0 && !nikDikonfirmasi) {
+      return "Konfirmasikan dulu bahwa NIK di KTP sama dengan NIK pada data warisan ini.";
+    }
+    if (index === 1) {
+      if (!biodata.nama_lengkap || !biodata.tempat_lahir || !biodata.tanggal_lahir) return "Lengkapi nama dan tempat/tanggal lahir.";
+      if (!biodata.jenis_kelamin || !biodata.agama || !biodata.pekerjaan) return "Lengkapi jenis kelamin, agama, dan pekerjaan.";
+      if (!biodata.no_whatsapp || biodata.no_whatsapp.replace(/\D/g, "").length < 10) return "Nomor WhatsApp wajib diisi.";
+      if (!biodata.status_tinggal || !biodata.detail_alamat) return "Lengkapi status tinggal dan detail alamat.";
+    }
+    if (index === 2) {
+      for (let i = 0; i < anggota.length; i++) {
+        const a = anggota[i];
+        const label = a.nama_lengkap || `Anggota ${i + 1}`;
+        if (!a.nama_lengkap || !a.nik || a.nik.replace(/\D/g, "").length !== 16) return `NIK dan nama ${label} wajib lengkap (16 digit).`;
+        if (!a.tempat_lahir || !a.tanggal_lahir || !a.jenis_kelamin || !a.agama || !a.pekerjaan || !a.hubungan_keluarga) {
+          return `Lengkapi biodata ${label}.`;
+        }
+        if (a.hubungan_keluarga === "Lainnya" && !a.hubungan_detail) return `Jelaskan hubungan keluarga untuk ${label}.`;
+      }
+    }
+    if (index === 3 && (!biodata.pendapatan_bulanan || !biodata.daya_listrik)) {
+      return "Pilih pendapatan bulanan dan daya listrik terpasang.";
+    }
+    return null;
+  };
 
-    if (!isSetuju) return alert("Anda harus mencentang pernyataan kesesuaian data!");
+  const lanjut = () => {
+    const gagal = validasiLangkah(langkah);
+    if (gagal) {
+      setPesan({ tipe: "gagal", teks: gagal });
+      return;
+    }
+    setPesan(null);
+    if (langkah === 2) {
+      setModalLanjutKeluarga(true);
+      return;
+    }
+    setLangkah((n) => Math.min(n + 1, LANGKAH.length - 1));
+  };
 
-    if (parseInt(captchaInput) !== mathTask.result) {
-      alert("  Validasi Keamanan Gagal: Jawaban matematika Anda salah!");
-      generateCaptcha();
+  const handleSimpan = async () => {
+    if (!setujuData || !setujuTanggungJawab) {
+      setPesan({ tipe: "gagal", teks: "Centang kedua pernyataan verifikasi sebelum mengirim." });
+      return;
+    }
+    const gagal = validasiLangkah(1) || validasiLangkah(2) || validasiLangkah(3);
+    if (gagal) {
+      setPesan({ tipe: "gagal", teks: gagal });
       return;
     }
 
     setLoading(true);
+    setPesan(null);
     try {
-      await aksiKirim(catatan);
-      alert("  VERIFIKASI BERHASIL!\n\nData Kependudukan (Carik) keluarga Anda telah dikonfirmasi.");
-      router.push("/portal");
-      router.refresh();
-    } catch (error: any) {
-      alert("Gagal memverifikasi data: " + error.message);
-      setLoading(false);
+      const hasil = await aksiSimpan(biodata, anggota, catatan);
+      if (hasil.success) {
+        setPesan({ tipe: "sukses", teks: hasil.message });
+        router.push(hasil.arah || "/portal");
+        router.refresh();
+        return;
+      }
+      setPesan({ tipe: "gagal", teks: hasil.message });
+    } catch (err: any) {
+      setPesan({ tipe: "gagal", teks: err?.message || "Jaringan terputus saat menyimpan." });
     }
+    setLoading(false);
+  };
+
+  const handleNikSalah = async () => {
+    setLoading(true);
+    setPesan(null);
+    try {
+      const hasil = await aksiNikTidakSesuai();
+      if (hasil.success) {
+        window.location.href = hasil.arah || "/register?alasan=nik-tidak-sesuai";
+        return;
+      }
+      setPesan({ tipe: "gagal", teks: hasil.message });
+      setModalNikSalah(false);
+    } catch (err: any) {
+      setPesan({ tipe: "gagal", teks: err?.message || "Gagal menghapus data lama." });
+      setModalNikSalah(false);
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-6 pb-20 font-sans">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        <Link href="/portal" className="text-slate-500 font-bold hover:text-slate-800 text-sm inline-flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 transition-all active:scale-95">
-          <span>&larr;</span> Batal & Kembali
-        </Link>
-
-        {/* HEADER */}
-        <div className="bg-amber-500 p-8 rounded-2xl shadow-xl text-white relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 text-9xl opacity-10"> </div>
-          <h1 className="text-2xl md:text-3xl font-black mb-2">Verifikasi Data Carik</h1>
-          <p className="text-amber-100 text-xs md:text-sm max-w-lg leading-relaxed font-medium">
-            Sistem Sensus Manual ditiadakan. Silakan periksa data demografi keluarga Anda yang ditarik dari sistem Kelurahan di bawah ini.
+    <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-800">
+      <header className="bg-slate-900 text-white">
+        <div className="max-w-3xl mx-auto px-4 md:px-6 pt-8 pb-10">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-300 mb-2">Wajib · Verifikasi Data Carik</p>
+          <h1 className="text-2xl md:text-3xl font-bold leading-tight">Perbarui data keluarga Anda</h1>
+          <p className="text-sm text-slate-300 mt-3 leading-relaxed max-w-2xl">
+            Catatan ini diambil dari pendataan tahun-tahun sebelumnya. Pengurus RT tidak boleh mengubah NIK.
+            Bandingkan dengan KTP. Jika NIK salah, data lama akan dihapus dan Anda mendaftar ulang.
           </p>
         </div>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* DATA KEPALA KELUARGA */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-blue-500">
-            <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4">Profil Kepala Keluarga</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nama Lengkap</span>
-                <span className="font-black text-slate-800">{warga.nama_lengkap}</span>
+      <div className="max-w-3xl mx-auto px-4 md:px-6 -mt-5 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Kelengkapan biodata</p>
+            <p className="text-sm font-semibold text-slate-800 tabular-nums">{kelengkapan.persen}%</p>
+          </div>
+          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${kelengkapan.persen}%` }} />
+          </div>
+        </div>
+
+        <ol className="grid grid-cols-5 gap-1.5">
+          {LANGKAH.map((item, index) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (index <= langkah) setLangkah(index);
+                }}
+                className={`w-full rounded-xl px-1 py-2 text-center border text-[10px] font-semibold ${
+                  index === langkah
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : index < langkah
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-white text-slate-400 border-slate-200"
+                }`}
+              >
+                {index + 1}. {item.judul}
+              </button>
+            </li>
+          ))}
+        </ol>
+
+        {duplikat.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p className="text-sm font-semibold text-amber-950">Ditemukan {duplikat.length} data kembar</p>
+            <p className="text-[13px] text-amber-900/80 mt-1 leading-relaxed">
+              Setelah NIK dikonfirmasi, data dobel akan dihapus agar satu orang hanya tercatat sekali di buku induk.
+            </p>
+          </div>
+        )}
+
+        {pesan && (
+          <div className={`rounded-2xl border p-4 text-sm font-medium ${pesan.tipe === "gagal" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
+            {pesan.teks}
+          </div>
+        )}
+
+        {langkah === 0 && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Apakah NIK ini milik Anda?</h2>
+              <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                NIK adalah kunci login dan tidak dapat diubah oleh siapa pun, termasuk pengurus RT.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 mb-1">NIK terkunci</p>
+              <p className="font-mono text-xl md:text-2xl font-semibold tracking-wide text-slate-900">{warga.nik}</p>
+              <p className="text-sm text-slate-600 mt-2">{warga.nama_lengkap}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setNikDikonfirmasi(true);
+                  setPesan(null);
+                  setLangkah(1);
+                }}
+                className={`rounded-2xl border p-4 text-left transition-colors ${nikDikonfirmasi ? "border-emerald-400 bg-emerald-50" : "border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50"}`}
+              >
+                <p className="font-semibold text-emerald-800">Ya, NIK ini sesuai KTP</p>
+                <p className="text-[13px] text-slate-600 mt-1">Lanjutkan mengisi dan mengoreksi data keluarga.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalNikSalah(true)}
+                className="rounded-2xl border border-slate-200 p-4 text-left hover:border-rose-300 hover:bg-rose-50/70 transition-colors"
+              >
+                <p className="font-semibold text-rose-800">Tidak, NIK ini salah</p>
+                <p className="text-[13px] text-slate-600 mt-1">Data lama dihapus. Anda wajib lapor diri ulang dengan NIK yang benar.</p>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {langkah === 1 && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-4">
+            <h2 className="text-lg font-bold text-slate-900">Biodata kepala keluarga</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className={kelasLabel}>NIK</label>
+                <input value={warga.nik} disabled className={kelasKunci} />
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">NIK</span>
-                <span className="font-bold font-mono text-slate-700">{warga.nik}</span>
+              <div>
+                <label className={kelasLabel}>Nama lengkap</label>
+                <input className={kelasInput} value={biodata.nama_lengkap} onChange={(e) => ubahBiodata("nama_lengkap", e.target.value)} />
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pekerjaan</span>
-                <span className="font-bold text-slate-700">{warga.pekerjaan || "-"}</span>
+              <div>
+                <label className={kelasLabel}>No. WhatsApp</label>
+                <input className={kelasInput} inputMode="numeric" value={biodata.no_whatsapp} onChange={(e) => ubahBiodata("no_whatsapp", e.target.value.replace(/[^\d]/g, ""))} placeholder="08xxxxxxxxxx" />
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">No. WhatsApp</span>
-                <span className="font-bold font-mono text-slate-700">{warga.no_whatsapp || "-"}</span>
+              <div>
+                <label className={kelasLabel}>Tempat lahir</label>
+                <input className={kelasInput} value={biodata.tempat_lahir} onChange={(e) => ubahBiodata("tempat_lahir", e.target.value)} />
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 md:col-span-2">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Detail Alamat</span>
-                <span className="font-bold text-slate-700">{warga.detail_alamat || "-"}</span>
+              <div>
+                <label className={kelasLabel}>Tanggal lahir</label>
+                <input type="date" className={kelasInput} value={biodata.tanggal_lahir} onChange={(e) => ubahBiodata("tanggal_lahir", e.target.value)} />
+              </div>
+              <div>
+                <label className={kelasLabel}>Jenis kelamin</label>
+                <select className={kelasInput} value={biodata.jenis_kelamin} onChange={(e) => ubahBiodata("jenis_kelamin", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {PILIHAN_JENIS_KELAMIN.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={kelasLabel}>Agama</label>
+                <select className={kelasInput} value={biodata.agama} onChange={(e) => ubahBiodata("agama", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {opsiDenganNilaiLama(PILIHAN_AGAMA, biodata.agama).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className={kelasLabel}>Pekerjaan</label>
+                <input className={kelasInput} value={biodata.pekerjaan} onChange={(e) => ubahBiodata("pekerjaan", e.target.value)} />
+              </div>
+              <div>
+                <label className={kelasLabel}>Status tinggal</label>
+                <select className={kelasInput} value={biodata.status_tinggal} onChange={(e) => ubahBiodata("status_tinggal", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {PILIHAN_STATUS_TINGGAL.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={kelasLabel}>Detail alamat</label>
+                <input className={kelasInput} value={biodata.detail_alamat} onChange={(e) => ubahBiodata("detail_alamat", e.target.value)} placeholder="Gang / blok / nomor rumah" />
               </div>
             </div>
-          </div>
+          </section>
+        )}
 
-          {/* DATA ANGGOTA KELUARGA */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-emerald-500">
-            <h2 className="font-black text-lg text-slate-800 mb-6 border-b border-slate-100 pb-4">Anggota Keluarga (Tanggungan)</h2>
-            
-            {(!warga.anggota_keluarga || warga.anggota_keluarga.length === 0) ? (
-              <div className="text-center p-6 border border-dashed border-slate-300 rounded-xl bg-slate-50">
-                <p className="text-sm font-bold text-slate-500 italic">Tidak ada data anggota keluarga / Hidup sendiri.</p>
+        {langkah === 2 && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Anggota keluarga</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                NIK anggota yang sudah tercatat tidak bisa diubah. Jika NIK salah, hapus baris itu lalu tambah data baru.
+                Data warisan yang tercatat sebagai KK terpisah akan digabung ke keluarga ini.
+              </p>
+            </div>
+
+            {anggota.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                Belum ada tanggungan. Tambah istri/suami/anak jika ada, atau lanjut jika tinggal sendiri.
               </div>
             ) : (
-              <div className="space-y-3">
-                {warga.anggota_keluarga.map((ak: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <div>
-                      <h3 className="font-black text-slate-800 text-sm">{ak.nama_lengkap}</h3>
-                      <p className="text-xs text-slate-500 font-medium mt-1">NIK: {ak.nik} &bull; {ak.pekerjaan}</p>
+              <div className="space-y-4">
+                {anggota.map((item, index) => {
+                  const nikTerkunci = Boolean(item.id);
+                  return (
+                    <div key={item.id || `baru-${index}`} className="rounded-2xl border border-slate-200 p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Anggota {index + 1}</p>
+                        <button type="button" onClick={() => setAnggota((sebelum) => sebelum.filter((_, i) => i !== index))} className="text-xs font-semibold text-rose-600">
+                          Hapus
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className={kelasLabel}>NIK</label>
+                          <input
+                            className={nikTerkunci ? kelasKunci : kelasInput}
+                            disabled={nikTerkunci}
+                            maxLength={16}
+                            value={item.nik}
+                            onChange={(e) => ubahAnggota(index, "nik", e.target.value.replace(/\D/g, "").slice(0, 16))}
+                          />
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Nama lengkap</label>
+                          <input className={kelasInput} value={item.nama_lengkap} onChange={(e) => ubahAnggota(index, "nama_lengkap", e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Tempat lahir</label>
+                          <input className={kelasInput} value={item.tempat_lahir} onChange={(e) => ubahAnggota(index, "tempat_lahir", e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Tanggal lahir</label>
+                          <input type="date" className={kelasInput} value={item.tanggal_lahir} onChange={(e) => ubahAnggota(index, "tanggal_lahir", e.target.value)} />
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Jenis kelamin</label>
+                          <select className={kelasInput} value={item.jenis_kelamin} onChange={(e) => ubahAnggota(index, "jenis_kelamin", e.target.value)}>
+                            <option value="">Pilih</option>
+                            {PILIHAN_JENIS_KELAMIN.map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Agama</label>
+                          <select className={kelasInput} value={item.agama} onChange={(e) => ubahAnggota(index, "agama", e.target.value)}>
+                            <option value="">Pilih</option>
+                            {opsiDenganNilaiLama(PILIHAN_AGAMA, item.agama).map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Hubungan</label>
+                          <select className={kelasInput} value={item.hubungan_keluarga} onChange={(e) => ubahAnggota(index, "hubungan_keluarga", e.target.value)}>
+                            <option value="">Pilih</option>
+                            {opsiDenganNilaiLama(PILIHAN_HUBUNGAN, item.hubungan_keluarga).map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={kelasLabel}>Pekerjaan</label>
+                          <input className={kelasInput} value={item.pekerjaan} onChange={(e) => ubahAnggota(index, "pekerjaan", e.target.value)} />
+                        </div>
+                        {item.hubungan_keluarga === "Lainnya" && (
+                          <div className="md:col-span-2">
+                            <label className={kelasLabel}>Detail hubungan</label>
+                            <input className={kelasInput} value={item.hubungan_detail || ""} onChange={(e) => ubahAnggota(index, "hubungan_detail", e.target.value)} placeholder="Mertua / keponakan / adik" />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-emerald-200">
-                      {ak.hubungan_keluarga}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-          </div>
 
-          {/* FORM KONFIRMASI */}
-          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-            <div className="mb-6">
-              <label className="block text-[11px] font-black text-slate-500 mb-2 uppercase tracking-wide">Koreksi Data (Opsional)</label>
-              <textarea 
-                rows={3} 
-                className="w-full border-2 border-slate-200 rounded-xl p-3.5 text-sm text-slate-700 outline-none focus:border-amber-500 bg-slate-50 focus:bg-white transition-colors" 
-                placeholder="Tuliskan di sini jika ada anggota keluarga yang belum masuk, atau ada pekerjaan/alamat yang harus diperbaiki Pengurus RT..." 
-                value={catatan} 
-                onChange={(e) => setCatatan(e.target.value)}
-              ></textarea>
-            </div>
+            <button
+              type="button"
+              onClick={() => setAnggota((sebelum) => [...sebelum, anggotaKosong()])}
+              className="w-full rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-800 font-semibold py-3.5 text-sm"
+            >
+              + Tambah anggota keluarga
+            </button>
+          </section>
+        )}
 
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" required checked={isSetuju} onChange={e => setIsSetuju(e.target.checked)} className="mt-1 w-5 h-5 text-amber-600 rounded border-gray-300 focus:ring-amber-500" />
-                <div className="text-xs text-amber-900 leading-relaxed font-medium">
-                  <strong>PERNYATAAN VERIFIKASI:</strong> Saya menyatakan bahwa data keluarga (Carik) yang tercantum di atas adalah benar dan sesuai dengan kondisi saat ini.
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* KLASTER 4: VALIDASI CAPTCHA & SUBMIT */}
-          <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-xl text-white border border-slate-800">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="w-full md:w-1/2">
-                <h3 className="font-black text-lg mb-2">Verifikasi Kemanusiaan</h3>
-                <p className="text-xs text-slate-400 mb-4">Selesaikan soal matematika dasar ini untuk memastikan bahwa Anda bukan robot/sistem otomatis (Spam).</p>
-                <div className="flex items-center gap-4 bg-slate-950 p-4 rounded-xl border border-slate-700">
-                  <div className="text-2xl font-black text-amber-400 tracking-widest bg-slate-800 px-4 py-2 rounded-lg border border-slate-600">
-                    {mathTask.a} {mathTask.operator} {mathTask.b} =
-                  </div>
-                  <input 
-                    type="number" 
-                    required 
-                    className="flex-1 bg-transparent border-b-2 border-slate-600 focus:border-amber-500 p-2 text-2xl font-black text-center outline-none transition-colors w-24 placeholder:text-slate-700" 
-                    placeholder="?"
-                    value={captchaInput} 
-                    onChange={(e) => setCaptchaInput(e.target.value)}
-                  />
-                </div>
+        {langkah === 3 && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-4">
+            <h2 className="text-lg font-bold text-slate-900">Profil ekonomi rumah tangga</h2>
+            <p className="text-sm text-slate-500">Dipakai pengurus untuk pemetaan desil bansos, bukan untuk dipublikasikan.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={kelasLabel}>Pendapatan bulanan</label>
+                <select className={kelasInput} value={biodata.pendapatan_bulanan} onChange={(e) => ubahBiodata("pendapatan_bulanan", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {opsiDenganNilaiLama(PILIHAN_PENDAPATAN, biodata.pendapatan_bulanan).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
               </div>
-              <div className="w-full md:w-1/2">
-                <button 
-                  type="submit" 
-                  disabled={loading || !captchaInput || !isSetuju} 
-                  className={`w-full h-16 flex items-center justify-center rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg active:scale-95 ${loading || !captchaInput || !isSetuju ? 'bg-slate-700 text-slate-500 cursor-not-allowed shadow-none' : 'bg-amber-500 hover:bg-amber-400 text-slate-900'}`}
+              <div>
+                <label className={kelasLabel}>Daya listrik terpasang</label>
+                <select className={kelasInput} value={biodata.daya_listrik} onChange={(e) => ubahBiodata("daya_listrik", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {opsiDenganNilaiLama(PILIHAN_DAYA_LISTRIK, biodata.daya_listrik).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {langkah === 4 && (
+          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-5">
+            <h2 className="text-lg font-bold text-slate-900">Tinjau dan nyatakan</h2>
+            <div className="rounded-2xl border border-slate-200 divide-y divide-slate-100 text-sm">
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">NIK</span><span className="font-mono font-semibold">{warga.nik}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Nama</span><span className="font-semibold text-right">{biodata.nama_lengkap}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">TTL</span><span className="font-semibold text-right">{biodata.tempat_lahir}, {biodata.tanggal_lahir}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Alamat</span><span className="font-semibold text-right">{biodata.detail_alamat}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Anggota keluarga</span><span className="font-semibold text-right">{anggota.length === 0 ? "Tidak ada" : anggota.map((a) => a.nama_lengkap).join(", ")}</span></div>
+            </div>
+            <div>
+              <label className={kelasLabel}>Catatan untuk pengurus (opsional)</label>
+              <textarea rows={3} className={kelasInput} value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Misalnya anggota yang baru lahir, atau yang sudah pindah." />
+            </div>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={setujuData} onChange={(e) => setSetujuData(e.target.checked)} />
+              <span className="text-sm text-slate-700 leading-relaxed">Saya telah mencocokkan NIK dengan KTP dan menyatakan data keluarga di atas sesuai kondisi saat ini.</span>
+            </label>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={setujuTanggungJawab} onChange={(e) => setSetujuTanggungJawab(e.target.checked)} />
+              <span className="text-sm text-slate-700 leading-relaxed">Saya bertanggung jawab atas kebenaran isian ini. Data kembar akan dihapus otomatis setelah konfirmasi.</span>
+            </label>
+          </section>
+        )}
+
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (langkah === 0) {
+                window.location.href = "/api/warga/logout";
+                return;
+              }
+              setLangkah((n) => Math.max(0, n - 1));
+            }}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600"
+          >
+            {langkah === 0 ? "Keluar" : "Kembali"}
+          </button>
+          {langkah < LANGKAH.length - 1 ? (
+            <div className="flex items-center gap-2">
+              {langkah === 2 && (
+                <button
+                  type="button"
+                  onClick={() => setAnggota((sebelum) => [...sebelum, anggotaKosong()])}
+                  className="px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold"
                 >
-                  {loading ? "Memproses Data..." : "Konfirmasi Data"}
+                  Tambah anggota
                 </button>
-              </div>
+              )}
+              <button type="button" onClick={lanjut} className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold">
+                Lanjut
+              </button>
+            </div>
+          ) : (
+            <button type="button" disabled={loading || !setujuData || !setujuTanggungJawab} onClick={handleSimpan} className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-50">
+              {loading ? "Menyimpan..." : "Kirim verifikasi"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {modalLanjutKeluarga && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Sudah semua anggota tercatat?</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {anggota.length === 0
+                ? "Belum ada anggota keluarga. Lanjut hanya jika Anda memang tinggal sendiri."
+                : `Saat ini tercatat ${anggota.length} anggota: ${anggota.map((a) => a.nama_lengkap || "tanpa nama").join(", ")}. Tambah lagi jika masih ada istri/suami/anak yang belum masuk.`}
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalLanjutKeluarga(false);
+                  setAnggota((sebelum) => [...sebelum, anggotaKosong()]);
+                }}
+                className="px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold"
+              >
+                Tambah anggota lagi
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalLanjutKeluarga(false);
+                  setLangkah((n) => Math.min(n + 1, LANGKAH.length - 1));
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold"
+              >
+                Ya, lanjut
+              </button>
             </div>
           </div>
-
-        </form>
-      </div>
+        </div>
+      )}
+      {modalNikSalah && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Hapus data karena NIK tidak sesuai</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Data warisan atas NIK {warga.nik} akan dihapus dari buku induk. Anda keluar dari portal dan wajib lapor diri ulang dengan NIK yang tertera di KTP. NIK tidak bisa diperbaiki.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setModalNikSalah(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500">Batal</button>
+              <button type="button" disabled={loading} onClick={handleNikSalah} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold disabled:opacity-50">
+                {loading ? "Menghapus..." : "Hapus dan daftar ulang"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

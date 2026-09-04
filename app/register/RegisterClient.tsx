@@ -13,7 +13,7 @@ type AnggotaKeluarga = {
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
-export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) {
+export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister: any; alasan?: string }) {
   const router = useRouter();
 
   const [nik, setNik] = useState(""); const [nama, setNama] = useState("");
@@ -147,6 +147,11 @@ export default function RegisterClient({ aksiRegister }: { aksiRegister: any }) 
       <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-4xl border-t-[8px] border-t-blue-600">
         <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 text-center tracking-tight">Formulir Lapor Diri RT 07</h1>
         <p className="text-center text-slate-500 text-xs md:text-sm mb-8 font-bold">Terintegrasi dengan sistem Pendataan Sensus & DPT Pemilu</p>
+        {alasan === "nik-tidak-sesuai" && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 leading-relaxed">
+            Data warisan sebelumnya dihapus karena NIK tidak sesuai. NIK tidak bisa diubah. Isi formulir ini dengan NIK yang tertera di KTP, lalu tunggu persetujuan pengurus RT.
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-8">
           

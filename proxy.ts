@@ -3,7 +3,6 @@ import type { NextRequest } from 'next/server';
 
 // REVISI MUTLAK: Nama fungsi wajib diubah dari 'middleware' menjadi 'proxy'
 export function proxy(request: NextRequest) {
-  // 1. Inisiasi Proxy: Tangkap request yang masuk
   const response = NextResponse.next();
 
   // 2. TAMBAL DOSA HSTS: Maksa browser pakai HTTPS selama 1 tahun (31536000 detik)

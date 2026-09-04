@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs"; 
 import { v4 as uuidv4 } from "uuid";
 
-export default function RegisterPage() {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ alasan?: string }> }) {
+  const { alasan } = await searchParams;
   
   async function aksiRegister(payloadKepala: any, anggotaPayload: any[]) {
     "use server"; 
@@ -104,5 +105,5 @@ export default function RegisterPage() {
     }
   }
 
-  return <RegisterClient aksiRegister={aksiRegister} />;
+  return <RegisterClient aksiRegister={aksiRegister} alasan={alasan} />;
 }

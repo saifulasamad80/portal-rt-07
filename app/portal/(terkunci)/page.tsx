@@ -238,12 +238,21 @@ export default async function PortalWarga() {
                 <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-xl shrink-0">📋</div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-[13px] text-amber-900 mb-0.5">Verifikasi data Carik masih diperlukan</h3>
-                  <p className="text-[13px] text-slate-600">Mohon periksa kesesuaian data keluarga dengan catatan kelurahan.</p>
+                  <p className="text-[13px] text-slate-600">Periksa data keluarga warisan, termasuk istri/anak yang sempat tercatat sebagai KK terpisah.</p>
                 </div>
               </div>
               <Link href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
                 Periksa data
               </Link>
+            </div>
+          )}
+          {isDataTervalidasiWarga && (
+            <div className="bg-white border border-emerald-100 rounded-2xl p-4 flex gap-3.5 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xl shrink-0">📋</div>
+              <div>
+                <h3 className="font-bold text-[13px] text-emerald-900 mb-0.5">Data carik keluarga sudah diverifikasi</h3>
+                <p className="text-[13px] text-slate-600 leading-relaxed">NIK terkunci. Perubahan data lain dapat diajukan ke pengurus RT.</p>
+              </div>
             </div>
           )}
         </section>

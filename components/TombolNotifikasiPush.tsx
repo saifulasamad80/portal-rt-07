@@ -30,23 +30,29 @@ export default function TombolNotifikasiPush() {
     setStatus("menunggu");
     setPesan("");
     try {
+      if (typeof Notification === "undefined") {
+        setStatus("tidak-didukung");
+        return;
+      }
       const izin = await Notification.requestPermission();
       if (izin !== "granted") {
         setStatus("idle");
-        setPesan("Izin notifikasi belum diberikan di peramban.");
+        setPesan("Izin notifikasi ditolak. Buka pengaturan peramban, izinkan notifikasi untuk situs ini, lalu coba lagi.");
         return;
       }
-      const kunciRes = await fetch("/api/push/subscribe");
-      const kunciData = await kunciRes.json();
-      if (!kunciData.vapidPublicKey) {
+      const kunciRes = await fetch("/api/push/subscribe", { cache: "no-store" });
+      const kunciData = await kunciRes.json().catch(() => ({}));
+      const vapidPublicKey = String(kunciData.vapidPublicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
+      if (!vapidPublicKey) {
         setStatus("idle");
-        setPesan("Kunci notifikasi belum diatur di server.");
+        setPesan("Kunci notifikasi belum terbaca. Muat ulang halaman, lalu aktifkan lagi.");
         return;
       }
+      await navigator.serviceWorker.register("/sw.js");
       const reg = await navigator.serviceWorker.ready;
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(kunciData.vapidPublicKey),
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
       const simpan = await fetch("/api/push/subscribe", {
         method: "POST",
@@ -57,8 +63,10 @@ export default function TombolNotifikasiPush() {
         const err = await simpan.json().catch(() => ({}));
         throw new Error(err.error || "Gagal mendaftarkan perangkat.");
       }
+      const tes = await fetch("/api/push/tes", { method: "POST" });
+      const tesData = await tes.json().catch(() => ({}));
       setStatus("aktif");
-      setPesan("Perangkat ini siap menerima pengumuman RT.");
+      setPesan(tesData.success ? "Notifikasi aktif. Cek apakah tes muncul di perangkat ini." : "Langganan tersimpan. Izinkan notifikasi sistem agar pengumuman RT masuk.");
     } catch (err: any) {
       setStatus("idle");
       setPesan(err.message || "Gagal mengaktifkan notifikasi.");

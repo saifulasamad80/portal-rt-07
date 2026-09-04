@@ -18,8 +18,8 @@ function klienAdmin(): SupabaseClient {
 }
 
 export function siapkanVapid(): boolean {
-  const publik = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privat = process.env.VAPID_PRIVATE_KEY;
+  const publik = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  const privat = process.env.VAPID_PRIVATE_KEY?.trim();
   if (!publik || !privat) return false;
   webpush.setVapidDetails("mailto:pengurus@wargaku-six.vercel.app", publik, privat);
   return true;

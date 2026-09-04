@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
 async function sesiWarga() {
   const cookieStore = await cookies();
@@ -66,6 +66,9 @@ export async function DELETE(request: Request) {
 }
 
 export async function GET() {
-  const publik = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-  return NextResponse.json({ vapidPublicKey: publik, aktif: Boolean(publik) });
+  const publik = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
+  return NextResponse.json(
+    { vapidPublicKey: publik, aktif: Boolean(publik) },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
