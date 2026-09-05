@@ -37,9 +37,23 @@ self.addEventListener("push", (event) => {
   );
 });
 
+function tautanNotifikasiAman(mentah) {
+  const cadangan = "/portal";
+  if (typeof mentah !== "string" || !mentah.trim()) return cadangan;
+  const nilai = mentah.trim();
+  if (!nilai.startsWith("/") || nilai.startsWith("//") || nilai.includes("\\")) return cadangan;
+  try {
+    const url = new URL(nilai, self.location.origin);
+    if (url.origin !== self.location.origin) return cadangan;
+    return `${url.pathname}${url.search}${url.hash}` || cadangan;
+  } catch (_err) {
+    return cadangan;
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const tujuan = event.notification.data?.url || "/portal";
+  const tujuan = tautanNotifikasiAman(event.notification.data?.url);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {

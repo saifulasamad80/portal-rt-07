@@ -1,38 +1,51 @@
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { otentikasiAdminAktif } from "@/lib/session-security";
+import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const path = url.searchParams.get("path");
+  const path = url.searchParams.get("path")?.trim() || "";
   
-  if (!path) return new NextResponse("Akses Ditolak: Path dokumen tidak ditemukan", { status: 400 });
-
-  // 1. Verifikasi Lapis Baja (Hanya Admin yang boleh lewat)
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
-  if (!token) return new NextResponse("Akses Ilegal: Anda bukan Admin", { status: 401 });
-
-  try {
-    const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
-    await jwtVerify(token, JWT_SECRET);
-  } catch (error) {
-    return new NextResponse("Akses Ilegal: Sesi Admin kedaluwarsa atau tidak valid", { status: 401 });
+  if (!path || path.length > 500 || path.includes("..") || path.startsWith("/") || path.includes("\\") || /^https?:\/\//i.test(path)) {
+    return new NextResponse("Akses Ditolak: Path dokumen tidak valid", { status: 400 });
   }
 
-  // 2. Terbitkan Signed URL (Link yang hancur sendiri)
-  const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  
-  const { data, error } = await supabaseAdmin
+  const otentikasi = await otentikasiAdminAktif();
+  if (!otentikasi.ok) return new NextResponse("Akses Ilegal: Sesi Admin kedaluwarsa atau tidak valid", { status: 401 });
+
+  // Path saja bukan otorisasi. Ikat kembali ke baris warga yang memiliki
+  // dokumen dan, untuk admin RT, ke tenant RT yang sedang dikelola.
+  const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
+  let queryKtp = supabase
+    .from("warga")
+    .select("id")
+    .eq("ktp_path", path);
+  if (otentikasi.sesi.role !== "webmaster") queryKtp = queryKtp.eq("rt_id", otentikasi.sesi.rtId);
+  let { data: pemilik, error: errPemilik } = await queryKtp.maybeSingle();
+  if (!pemilik && !errPemilik) {
+    let queryKk = supabase
+      .from("warga")
+      .select("id")
+      .eq("kk_path", path);
+    if (otentikasi.sesi.role !== "webmaster") queryKk = queryKk.eq("rt_id", otentikasi.sesi.rtId);
+    ({ data: pemilik, error: errPemilik } = await queryKk.maybeSingle());
+  }
+  if (errPemilik || !pemilik) {
+    return new NextResponse("Dokumen tidak ditemukan atau tidak berada dalam cakupan Anda", { status: 404 });
+  }
+
+  // Terbitkan Signed URL (masa hidup pendek) setelah ownership check.
+  const { data, error } = await getSupabaseAdminClientDariSesi(otentikasi.sesi)
     .storage
     .from('dokumen_warga')
-    .createSignedUrl(path, 60); // Masa aktif cuma 60 DETIK!
+    .createSignedUrl(path, 60);
 
   if (error || !data) {
     return new NextResponse("Dokumen tidak ditemukan di brankas", { status: 404 });
   }
 
   // 3. Alihkan browser Admin ke link rahasia tersebut
-  return NextResponse.redirect(data.signedUrl);
+  const response = NextResponse.redirect(data.signedUrl);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }

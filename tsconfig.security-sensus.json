@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "lib/kebijakan-sensus.ts",
+    "lib/session-security.ts",
+    "lib/versi-sesi.ts",
+    "lib/verifikasi-carik.ts",
+    "lib/verifikasi-carik-admin.ts",
+    "lib/supabase-server.ts",
+    "lib/arsip-warga.ts",
+    "app/api/warga/login/route.ts",
+    "app/api/admin/login/route.ts",
+    "app/api/admin/warga/route.ts",
+    "app/portal/layout.tsx",
+    "app/portal/(terkunci)/layout.tsx",
+    "app/portal/sensus/page.tsx",
+    "app/portal/sensus/SensusClient.tsx",
+    "app/admin/page.tsx",
+    "app/admin/warga/page.tsx",
+    "app/admin/warga/[id]/page.tsx",
+    "app/admin/warga/[id]/WargaDetailClient.tsx",
+    "app/admin/pengurus/page.tsx"
+  ],
+  "exclude": ["node_modules", ".next"]
+}

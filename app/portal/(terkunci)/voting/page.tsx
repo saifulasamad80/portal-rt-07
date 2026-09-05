@@ -1,44 +1,22 @@
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import VotingClient from "./VotingClient";
+import { wargaUntukKlien, otentikasiWargaAktif, wajibOtentikasiWarga } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
-
-// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust
-async function pastikanOtentikasiWarga() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
-  if (!token) throw new Error("Akses Ditolak: Sesi Anda tidak valid.");
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload; 
-  } catch (error) { throw new Error("Akses Ditolak: Token keamanan rusak."); }
-}
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function PortalVotingPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  if (!token) redirect("/login");
-  
-  let wargaAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    wargaAktif = payload;
-  } catch (error) { 
-    redirect("/login"); 
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   const { data: votingAktifList } = await supabaseAdmin
     .from("voting_rt")
     .select("*")
     .eq("status", "Aktif")
+    .eq("rt_id", wargaAktif.rtId)
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -50,7 +28,8 @@ export default async function PortalVotingPage() {
       .from("suara_voting")
       .select("*")
       .eq("voting_id", votingAktif.id)
-      .eq("warga_id", wargaAktif.id);
+      .eq("warga_id", wargaAktif.id)
+      .eq("rt_id", wargaAktif.rtId);
       
     suaraKu = cekSuara && cekSuara.length > 0 ? cekSuara[0] : null;
   }
@@ -58,22 +37,34 @@ export default async function PortalVotingPage() {
   // REFACTOR: Eksekusi Validasi Lapis Baja (Super Kritis untuk Mencegah Pemilu Curang)
   async function kirimSuara(votingId: string, pilihanTeks: string) {
     "use server";
-    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+    const sesi = await wajibOtentikasiWarga();
+    const idBersih = String(votingId || "").trim();
+    const pilihanBersih = String(pilihanTeks || "").trim();
+    if (!POLA_UUID.test(idBersih)) return { success: false, message: "Topik voting tidak valid." };
 
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
-    // Validasi Ganda di Server menggunakan ID Asli Warga
-    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", votingId).eq("warga_id", sesi.id);
-    if (validasi && validasi.length > 0) throw new Error("Sistem mendeteksi anomali: Suara Anda sudah terekam sebelumnya. Tindakan diblokir!");
+    const supabase = await buatKlienTerautentikasi(sesi);
+    const { data: topik, error: errTopik } = await supabase
+      .from("voting_rt")
+      .select("id, opsi_1, opsi_2")
+      .eq("id", idBersih)
+      .eq("rt_id", sesi.rtId)
+      .eq("status", "Aktif")
+      .maybeSingle();
+    if (errTopik || !topik || ![topik.opsi_1, topik.opsi_2].includes(pilihanBersih)) return { success: false, message: "Pilihan voting tidak valid atau sesi sudah ditutup." };
+
+    const { data: validasi } = await supabase.from("suara_voting").select("id").eq("voting_id", idBersih).eq("warga_id", sesi.id).maybeSingle();
+    if (validasi) return { success: false, message: "Suara Anda sudah terekam sebelumnya." };
 
     const { error } = await supabase.from("suara_voting").insert([{
-      voting_id: votingId,
+      voting_id: idBersih,
       warga_id: sesi.id, // Gunakan ID asli
-      pilihan: pilihanTeks
+      pilihan: pilihanBersih,
+      rt_id: sesi.rtId,
     }]);
 
-    if (error) throw new Error(error.message);
+    if (error) return { success: false, message: error.code === "23505" ? "Suara Anda sudah terekam sebelumnya." : "Suara gagal disimpan." };
+    return { success: true, message: "Suara berhasil disimpan." };
   }
 
-  return <VotingClient wargaAktif={wargaAktif} votingAktif={votingAktif} suaraKu={suaraKu} aksiPilih={kirimSuara} />;
+  return <VotingClient wargaAktif={wargaUntukKlien(wargaAktif)} votingAktif={votingAktif} suaraKu={suaraKu} aksiPilih={kirimSuara} />;
 }

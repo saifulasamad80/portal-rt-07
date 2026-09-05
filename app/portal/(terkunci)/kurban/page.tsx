@@ -1,41 +1,29 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { otentikasiWargaAktif } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
 export default async function TabunganKurbanWarga() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  if (!token) redirect("/login");
-
-  let wargaAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    wargaAktif = payload;
-  } catch (error) {
-    redirect("/login");
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   // INJEKSI MUTLAK: Mengarahkan tembakan ke tabel transaksi_kurban (Sesuai Admin)
   const { data } = await supabaseAdmin
     .from("transaksi_kurban")
-    .select("*")
+    .select("id, jenis_transaksi, nominal, keterangan, sumber_dana, tanggal_transaksi, created_at")
     .eq("warga_id", wargaAktif.id)
-    .order("tanggal_transaksi", { ascending: false });
+    .order("tanggal_transaksi", { ascending: false })
+    .limit(1000);
   
   const riwayat = data || [];
   
   // FAKTA: Filter dan kalkulasi disesuaikan dengan skema Kurban
-  const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setoran").reduce((sum, t) => sum + t.nominal, 0);
-  const totalTarik = riwayat.filter(t => t.jenis_transaksi === "Penarikan").reduce((sum, t) => sum + t.nominal, 0);
+  const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setoran (+)" || t.jenis_transaksi === "Setoran").reduce((sum, t) => sum + t.nominal, 0);
+  const totalTarik = riwayat.filter(t => t.jenis_transaksi === "Tarikan (-)" || t.jenis_transaksi === "Penarikan").reduce((sum, t) => sum + t.nominal, 0);
   const saldo = totalSetor - totalTarik;
 
   return (
@@ -71,8 +59,8 @@ export default async function TabunganKurbanWarga() {
                         <div className="font-bold text-slate-800">{t.keterangan}</div>
                         <div className="text-xs text-slate-500 mt-0.5">Sumber: {t.sumber_dana}</div>
                       </td>
-                      <td className={`p-3 text-right font-black ${t.jenis_transaksi === 'Setoran' ? 'text-pink-600' : 'text-rose-600'}`}>
-                        {t.jenis_transaksi === 'Setoran' ? '+' : '-'} {t.nominal.toLocaleString('id-ID')}
+                      <td className={`p-3 text-right font-black ${t.jenis_transaksi === 'Setoran (+)' || t.jenis_transaksi === 'Setoran' ? 'text-pink-600' : 'text-rose-600'}`}>
+                        {t.jenis_transaksi === 'Setoran (+)' || t.jenis_transaksi === 'Setoran' ? '+' : '-'} {t.nominal.toLocaleString('id-ID')}
                       </td>
                     </tr>
                   ))

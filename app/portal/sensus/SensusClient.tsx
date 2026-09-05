@@ -12,7 +12,6 @@ import {
   PILIHAN_PENDAPATAN,
   PILIHAN_STATUS_TINGGAL,
   type AnggotaInput,
-  type DuplikatWarga,
   type HasilCarik,
 } from "@/lib/verifikasi-carik";
 
@@ -29,6 +28,40 @@ const kelasInput =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 const kelasKunci =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-600 bg-slate-50 cursor-not-allowed";
+
+type AnggotaProfil = {
+  id: string;
+  nama_lengkap: string | null;
+  nik: string | null;
+  hubungan_keluarga: string | null;
+  hubungan_detail: string | null;
+  tanggal_lahir: string | null;
+  tempat_lahir: string | null;
+  jenis_kelamin: string | null;
+  agama: string | null;
+  pekerjaan: string | null;
+};
+
+type ProfilSensus = {
+  id: string;
+  nik: string;
+  nama_lengkap: string | null;
+  tempat_lahir: string | null;
+  tanggal_lahir: string | null;
+  jenis_kelamin: string | null;
+  agama: string | null;
+  pekerjaan: string | null;
+  no_whatsapp: string | null;
+  status_tinggal: string | null;
+  detail_alamat: string | null;
+  pendapatan_bulanan: string | null;
+  daya_listrik: string | null;
+  anggota_keluarga: AnggotaProfil[] | null;
+};
+
+function pesanKesalahan(error: unknown, cadangan: string) {
+  return error instanceof Error && error.message ? error.message : cadangan;
+}
 
 function normalisasiGender(nilai: unknown) {
   const n = String(nilai || "").toLowerCase();
@@ -56,8 +89,8 @@ function anggotaKosong(): AnggotaInput {
   };
 }
 
-function dariWarga(warga: any): AnggotaInput[] {
-  return (warga?.anggota_keluarga || []).map((ak: any) => ({
+function dariWarga(warga: ProfilSensus): AnggotaInput[] {
+  return (warga.anggota_keluarga || []).map((ak) => ({
     id: ak.id,
     nama_lengkap: ak.nama_lengkap || "",
     nik: ak.nik || "",
@@ -73,12 +106,10 @@ function dariWarga(warga: any): AnggotaInput[] {
 
 export default function SensusClient({
   warga,
-  duplikat,
   aksiSimpan,
   aksiNikTidakSesuai,
 }: {
-  warga: any;
-  duplikat: DuplikatWarga[];
+  warga: ProfilSensus;
   aksiSimpan: (biodata: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
   aksiNikTidakSesuai: () => Promise<HasilCarik>;
 }) {
@@ -186,8 +217,8 @@ export default function SensusClient({
         return;
       }
       setPesan({ tipe: "gagal", teks: hasil.message });
-    } catch (err: any) {
-      setPesan({ tipe: "gagal", teks: err?.message || "Jaringan terputus saat menyimpan." });
+    } catch (error: unknown) {
+      setPesan({ tipe: "gagal", teks: pesanKesalahan(error, "Jaringan terputus saat menyimpan.") });
     }
     setLoading(false);
   };
@@ -198,13 +229,14 @@ export default function SensusClient({
     try {
       const hasil = await aksiNikTidakSesuai();
       if (hasil.success) {
-        window.location.href = hasil.arah || "/register?alasan=nik-tidak-sesuai";
+        router.replace(hasil.arah || "/login?alasan=nik-tidak-sesuai");
+        router.refresh();
         return;
       }
       setPesan({ tipe: "gagal", teks: hasil.message });
       setModalNikSalah(false);
-    } catch (err: any) {
-      setPesan({ tipe: "gagal", teks: err?.message || "Gagal menghapus data lama." });
+    } catch (error: unknown) {
+      setPesan({ tipe: "gagal", teks: pesanKesalahan(error, "Gagal mengirim laporan NIK.") });
       setModalNikSalah(false);
     }
     setLoading(false);
@@ -218,7 +250,7 @@ export default function SensusClient({
           <h1 className="text-2xl md:text-3xl font-bold leading-tight">Perbarui data keluarga Anda</h1>
           <p className="text-sm text-slate-300 mt-3 leading-relaxed max-w-2xl">
             Catatan ini diambil dari pendataan tahun-tahun sebelumnya. Pengurus RT tidak boleh mengubah NIK.
-            Bandingkan dengan KTP. Jika NIK salah, data lama akan dihapus dan Anda mendaftar ulang.
+            Bandingkan dengan KTP. Jika NIK salah, kirim laporan agar pengurus dapat memeriksanya tanpa menghapus data.
           </p>
         </div>
       </header>
@@ -255,15 +287,6 @@ export default function SensusClient({
             </li>
           ))}
         </ol>
-
-        {duplikat.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <p className="text-sm font-semibold text-amber-950">Ditemukan {duplikat.length} data kembar</p>
-            <p className="text-[13px] text-amber-900/80 mt-1 leading-relaxed">
-              Setelah NIK dikonfirmasi, data dobel akan dihapus agar satu orang hanya tercatat sekali di buku induk.
-            </p>
-          </div>
-        )}
 
         {pesan && (
           <div className={`rounded-2xl border p-4 text-sm font-medium ${pesan.tipe === "gagal" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
@@ -303,7 +326,7 @@ export default function SensusClient({
                 className="rounded-2xl border border-slate-200 p-4 text-left hover:border-rose-300 hover:bg-rose-50/70 transition-colors"
               >
                 <p className="font-semibold text-rose-800">Tidak, NIK ini salah</p>
-                <p className="text-[13px] text-slate-600 mt-1">Data lama dihapus. Anda wajib lapor diri ulang dengan NIK yang benar.</p>
+                <p className="text-[13px] text-slate-600 mt-1">Kirim laporan kepada pengurus. Data tidak akan dihapus otomatis.</p>
               </button>
             </div>
           </section>
@@ -378,7 +401,7 @@ export default function SensusClient({
               <h2 className="text-lg font-bold text-slate-900">Anggota keluarga</h2>
               <p className="text-sm text-slate-500 mt-1">
                 NIK anggota yang sudah tercatat tidak bisa diubah. Jika NIK salah, hapus baris itu lalu tambah data baru.
-                Data warisan yang tercatat sebagai KK terpisah akan digabung ke keluarga ini.
+                NIK yang sudah dipakai rumah tangga lain akan ditahan untuk pemeriksaan pengurus, bukan digabung otomatis.
               </p>
             </div>
 
@@ -522,7 +545,7 @@ export default function SensusClient({
             </label>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 cursor-pointer">
               <input type="checkbox" className="mt-1" checked={setujuTanggungJawab} onChange={(e) => setSetujuTanggungJawab(e.target.checked)} />
-              <span className="text-sm text-slate-700 leading-relaxed">Saya bertanggung jawab atas kebenaran isian ini. Data kembar akan dihapus otomatis setelah konfirmasi.</span>
+              <span className="text-sm text-slate-700 leading-relaxed">Saya bertanggung jawab atas kebenaran isian ini. Konflik identitas akan diperiksa pengurus tanpa penghapusan otomatis.</span>
             </label>
           </section>
         )}
@@ -532,7 +555,7 @@ export default function SensusClient({
             type="button"
             onClick={() => {
               if (langkah === 0) {
-                window.location.href = "/api/warga/logout";
+                router.push("/api/warga/logout");
                 return;
               }
               setLangkah((n) => Math.max(0, n - 1));
@@ -601,14 +624,14 @@ export default function SensusClient({
       {modalNikSalah && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Hapus data karena NIK tidak sesuai</h3>
+            <h3 className="text-lg font-bold text-slate-900">Laporkan NIK tidak sesuai</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Data warisan atas NIK {warga.nik} akan dihapus dari buku induk. Anda keluar dari portal dan wajib lapor diri ulang dengan NIK yang tertera di KTP. NIK tidak bisa diperbaiki.
+              Data warisan atas NIK {warga.nik} tidak akan dihapus. Akun akan diblokir sementara dan pengurus RT akan memeriksa laporan Anda.
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setModalNikSalah(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500">Batal</button>
               <button type="button" disabled={loading} onClick={handleNikSalah} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold disabled:opacity-50">
-                {loading ? "Menghapus..." : "Hapus dan daftar ulang"}
+                {loading ? "Mengirim..." : "Kirim laporan"}
               </button>
             </div>
           </div>

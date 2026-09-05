@@ -1,35 +1,18 @@
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import AuditClient from "./AuditClient";
+import { otentikasiAdminAktif } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
 
 export default async function AdminAuditPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
+  const otentikasi = await otentikasiAdminAktif();
+  if (!otentikasi.ok || otentikasi.sesi.role !== "webmaster") redirect("/admin");
 
-  if (!token) redirect("/admin");
-
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    
-    // PERTAHANAN LAPIS SERVER: Tendang jika bukan webmaster
-    if (payload.role !== "webmaster") {
-      redirect("/admin");
-    }
-  } catch (error) {
-    redirect("/admin");
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   const { data: logsRes } = await supabaseAdmin
     .from("audit_log")
-    .select("*")
+    .select("id, created_at, aktor, aksi, tabel_target, detail, rt_id")
     .order("created_at", { ascending: false })
     .limit(100);
 

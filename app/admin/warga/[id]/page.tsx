@@ -1,60 +1,109 @@
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
 import { redirect } from "next/navigation";
-import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import {
+  buatKlienTerautentikasi,
+  getSupabaseAdminClientDariSesi,
+} from "@/lib/supabase-server";
+import {
+  adminBolehMengaksesRt,
+  otentikasiAdminAktif,
+  otorisasiWargaUntukAdmin,
+  saringWargaTerotorisasi,
+  wilayahMutasiWarga,
+} from "@/lib/session-security";
 import WargaDetailClient from "./WargaDetailClient";
 import {
   ambilStatusCarik,
   cariDuplikatWarga,
-  hapusDuplikatPilihan,
-  hapusKarenaNikTidakSesuai,
   simpanVerifikasiCarik,
   type AnggotaInput,
   type HasilCarik,
 } from "@/lib/verifikasi-carik";
+import {
+  hapusDuplikatPilihan,
+  hapusKarenaNikTidakSesuai,
+} from "@/lib/verifikasi-carik-admin";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production"
-);
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUS_VERIFIKASI_SAH = ["Disetujui", "Menunggu", "Ditolak"] as const;
-
-type SesiAdmin = { nama?: string; role?: string; rt_id?: string };
-
-async function otentikasiAdmin(): Promise<{ ok: true; sesi: SesiAdmin } | { ok: false; message: string }> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
-  if (!token) return { ok: false, message: "Sesi pengurus sudah berakhir. Silakan masuk kembali." };
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return { ok: true, sesi: payload as SesiAdmin };
-  } catch {
-    return { ok: false, message: "Sesi tidak valid atau telah dimanipulasi. Silakan masuk kembali." };
-  }
-}
 
 export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idWarga } = await params;
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
-  if (!token) redirect("/admin");
-  try {
-    await jwtVerify(token, JWT_SECRET);
-  } catch {
-    redirect("/admin");
-  }
-
   if (!POLA_UUID.test(idWarga)) redirect("/admin/warga");
 
-  const supabase = getSupabaseAdminClient();
-  const { data: wargaRes } = await supabase
+  const otentikasiHalaman = await otentikasiAdminAktif();
+  if (!otentikasiHalaman.ok) redirect("/admin");
+
+  const supabase = await buatKlienTerautentikasi(otentikasiHalaman.sesi);
+  const { data: wargaRes, error: errWarga } = await supabase
     .from("warga")
-    .select("*, anggota_keluarga(*)")
+    .select(`
+      id,
+      nik,
+      nama_lengkap,
+      no_whatsapp,
+      status_tinggal,
+      detail_alamat,
+      tanggal_lahir,
+      tempat_lahir,
+      jenis_kelamin,
+      agama,
+      pekerjaan,
+      pendapatan_bulanan,
+      daya_listrik,
+      status_verifikasi,
+      ktp_path,
+      kk_path,
+      rt_id,
+      anggota_keluarga (
+        id,
+        nik,
+        nama_lengkap,
+        hubungan_keluarga,
+        hubungan_detail,
+        tanggal_lahir,
+        tempat_lahir,
+        jenis_kelamin,
+        agama,
+        pekerjaan,
+        rt_id
+      )
+    `)
     .eq("id", idWarga)
     .maybeSingle();
 
-  if (!wargaRes) redirect("/admin/warga");
+  if (errWarga) console.error("Detail warga gagal dimuat:", errWarga.message);
+  if (errWarga || !wargaRes || !adminBolehMengaksesRt(otentikasiHalaman.sesi, wargaRes.rt_id)) {
+    redirect("/admin/warga");
+  }
+
+  // RLS sudah membatasi relasi nested, tetapi baris warisan tanpa rt_id
+  // atau lintas tenant tetap disaring di aplikasi sebelum dirender.
+  const rtIdWarga = String(wargaRes.rt_id || "");
+  if (!POLA_UUID.test(rtIdWarga)) {
+    console.error("Detail warga ditolak karena tenant kepala keluarga tidak valid:", wargaRes.id);
+    redirect("/admin/warga");
+  }
+  const anggotaKeluargaAman = (Array.isArray(wargaRes.anggota_keluarga)
+    ? wargaRes.anggota_keluarga
+    : []
+  ).filter((anggota: { rt_id?: unknown }) => {
+    const rtIdAnggota = String(anggota?.rt_id || "");
+    if (POLA_UUID.test(rtIdAnggota) && rtIdAnggota === rtIdWarga) return true;
+    console.error("Relasi anggota lintas RT disembunyikan dari detail warga:", wargaRes.id);
+    return false;
+  }).map((anggota: Record<string, unknown>) => ({
+    id: String(anggota.id || ""),
+    nik: anggota.nik == null ? null : String(anggota.nik),
+    nama_lengkap: anggota.nama_lengkap == null ? null : String(anggota.nama_lengkap),
+    hubungan_keluarga: anggota.hubungan_keluarga == null ? null : String(anggota.hubungan_keluarga),
+    hubungan_detail: anggota.hubungan_detail == null ? null : String(anggota.hubungan_detail),
+    tanggal_lahir: anggota.tanggal_lahir == null ? null : String(anggota.tanggal_lahir),
+    tempat_lahir: anggota.tempat_lahir == null ? null : String(anggota.tempat_lahir),
+    jenis_kelamin: anggota.jenis_kelamin == null ? null : String(anggota.jenis_kelamin),
+    agama: anggota.agama == null ? null : String(anggota.agama),
+    pekerjaan: anggota.pekerjaan == null ? null : String(anggota.pekerjaan),
+  }));
 
   const [statusCarik, duplikat] = await Promise.all([
     ambilStatusCarik(supabase, idWarga),
@@ -63,42 +112,74 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       nik: wargaRes.nik,
       nama_lengkap: wargaRes.nama_lengkap,
       tanggal_lahir: wargaRes.tanggal_lahir,
+      rt_id: String(wargaRes.rt_id),
     }),
   ]);
 
-  async function aksiVerifikasiAkun(wargaId: string, statusBaru: string): Promise<HasilCarik> {
+  const wargaUntukKlien = {
+    id: wargaRes.id,
+    nik: wargaRes.nik,
+    nama_lengkap: wargaRes.nama_lengkap,
+    no_whatsapp: wargaRes.no_whatsapp,
+    status_tinggal: wargaRes.status_tinggal,
+    detail_alamat: wargaRes.detail_alamat,
+    tanggal_lahir: wargaRes.tanggal_lahir,
+    tempat_lahir: wargaRes.tempat_lahir,
+    jenis_kelamin: wargaRes.jenis_kelamin,
+    agama: wargaRes.agama,
+    pekerjaan: wargaRes.pekerjaan,
+    pendapatan_bulanan: wargaRes.pendapatan_bulanan,
+    daya_listrik: wargaRes.daya_listrik,
+    status_verifikasi: wargaRes.status_verifikasi,
+    ktp_path: wargaRes.ktp_path,
+    kk_path: wargaRes.kk_path,
+    anggota_keluarga: anggotaKeluargaAman,
+  };
+
+  async function aksiVerifikasiAkun(statusBaru: string): Promise<HasilCarik> {
     "use server";
     try {
-      const otentikasi = await otentikasiAdmin();
+      const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
-      if (!POLA_UUID.test(wargaId)) return { success: false, message: "ID warga tidak valid." };
       if (!STATUS_VERIFIKASI_SAH.includes(statusBaru as (typeof STATUS_VERIFIKASI_SAH)[number])) {
         return { success: false, message: `Status "${statusBaru}" tidak dikenali.` };
       }
 
-      const klien = getSupabaseAdminClient();
-      const { data: target, error: errTarget } = await klien
-        .from("warga")
-        .select("id, nik, nama_lengkap")
-        .eq("id", wargaId)
+      const klien = await buatKlienTerautentikasi(otentikasi.sesi);
+      const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
+      if (!target.ok) return { success: false, message: target.message };
+
+      const wilayah = wilayahMutasiWarga(otentikasi.sesi, target.sesi.rtId);
+      if (!wilayah.ok) return { success: false, message: wilayah.message };
+
+      const { data: diperbarui, error } = await saringWargaTerotorisasi(
+        klien.from("warga").update({
+          status_verifikasi: statusBaru,
+          ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
+        }),
+        target.sesi,
+        wilayah.rtIdSaring
+      )
+        .select("id")
         .maybeSingle();
 
-      if (errTarget) return { success: false, message: `Gagal membaca warga: ${errTarget.message}` };
-      if (!target) return { success: false, message: "Data warga sudah tidak ada." };
-
-      const { error } = await klien.from("warga").update({ status_verifikasi: statusBaru }).eq("id", wargaId);
-      if (error) return { success: false, message: `Gagal mengubah status akun: ${error.message}` };
+      if (error) {
+        console.error("Perubahan status warga gagal:", error.message);
+        return { success: false, message: "Status akun gagal diperbarui." };
+      }
+      if (!diperbarui) return { success: false, message: "Data warga berubah; muat ulang halaman." };
 
       await klien.from("audit_log").insert([
         {
-          aktor: otentikasi.sesi.nama || "pengurus",
+          aktor: otentikasi.sesi.nama,
           aksi: `Verifikasi Akun Warga: ${statusBaru}`,
           tabel_target: "warga",
-          detail: `Status akun NIK ${target.nik} (${target.nama_lengkap}) menjadi ${statusBaru}`,
+          detail: `Status akun NIK ${target.sesi.nik} (${target.sesi.nama}) menjadi ${statusBaru}`,
+          rt_id: wilayah.rtIdTulis,
         },
       ]);
 
-      return { success: true, message: `Status akun ${target.nama_lengkap} diubah menjadi ${statusBaru}.` };
+      return { success: true, message: `Status akun ${target.sesi.nama} diubah menjadi ${statusBaru}.` };
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat mengubah status akun.";
       return { success: false, message: pesan };
@@ -106,23 +187,25 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
   }
 
   async function aksiEditBiodata(
-    wargaId: string,
     dataBaru: Record<string, unknown>,
     anggota: AnggotaInput[]
   ): Promise<HasilCarik> {
     "use server";
     try {
-      const otentikasi = await otentikasiAdmin();
+      const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
-      const klien = getSupabaseAdminClient();
+      const klien = await buatKlienTerautentikasi(otentikasi.sesi);
+      const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
+      if (!target.ok) return { success: false, message: target.message };
+
       return await simpanVerifikasiCarik(
         klien,
-        wargaId,
+        target.sesi.id,
         dataBaru,
         anggota,
         "",
-        otentikasi.sesi.nama || "pengurus",
-        { hapusDuplikat: false, capCarik: false }
+        otentikasi.sesi.nama,
+        { capCarik: false }
       );
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat menyimpan biodata.";
@@ -131,23 +214,25 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
   }
 
   async function aksiVerifikasiCarikPengurus(
-    wargaId: string,
     dataBaru: Record<string, unknown>,
     anggota: AnggotaInput[],
     catatan: string
   ): Promise<HasilCarik> {
     "use server";
     try {
-      const otentikasi = await otentikasiAdmin();
+      const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
-      const klien = getSupabaseAdminClient();
+      const klien = await buatKlienTerautentikasi(otentikasi.sesi);
+      const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
+      if (!target.ok) return { success: false, message: target.message };
+
       return await simpanVerifikasiCarik(
         klien,
-        wargaId,
+        target.sesi.id,
         dataBaru,
         anggota,
         catatan || "Diverifikasi langsung oleh pengurus RT",
-        otentikasi.sesi.nama || "pengurus"
+        otentikasi.sesi.nama
       );
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat mencatat verifikasi carik.";
@@ -155,13 +240,20 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     }
   }
 
-  async function aksiNikTidakSesuai(wargaId: string): Promise<HasilCarik> {
+  async function aksiNikTidakSesuai(): Promise<HasilCarik> {
     "use server";
     try {
-      const otentikasi = await otentikasiAdmin();
+      const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
-      const klien = getSupabaseAdminClient();
-      const hasil = await hapusKarenaNikTidakSesuai(klien, wargaId, otentikasi.sesi.nama || "pengurus");
+      const klien = await buatKlienTerautentikasi(otentikasi.sesi);
+      const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
+      if (!target.ok) return { success: false, message: target.message };
+
+      const hasil = await hapusKarenaNikTidakSesuai(
+        getSupabaseAdminClientDariSesi(otentikasi.sesi),
+        target.sesi.id,
+        otentikasi.sesi.nama
+      );
       if (hasil.success) hasil.arah = "/admin/warga";
       return hasil;
     } catch (err: unknown) {
@@ -170,13 +262,24 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     }
   }
 
-  async function aksiHapusDuplikat(idTarget: string): Promise<HasilCarik> {
+  async function aksiHapusDuplikat(idTarget: string, sumberTarget: unknown): Promise<HasilCarik> {
     "use server";
     try {
-      const otentikasi = await otentikasiAdmin();
+      const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
-      const klien = getSupabaseAdminClient();
-      return await hapusDuplikatPilihan(klien, idTarget, idWarga, otentikasi.sesi.nama || "pengurus");
+      const klien = await buatKlienTerautentikasi(otentikasi.sesi);
+      const targetDipertahankan = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
+      if (!targetDipertahankan.ok) {
+        return { success: false, message: targetDipertahankan.message };
+      }
+
+      return await hapusDuplikatPilihan(
+        getSupabaseAdminClientDariSesi(otentikasi.sesi),
+        idTarget,
+        sumberTarget,
+        targetDipertahankan.sesi.id,
+        otentikasi.sesi.nama
+      );
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat menghapus data kembar.";
       return { success: false, message: pesan };
@@ -185,7 +288,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
 
   return (
     <WargaDetailClient
-      warga={wargaRes}
+      warga={wargaUntukKlien}
       carik={statusCarik.ok ? statusCarik.data : null}
       duplikat={duplikat}
       aksiVerifikasiAkun={aksiVerifikasiAkun}

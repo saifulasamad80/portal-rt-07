@@ -1,59 +1,65 @@
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import LaporAdminClient from "./LaporAdminClient";
+import { adminUntukKlien, otentikasiAdminAktif, wajibOtentikasiAdmin } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function AdminLaporPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
+  const otentikasi = await otentikasiAdminAktif();
+  if (!otentikasi.ok) redirect("/admin");
+  const adminAktif = adminUntukKlien(otentikasi.sesi);
 
-  if (!token) redirect("/admin");
-
-  let adminAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    adminAktif = payload;
-  } catch (error) {
-    redirect("/admin");
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   // FAKTA: Tarik daftar laporan beserta nama warga pelapornya
-  const { data: laporanRes } = await supabaseAdmin
+  let queryLaporan = supabaseAdmin
     .from("laporan_warga")
-    .select("*, warga(nama_lengkap)")
-    .order("created_at", { ascending: false });
+    .select("id, warga_id, judul_laporan, deskripsi, status, tanggapan_rt, created_at, warga(nama_lengkap)")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (otentikasi.sesi.role !== "webmaster") queryLaporan = queryLaporan.eq("rt_id", otentikasi.sesi.rtId);
+  const { data: laporanRes } = await queryLaporan;
 
   // FAKTA: Server Action untuk menanggapi dan update status laporan
   async function tanggapiLaporan(laporanId: string, statusBaru: string, tanggapanTeks: string) {
     "use server";
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    
-    const { error } = await supabase
+    const sesi = await wajibOtentikasiAdmin();
+    const idBersih = String(laporanId || "").trim();
+    const statusBersih = String(statusBaru || "").trim();
+    const tanggapanBersih = String(tanggapanTeks || "").trim().slice(0, 5000);
+    if (!POLA_UUID.test(idBersih) || !["Menunggu", "Diproses", "Selesai", "Ditolak"].includes(statusBersih) || !tanggapanBersih) {
+      return { success: false, message: "Data tanggapan tidak valid." };
+    }
+    const supabase = await buatKlienTerautentikasi(sesi);
+    let queryTarget = supabase
+      .from("laporan_warga")
+      .select("id, judul_laporan, rt_id")
+      .eq("id", idBersih);
+    if (sesi.role !== "webmaster") queryTarget = queryTarget.eq("rt_id", sesi.rtId);
+    const { data: targetLaporan, error: errTarget } = await queryTarget.maybeSingle();
+    if (errTarget || !targetLaporan) return { success: false, message: "Laporan tidak berada dalam cakupan RT Anda." };
+
+    let queryUpdate = supabase
       .from("laporan_warga")
       .update({ 
-        status: statusBaru,
-        tanggapan_rt: tanggapanTeks
+        status: statusBersih,
+        tanggapan_rt: tanggapanBersih
       })
-      .eq("id", laporanId);
+      .eq("id", idBersih);
+    if (sesi.role !== "webmaster") queryUpdate = queryUpdate.eq("rt_id", sesi.rtId);
+    const { data: diperbarui, error } = await queryUpdate.select("id").maybeSingle();
 
-    if (error) throw new Error(error.message);
-
-    // Ambil judul laporan untuk log audit
-    const { data: targetLaporan } = await supabase.from("laporan_warga").select("judul_laporan").eq("id", laporanId).single();
+    if (error || !diperbarui) return { success: false, message: "Laporan berubah atau gagal diperbarui." };
 
     await supabase.from("audit_log").insert([{
-      aktor: adminAktif.nama,
-      aksi: `Tanggapan Laporan: ${statusBaru}`,
+      aktor: sesi.nama,
+      aksi: `Tanggapan Laporan: ${statusBersih}`,
       tabel_target: "laporan_warga",
-      detail: `Merespons tiket: ${targetLaporan?.judul_laporan}`
+      detail: `Merespons tiket: ${targetLaporan.judul_laporan}`,
+      rt_id: targetLaporan.rt_id,
     }]);
+    return { success: true };
   }
 
   return <LaporAdminClient 

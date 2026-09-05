@@ -2,24 +2,31 @@
 import { useState } from "react";
 import Link from "next/link";
 
-export default function ResetSandiClient({ aksiReset }: { aksiReset: any }) {
+type HasilReset = { success: boolean; message?: string };
+
+export default function ResetSandiClient({
+  aksiReset,
+}: {
+  aksiReset: (password: string) => Promise<HasilReset>;
+}) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [sukses, setSukses] = useState(false);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) return alert("Password minimal 6 karakter!");
+    if (password.length < 8) return alert("Password minimal 8 karakter!");
     
     setLoading(true);
     try {
       const res = await aksiReset(password);
-      if (res && !res.success) alert(res.message);
-      else setSukses(true);
-    } catch (error: any) {
-      alert("Kesalahan Sistem: " + error.message);
+      if (res?.success) setSukses(true);
+      else alert(res?.message || "Password belum dapat diubah. Silakan minta tautan baru.");
+    } catch {
+      alert("Password belum dapat diubah. Silakan minta tautan baru.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -29,7 +36,7 @@ export default function ResetSandiClient({ aksiReset }: { aksiReset: any }) {
         
         <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-6 shadow-sm">🔑</div>
         <h2 className="text-2xl font-black text-slate-800 mb-1">Buat Sandi Baru</h2>
-        <p className="text-slate-500 text-xs font-medium mb-8">Kunci akses divalidasi. Silakan rakit password baru Anda.</p>
+        <p className="text-slate-500 text-xs font-medium mb-8">Masukkan sandi baru. Tautan akan divalidasi saat disimpan.</p>
 
         {sukses ? (
           <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl">
@@ -41,7 +48,7 @@ export default function ResetSandiClient({ aksiReset }: { aksiReset: any }) {
           <form onSubmit={handleReset} className="space-y-6 text-left">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Password Baru</label>
-              <input type="password" required minLength={6} className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 text-sm text-slate-800 bg-slate-50 focus:bg-white" placeholder="Minimal 6 karakter" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input type="password" required minLength={8} maxLength={72} autoComplete="new-password" className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-emerald-500 text-sm text-slate-800 bg-slate-50 focus:bg-white" placeholder="Minimal 8 karakter" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <button type="submit" disabled={loading} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-md active:scale-95 disabled:bg-slate-300 transition-all">
               {loading ? "Menyandikan..." : "Kunci & Simpan"}

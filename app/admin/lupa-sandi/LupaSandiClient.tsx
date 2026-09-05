@@ -2,7 +2,13 @@
 import { useState } from "react";
 import Link from "next/link";
 
-export default function LupaSandiClient({ aksiKirim }: { aksiKirim: any }) {
+type HasilKirim = { success: boolean; message?: string };
+
+export default function LupaSandiClient({
+  aksiKirim,
+}: {
+  aksiKirim: (email: string) => Promise<HasilKirim>;
+}) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sukses, setSukses] = useState(false);
@@ -11,13 +17,15 @@ export default function LupaSandiClient({ aksiKirim }: { aksiKirim: any }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await aksiKirim(email);
-      if (res && !res.success) alert(res.message);
-      else setSukses(true);
-    } catch (error: any) {
-      alert("Kesalahan Sistem: " + error.message);
+      const res = await aksiKirim(email.trim());
+      if (res?.success) setSukses(true);
+      else alert("Permintaan belum dapat diproses. Silakan coba lagi nanti.");
+    } catch {
+      // Detail Supabase/SMTP tidak boleh dikirim ke browser.
+      alert("Permintaan belum dapat diproses. Silakan coba lagi nanti.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -32,14 +40,14 @@ export default function LupaSandiClient({ aksiKirim }: { aksiKirim: any }) {
         {sukses ? (
           <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl">
             <div className="text-3xl mb-2">✅</div>
-            <h3 className="font-black text-emerald-800 text-sm mb-1">Email Terkirim!</h3>
-            <p className="text-emerald-600 text-xs">Silakan cek kotak masuk (atau folder Spam) Gmail Anda.</p>
+            <h3 className="font-black text-emerald-800 text-sm mb-1">Permintaan Diterima</h3>
+            <p className="text-emerald-600 text-xs">Jika alamat terdaftar, instruksi akan tiba di kotak masuk (atau folder Spam).</p>
           </div>
         ) : (
           <form onSubmit={handleKirim} className="space-y-6 text-left">
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Email Terdaftar</label>
-              <input type="email" required className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-rose-500 text-sm text-slate-800 bg-slate-50 focus:bg-white" placeholder="admin@rt07.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input type="email" required maxLength={254} autoComplete="email" className="w-full border border-slate-300 rounded-lg px-4 py-3 outline-none focus:border-rose-500 text-sm text-slate-800 bg-slate-50 focus:bg-white" placeholder="admin@rt07.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <button type="submit" disabled={loading} className="w-full h-12 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-md active:scale-95 disabled:bg-slate-300 transition-all">
               {loading ? "Mengirim Radar..." : "Kirim Link Reset"}

@@ -1,40 +1,19 @@
 import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import AdminLogin from "./AdminLogin";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
+import {
+  otentikasiAdminAktif as otentikasiAdmin,
+  otorisasiWargaUntukAdmin,
+  saringWargaTerotorisasi,
+  wilayahMutasiWarga,
+} from "@/lib/session-security";
 
 const STATUS_VALIDASI_SAH = ["Disetujui", "Ditolak", "Menunggu"] as const;
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-type SesiAdmin = { nama?: string; role?: string; rt_id?: string };
-
-/**
- * Zero-Trust: setiap Server Action memverifikasi ulang JWT dari cookie, tidak
- * pernah bersandar pada nilai hasil render. Sengaja mengembalikan Result
- * Object, bukan melempar exception, agar tidak memicu crash React/Vercel.
- */
-async function otentikasiAdmin(): Promise<
-  { ok: true; sesi: SesiAdmin } | { ok: false; message: string }
-> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
-  if (!token) {
-    return { ok: false, message: "Sesi pengurus sudah berakhir. Silakan masuk kembali." };
-  }
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return { ok: true, sesi: payload as SesiAdmin };
-  } catch {
-    return { ok: false, message: "Sesi tidak valid atau telah dimanipulasi. Silakan masuk kembali." };
-  }
-}
 
 /**
  * Menghitung jumlah KK yang sah.
@@ -52,25 +31,27 @@ async function otentikasiAdmin(): Promise<
  * payload tetap ringan; jumlah sebenarnya tetap datang dari header
  * content-range, bukan dari baris yang ikut terkirim.
  */
-async function hitungWargaSah(supabase: SupabaseClient): Promise<number> {
-  const queryDasar = () =>
-    supabase
+async function hitungWargaSah(supabase: SupabaseClient, rtId: string | null): Promise<number> {
+  const queryDasar = () => {
+    let query = supabase
       .from("warga")
       .select("id", { count: "exact" })
       .eq("status_verifikasi", "Disetujui");
+    if (rtId) query = query.eq("rt_id", rtId);
+    return query;
+  };
 
   let { count, error } = await queryDasar().neq("status_aktif", false).limit(1);
 
-  if (error) {
-    if (!skemaBelumSiap(error)) {
-      // Bukan kegagalan fatal: hitungan diulang tanpa filter arsip tepat di
-      // bawah ini. Dicatat sebagai warn supaya tidak memicu overlay merah
-      // Next.js di mode development.
-      console.warn(
-        "Filter arsip dilewati saat menghitung warga sah:",
-        error.message || error.code || "database tidak menyertakan detail"
-      );
-    }
+  if (error && skemaBelumSiap(error)) {
+    // Hanya perbedaan skema yang boleh mengaktifkan kompatibilitas. Error
+    // jaringan/RLS/timeout tidak boleh diam-diam berubah menjadi query yang
+    // lebih longgar karena hasilnya bisa salah (mis. warga arsip ikut
+    // terhitung) dan menyamarkan kegagalan database.
+    console.warn(
+      "Kolom status_aktif belum tersedia; menghitung tanpa filter arsip:",
+      error.message || error.code || "database tidak menyertakan detail"
+    );
     ({ count, error } = await queryDasar().limit(1));
   }
 
@@ -82,43 +63,65 @@ async function hitungWargaSah(supabase: SupabaseClient): Promise<number> {
 }
 
 export default async function AdminDashboard() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
+  const otentikasiHalaman = await otentikasiAdmin();
+  if (!otentikasiHalaman.ok) return <AdminLogin />;
 
-  if (!token) return <AdminLogin />;
-
-  let adminAktif: SesiAdmin;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    adminAktif = JSON.parse(JSON.stringify(payload)) as SesiAdmin;
-  } catch {
-    return <AdminLogin />;
-  }
-
-  // Menjaga AdminDashboardClient dari nilai kosong (mis. adminAktif.nama
-  // undefined saat memanggil charAt) tanpa menyembunyikan identitas asli.
   const adminAman = {
-    ...adminAktif,
-    nama: String(adminAktif.nama || "Pengurus"),
-    role: String(adminAktif.role || "pengurus"),
+    id: otentikasiHalaman.sesi.id,
+    nama: otentikasiHalaman.sesi.nama,
+    role: otentikasiHalaman.sesi.role,
+    rt_id: otentikasiHalaman.sesi.rtId,
   };
 
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  });
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasiHalaman.sesi);
 
-  // Tembakan paralel untuk mengambil data Agregat (Statistik Cepat) & Antrean Validasi
-  const [wargaListRes, totalWargaAktif, sampahRes, kurbanRes] = await Promise.all([
-    supabaseAdmin
+  const rtTerbatas = otentikasiHalaman.sesi.role === "webmaster"
+    ? null
+    : otentikasiHalaman.sesi.rtId;
+  let queryAntrean = supabaseAdmin
+    .from("warga")
+    .select(
+      "id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)"
+    )
+    .eq("status_verifikasi", "Menunggu");
+  if (rtTerbatas) queryAntrean = queryAntrean.eq("rt_id", rtTerbatas);
+
+  let querySampah = supabaseAdmin
+    .from("transaksi_sampah")
+    .select("berat_kg, jenis_transaksi, nominal_warga, nominal_kas_rt");
+  if (rtTerbatas) querySampah = querySampah.eq("rt_id", rtTerbatas);
+
+  // transaksi_kurban hanya menyimpan warga_id (bukan rt_id). Jangan biarkan
+  // kartu saldo di dasbor RT menghitung transaksi seluruh tenant. Ambil daftar
+  // warga yang sudah dibatasi RT di query antrean/daftar sah di atas, lalu
+  // terapkan allow-list tersebut ke transaksi. UUID sentinel memastikan RT
+  // tanpa warga tidak jatuh ke query tanpa filter.
+  let queryKurban = supabaseAdmin
+    .from("transaksi_kurban")
+    .select("jenis_transaksi, nominal");
+  if (rtTerbatas) {
+    const { data: wargaCakupan, error: errWargaCakupan } = await supabaseAdmin
       .from("warga")
-      .select(
-        "id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)"
-      )
-      .eq("status_verifikasi", "Menunggu")
-      .order("created_at", { ascending: true }),
-    hitungWargaSah(supabaseAdmin),
-    supabaseAdmin.from("transaksi_sampah").select("berat_kg, jenis_transaksi, nominal_warga, nominal_kas_rt"),
-    supabaseAdmin.from("transaksi_kurban").select("jenis_transaksi, nominal"),
+      .select("id")
+      .eq("rt_id", rtTerbatas)
+      .limit(5000);
+    if (errWargaCakupan) {
+      console.error("Gagal menentukan cakupan transaksi kurban:", errWargaCakupan.message);
+      queryKurban = queryKurban.in("warga_id", ["00000000-0000-0000-0000-000000000000"]);
+    } else {
+      const idsWarga = (wargaCakupan || []).map((w) => String(w.id)).filter((id) => POLA_UUID.test(id));
+      queryKurban = queryKurban.in(
+        "warga_id",
+        idsWarga.length ? idsWarga : ["00000000-0000-0000-0000-000000000000"]
+      );
+    }
+  }
+
+  const [wargaListRes, totalWargaAktif, sampahRes, kurbanRes] = await Promise.all([
+    queryAntrean.order("created_at", { ascending: true }),
+    hitungWargaSah(supabaseAdmin, rtTerbatas),
+    querySampah,
+    queryKurban,
   ]);
 
   if (wargaListRes.error) console.error("Gagal memuat antrean validasi:", wargaListRes.error.message);
@@ -162,43 +165,37 @@ export default async function AdminDashboard() {
         return { success: false, message: `Status "${statusBersih}" tidak dikenali sistem.` };
       }
 
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { persistSession: false },
-      });
+      const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
 
-      // maybeSingle() dipakai agar baris yang sudah dihapus admin lain tidak
-      // memunculkan error PGRST116, melainkan data null yang bisa dijelaskan.
-      const { data: targetWarga, error: errTarget } = await supabase
-        .from("warga")
-        .select("id, nik, nama_lengkap")
-        .eq("id", idBersih)
+      const targetWarga = await otorisasiWargaUntukAdmin(supabase, otentikasi.sesi, idBersih);
+      if (!targetWarga.ok) return { success: false, message: targetWarga.message };
+
+      const wilayah = wilayahMutasiWarga(otentikasi.sesi, targetWarga.sesi.rtId);
+      if (!wilayah.ok) return { success: false, message: wilayah.message };
+
+      const { data: diperbarui, error } = await saringWargaTerotorisasi(
+        supabase.from("warga").update({
+          status_verifikasi: statusBersih,
+          ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
+        }),
+        targetWarga.sesi,
+        wilayah.rtIdSaring
+      )
+        .select("id")
         .maybeSingle();
-
-      if (errTarget) {
-        return { success: false, message: `Gagal membaca data warga: ${errTarget.message}` };
-      }
-      if (!targetWarga) {
-        return {
-          success: false,
-          message: "Data warga ini sudah tidak ada di database. Daftar akan disegarkan.",
-        };
-      }
-
-      const { error } = await supabase
-        .from("warga")
-        .update({ status_verifikasi: statusBersih })
-        .eq("id", idBersih);
 
       if (error) {
         return { success: false, message: `Gagal menyimpan status: ${error.message}` };
       }
+      if (!diperbarui) return { success: false, message: "Data warga berubah; muat ulang halaman." };
 
       const { error: errAudit } = await supabase.from("audit_log").insert([
         {
-          aktor: otentikasi.sesi.nama || "pengurus",
+          aktor: otentikasi.sesi.nama,
           aksi: `Validasi Cepat: ${statusBersih}`,
           tabel_target: "warga",
-          detail: `Memvalidasi NIK: ${targetWarga.nik || idBersih}`,
+          detail: `Memvalidasi NIK: ${targetWarga.sesi.nik}`,
+          rt_id: wilayah.rtIdTulis,
         },
       ]);
       // Status warga sudah tersimpan; kegagalan audit log tidak boleh
@@ -207,7 +204,7 @@ export default async function AdminDashboard() {
 
       return {
         success: true,
-        message: `${targetWarga.nama_lengkap || "Warga"} berhasil ditandai sebagai ${statusBersih}.`,
+        message: `${targetWarga.sesi.nama} berhasil ditandai sebagai ${statusBersih}.`,
       };
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat memvalidasi.";

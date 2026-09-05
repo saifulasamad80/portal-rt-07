@@ -9,9 +9,12 @@ export function proxy(request: NextRequest) {
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
 
   // 3. TAMBAL DOSA CSP: Bikin aturan ketat dari mana aja sumber file yang boleh di-load
+  const scriptSrc = process.env.NODE_ENV === "production"
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval';
+    ${scriptSrc};
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://*.supabase.co;
     font-src 'self' data:;
@@ -31,19 +34,11 @@ export function proxy(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  // 5. TAMBAL DOSA COOKIE: Deteksi & paksa semua Cookie jadi HttpOnly & Secure
-  const setCookieHeader = response.headers.get('Set-Cookie');
-  if (setCookieHeader && !setCookieHeader.toLowerCase().includes('httponly')) {
-    response.headers.set('Set-Cookie', `${setCookieHeader}; HttpOnly; Secure; SameSite=Strict`);
-  }
-
   return response;
 }
 
-// Konfigurasi Matcher: Tentukan rute mana saja yang dikawal oleh Proxy ini
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const FITUR_KTP_AKTIF = false; 
+const MAKS_ANGGOTA = 30;
+// The server applies the authoritative limit after compression as well.  This
+// client-side limit prevents a browser from spending unbounded CPU/memory on
+// an image that could never be accepted by the action.
+const MAKS_BYTE_FILE_ASLI = 5 * 1024 * 1024;
+const TIPE_GAMBAR_SAH = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 // FIX: Tambahkan properti agama
 type AnggotaKeluarga = {
@@ -13,7 +19,9 @@ type AnggotaKeluarga = {
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
-export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister: any; alasan?: string }) {
+type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown) => Promise<"SUKSES">;
+
+export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister: AksiRegister; alasan?: string }) {
   const router = useRouter();
 
   const [nik, setNik] = useState(""); const [nama, setNama] = useState("");
@@ -30,9 +38,25 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, tipe: 'ktp' | 'kk') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { alert("Hanya boleh mengunggah file gambar (JPG/PNG/JPEG)!"); e.target.value = ""; return; }
+    if (!TIPE_GAMBAR_SAH.has(file.type.toLowerCase())) {
+      alert("Hanya boleh mengunggah gambar JPEG, PNG, atau WEBP.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size <= 0 || file.size > MAKS_BYTE_FILE_ASLI) {
+      alert("Ukuran dokumen terlalu besar. Maksimal 5 MB sebelum kompresi.");
+      e.target.value = "";
+      return;
+    }
     if (tipe === 'ktp') setFileKtp(file);
     if (tipe === 'kk') setFileKk(file);
+  };
+
+  const tanggalValid = (tanggal: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) return false;
+    const parsed = new Date(`${tanggal}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== tanggal) return false;
+    return parsed.getTime() <= Date.now();
   };
 
   const hitungUmur = (tanggal: string) => {
@@ -45,7 +69,7 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
   };
 
   const validasiNIKLogika = (nikInput: string, pemilik: string): string | null => {
-    if (nikInput.length !== 16) return `NIK ${pemilik} harus 16 digit.`;
+    if (!/^\d{16}$/.test(nikInput)) return `NIK ${pemilik} harus 16 digit.`;
     if (/^(\d)\1{15}$/.test(nikInput)) return `NIK ${pemilik} terdeteksi spam (angka berulang).`;
     if (nikInput === "1234567890123456") return `NIK ${pemilik} tidak valid.`;
     return null; 
@@ -62,23 +86,38 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = error => reject(error);
       });
-    } catch (err: any) { throw new Error("Kompresi gambar gagal: " + err.message); }
+    } catch { throw new Error("Kompresi gambar gagal. Silakan pilih dokumen lain."); }
   };
 
-  const tambahAnggota = () => setAnggota([...anggota, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", agama: "", pekerjaan: "", fileKtp: null, ktpMenyusul: false }]);
-  const ubahAnggota = (index: number, field: keyof AnggotaKeluarga, value: any) => { const dataBaru = [...anggota]; (dataBaru[index][field] as any) = value; setAnggota(dataBaru); };
-  const hapusAnggota = (index: number) => setAnggota(anggota.filter((_, i) => i !== index));
+  const tambahAnggota = () => {
+    setAnggota((dataLama) => {
+      if (dataLama.length >= MAKS_ANGGOTA) return dataLama;
+      return [...dataLama, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", agama: "", pekerjaan: "", fileKtp: null, ktpMenyusul: false }];
+    });
+  };
+  const ubahAnggota = <K extends keyof AnggotaKeluarga>(index: number, field: K, value: AnggotaKeluarga[K]) => {
+    setAnggota((dataLama) => dataLama.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+  const hapusAnggota = (index: number) => setAnggota((dataLama) => dataLama.filter((_, i) => i !== index));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     const pinLemah = ["123456", "111111", "000000", "654321", "121212", "123123"];
     if (pinLemah.includes(pin)) return alert("PIN terlalu gampang ditebak!");
     const errNikKK = validasiNIKLogika(nik, "Kepala Keluarga");
     if (errNikKK) return alert(errNikKK);
+    if (!tanggalValid(tglLahir)) return alert("Tanggal lahir Kepala Keluarga tidak valid.");
+    if (anggota.length > MAKS_ANGGOTA) return alert(`Maksimal ${MAKS_ANGGOTA} anggota keluarga.`);
+
+    const nikTerdaftar = new Set<string>([nik]);
 
     for (let i = 0; i < anggota.length; i++) {
       const a = anggota[i]; const namaLabel = a.nama || `Anggota ${i+1}`;
       const errNik = validasiNIKLogika(a.nik, namaLabel); if (errNik) return alert(errNik);
+      if (nikTerdaftar.has(a.nik)) return alert("NIK Kepala Keluarga dan anggota harus berbeda.");
+      nikTerdaftar.add(a.nik);
+      if (!tanggalValid(a.tglLahir)) return alert(`Tanggal lahir ${namaLabel} tidak valid.`);
       const umur = hitungUmur(a.tglLahir);
       if (FITUR_KTP_AKTIF && umur >= 17 && !a.fileKtp && !a.ktpMenyusul) return alert(`${namaLabel} berumur ${umur} tahun. Wajib melampirkan foto KTP atau centang 'KTP Menyusul'.`);
     }
@@ -127,10 +166,11 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
       await aksiRegister(payloadKepala, anggotaPayload);
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
-      window.location.href = "/login"; 
+      router.replace("/login");
       
-    } catch (err: any) {
-      alert("TERJADI KESALAHAN: " + err.message);
+    } catch (err: unknown) {
+      const pesan = err instanceof Error && err.message ? err.message : "Pendaftaran belum dapat diproses saat ini.";
+      alert(pesan);
       setLoading(false); setProgressTeks("");
     } 
   };
@@ -264,7 +304,7 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-slate-800 p-4 rounded-xl text-white shadow-md">
               <h2 className="font-black text-sm uppercase tracking-widest">👥 Data Anggota Keluarga</h2>
-              <button type="button" onClick={tambahAnggota} className="bg-blue-500 text-white font-black uppercase tracking-widest px-4 py-2.5 rounded-lg hover:bg-blue-600 text-xs">+ Tambah Warga</button>
+              <button type="button" onClick={tambahAnggota} disabled={anggota.length >= MAKS_ANGGOTA} className="bg-blue-500 text-white font-black uppercase tracking-widest px-4 py-2.5 rounded-lg hover:bg-blue-600 text-xs disabled:bg-slate-500 disabled:cursor-not-allowed">+ Tambah Warga ({anggota.length}/{MAKS_ANGGOTA})</button>
             </div>
             
             {anggota.map((item, index) => {

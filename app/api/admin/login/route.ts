@@ -2,10 +2,17 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
+import {
+  ambilKunciSesi,
+  otentikasiAdminAktif,
+  SESSION_AUDIENCE_ADMIN,
+  SESSION_ISSUER,
+  sessionVersionTidakTersedia,
+} from "@/lib/session-security";
+import { KLAIM_VERSI_SESI, angkaVersiSesi } from "@/lib/versi-sesi";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -13,77 +20,166 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { username, password } = body;
+    const body: unknown = await request.json();
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Format permintaan login tidak valid." }, { status: 400 });
+    }
 
-    if (!username || !password) {
+    const input = body as Record<string, unknown>;
+    const username = String(input.username ?? "").trim().slice(0, 254);
+    const password = String(input.password ?? "");
+
+    if (!username || !password || password.length > 512) {
       return NextResponse.json({ error: "Username dan Password wajib diisi!" }, { status: 400 });
     }
 
-    // INJEKSI MUTLAK: Sekarang kita narik kolom 'level' dari database
-    const { data: admin, error: errAdmin } = await supabaseAdmin
+    // Hindari interpolasi input ke sintaks filter PostgREST `.or(...)`.
+    const kolomAdmin = "id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai, level, session_version";
+    let hasilAdmin = await supabaseAdmin
       .from("pengurus_rt")
-      .select("id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai, level")
-      .or(`username.eq.${username},email.eq.${username}`)
+      .select(kolomAdmin)
+      .eq("username", username)
       .maybeSingle();
 
-    if (errAdmin || !admin) {
-      return NextResponse.json({ error: "Akses Ditolak! Username atau Email tidak terdaftar." }, { status: 401 });
+    if (sessionVersionTidakTersedia(hasilAdmin.error)) {
+      const kolomLama = "id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai, level";
+      hasilAdmin = await supabaseAdmin
+        .from("pengurus_rt")
+        .select(kolomLama)
+        .eq("username", username)
+        .maybeSingle();
+      if (!hasilAdmin.data && !hasilAdmin.error) {
+        hasilAdmin = await supabaseAdmin
+          .from("pengurus_rt")
+          .select(kolomLama)
+          .eq("email", username)
+          .maybeSingle();
+      }
+    } else if (!hasilAdmin.data && !hasilAdmin.error) {
+      hasilAdmin = await supabaseAdmin
+        .from("pengurus_rt")
+        .select(kolomAdmin)
+        .eq("email", username)
+        .maybeSingle();
     }
 
-    if (admin.terkunci_sampai && new Date(admin.terkunci_sampai) > new Date()) {
-      return NextResponse.json({ error: "🚨 SYSTEM LOCKDOWN: Akun dikunci karena aktivitas mencurigakan. Coba lagi 15 menit ke depan." }, { status: 429 });
+    const { data: admin, error: errAdmin } = hasilAdmin;
+
+    const PESAN_KREDENSIAL = "Username atau sandi tidak sesuai.";
+    const HASH_UMPAN = "$2b$10$C6UzMDM.H6dfI/f/IKcEeOAj7raF5GW0lQzP3nEiuVqah/S9.O/1y";
+
+    if (errAdmin) {
+      return NextResponse.json({ error: "Server tidak dapat memproses login saat ini." }, { status: 500 });
+    }
+
+    if (admin?.terkunci_sampai && new Date(admin.terkunci_sampai) > new Date()) {
+      return NextResponse.json({ error: "Akun dikunci sementara. Coba lagi nanti." }, { status: 429 });
     }
 
     let isMatch = false;
     let isLegacyPlaintext = false;
+    const hashPembanding =
+      typeof admin?.password === "string" && (admin.password.startsWith("$2a$") || admin.password.startsWith("$2b$"))
+        ? admin.password
+        : HASH_UMPAN;
 
-    if (admin.password.startsWith("$2a$") || admin.password.startsWith("$2b$")) {
-      isMatch = await bcrypt.compare(password, admin.password);
+    if (typeof admin?.password === "string" && !admin.password.startsWith("$2a$") && !admin.password.startsWith("$2b$")) {
+      isMatch = admin.password === password;
+      isLegacyPlaintext = isMatch;
+      await bcrypt.compare(password, HASH_UMPAN);
     } else {
-      if (admin.password === password) {
-        isMatch = true;
-        isLegacyPlaintext = true;
-      }
+      isMatch = Boolean(admin) && (await bcrypt.compare(password, hashPembanding));
     }
 
-    if (!isMatch) {
-      const gagalSekarang = (admin.percobaan_gagal || 0) + 1;
-      let updateData: any = { percobaan_gagal: gagalSekarang };
-      let pesanError = `Password salah! (Percobaan ${gagalSekarang}/5)`;
-      
-      if (gagalSekarang >= 5) {
-        updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
-        pesanError = "🚨 SYSTEM LOCKDOWN: Anda gagal 5x berturut-turut. Akun dikunci otomatis selama 15 menit.";
+    if (!admin || !isMatch) {
+      if (admin) {
+        const gagalSekarang = (admin.percobaan_gagal || 0) + 1;
+        const updateData: Record<string, unknown> = { percobaan_gagal: gagalSekarang };
+        if (gagalSekarang >= 5) {
+          updateData.terkunci_sampai = new Date(Date.now() + 15 * 60000).toISOString();
+        }
+        await supabaseAdmin.from("pengurus_rt").update(updateData).eq("id", admin.id);
+        if (gagalSekarang >= 5) {
+          return NextResponse.json({ error: "Akun dikunci sementara. Coba lagi nanti." }, { status: 429 });
+        }
       }
-      
-      await supabaseAdmin.from("pengurus_rt").update(updateData).eq("id", admin.id);
-      return NextResponse.json({ error: pesanError }, { status: 401 });
+      return NextResponse.json({ error: PESAN_KREDENSIAL }, { status: 401 });
     }
 
-    const updatePayload: any = { percobaan_gagal: 0, terkunci_sampai: null };
+    const updatePayload: Record<string, unknown> = { percobaan_gagal: 0, terkunci_sampai: null };
     if (isLegacyPlaintext) updatePayload.password = await bcrypt.hash(password, 10);
-    await supabaseAdmin.from("pengurus_rt").update(updatePayload).eq("id", admin.id);
+
+    const versiKolomAda = !sessionVersionTidakTersedia(errAdmin) && "session_version" in (admin as object);
+    const hasilUpdate = await supabaseAdmin
+      .from("pengurus_rt")
+      .update(updatePayload)
+      .eq("id", admin.id)
+      .select(versiKolomAda ? "session_version" : "id")
+      .maybeSingle();
+    if (hasilUpdate.error) {
+      console.error("Pembaruan sesi login pengurus gagal:", hasilUpdate.error.message);
+      return NextResponse.json({ error: "Server tidak dapat memproses login saat ini." }, { status: 500 });
+    }
+
+    const versiSesi = angkaVersiSesi(
+      versiKolomAda
+        ? (hasilUpdate.data as { session_version?: number | null } | null)?.session_version ??
+          (admin as { session_version?: number | null }).session_version
+        : 1
+    );
+    if (versiSesi == null) {
+      return NextResponse.json({ error: "Server tidak dapat memproses login saat ini." }, { status: 500 });
+    }
 
     if (!admin.rt_id) {
       return NextResponse.json({ error: "Konfigurasi Akun Gagal: RT ID tidak ditemukan." }, { status: 403 });
     }
 
     // EFEK DOMINO: 'role' di JWT sekarang mengambil dari kasta di database (webmaster atau rt)
-    const kastaAdmin = admin.level || "rt";
-    const jwtPayload = { sub: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, role: kastaAdmin, rt_id: admin.rt_id };
-    
-    const secretKey = new TextEncoder().encode(JWT_SECRET);
-    const token = await new SignJWT(jwtPayload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("2h").sign(secretKey);
+    const kastaAdmin = admin.level === "webmaster" ? "webmaster" : "rt";
+    const jwtPayload = {
+      nama: admin.nama_lengkap,
+      jabatan: admin.jabatan,
+      role: kastaAdmin,
+      rt_id: admin.rt_id,
+      token_use: "admin",
+      [KLAIM_VERSI_SESI]: versiSesi,
+    };
+
+    const token = await new SignJWT(jwtPayload)
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(String(admin.id))
+      .setIssuer(SESSION_ISSUER)
+      .setAudience(SESSION_AUDIENCE_ADMIN)
+      .setIssuedAt()
+      .setExpirationTime("2h")
+      .sign(ambilKunciSesi("admin"));
 
     const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 60 * 60 * 2, path: "/" } as const;
     const response = NextResponse.json({ success: true, user: { id: admin.id, nama: admin.nama_lengkap, jabatan: admin.jabatan, rt_id: admin.rt_id, role: kastaAdmin } });
     response.cookies.set("admin_session", token, cookieOptions);
     return response;
 
-  } catch (err: any) {
-    return NextResponse.json({ error: "Server Error: " + err.message }, { status: 500 });
+  } catch (err: unknown) {
+    console.error("Login pengurus gagal:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "Server tidak dapat memproses login saat ini." }, { status: 500 });
   }
+}
+
+export async function GET() {
+  const otentikasi = await otentikasiAdminAktif();
+  if (!otentikasi.ok) {
+    return NextResponse.json({ error: otentikasi.message }, { status: 401 });
+  }
+  return NextResponse.json({
+    user: {
+      id: otentikasi.sesi.id,
+      nama: otentikasi.sesi.nama,
+      jabatan: otentikasi.sesi.role,
+      rt_id: otentikasi.sesi.rtId,
+      role: otentikasi.sesi.role,
+    },
+  });
 }
 
 export async function DELETE() {

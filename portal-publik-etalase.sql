@@ -103,10 +103,18 @@ CREATE POLICY "Publik baca kontak darurat aktif"
 GRANT SELECT ON TABLE public.kontak_darurat_rt TO anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.kontak_darurat_rt FROM anon, authenticated;
 
--- Nomor nasional resmi, bukan data rekaan.
+-- Kontak resmi dan kontak lokal yang diberikan pengurus RT.
 INSERT INTO public.kontak_darurat_rt (nama_layanan, nomor, keterangan, ikon, urutan, aktif)
 VALUES
-  ('Polisi', '110', 'Nomor nasional 24 jam', '👮', 10, true),
-  ('Pemadam Kebakaran', '113', 'Nomor nasional 24 jam', '🚒', 20, true),
-  ('Ambulans', '118', 'Nomor nasional 24 jam', '🚑', 30, true)
-ON CONFLICT (nama_layanan) DO NOTHING;
+  ('Layanan Panggilan Darurat Terpadu', '112', 'Nomor darurat terpadu', '🚨', 10, true),
+  ('Kepolisian Republik Indonesia (Polri)', '110', 'Nomor nasional 24 jam', '👮', 20, true),
+  ('Ambulans & Layanan Medis Darurat', '119 / 118', 'Nomor layanan medis darurat', '🚑', 30, true),
+  ('Pemadam Kebakaran', '113 / 1131', 'Nomor pemadam kebakaran', '🚒', 40, true),
+  ('Bimas Kelurahan Tengah', '081293488745', 'Kontak Bimas wilayah', '🛡️', 50, true),
+  ('Babinsa Kelurahan Tengah', '082112643400', 'Kontak Babinsa wilayah', '🪖', 60, true)
+ON CONFLICT (nama_layanan) DO UPDATE SET
+  nomor = EXCLUDED.nomor,
+  keterangan = EXCLUDED.keterangan,
+  ikon = EXCLUDED.ikon,
+  urutan = EXCLUDED.urutan,
+  aktif = EXCLUDED.aktif;

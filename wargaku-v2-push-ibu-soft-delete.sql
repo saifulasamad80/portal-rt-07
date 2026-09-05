@@ -5,8 +5,33 @@
 
 BEGIN;
 
+-- Tambahkan nullable lebih dulu. Menambahkan NOT NULL DEFAULT true secara
+-- langsung dapat menghidupkan kembali baris yang pada migrasi lama sudah
+-- ditolak/diarsipkan tetapi belum memiliki kolom soft-delete.
 ALTER TABLE warga
-  ADD COLUMN IF NOT EXISTS status_aktif BOOLEAN NOT NULL DEFAULT true;
+  ADD COLUMN IF NOT EXISTS status_aktif BOOLEAN;
+
+UPDATE warga
+   SET status_aktif = CASE
+     WHEN lower(coalesce(status_verifikasi, '')) IN ('ditolak', 'arsip', 'nonaktif', 'tidak aktif')
+       OR lower(coalesce(status_verifikasi, '')) LIKE '%arsip%'
+       OR lower(btrim(coalesce(nama_lengkap, ''))) = 'arsip pemilih'
+       -- Prefix 99 sendiri bukan bukti arsip: NIK sah dapat berasal dari
+       -- wilayah berkode 99. Arsip yang dibuat aplikasi selalu memakai label
+       -- khusus; pertahankan syarat label agar migrasi tidak memblokir warga
+       -- sah secara massal.
+       OR (
+         btrim(coalesce(nik, '')) LIKE '99%'
+         AND lower(btrim(coalesce(nama_lengkap, ''))) = 'arsip pemilih'
+       )
+     THEN false
+     ELSE true
+   END
+ WHERE status_aktif IS NULL;
+
+ALTER TABLE warga
+  ALTER COLUMN status_aktif SET DEFAULT true,
+  ALTER COLUMN status_aktif SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_warga_status_aktif ON warga (status_aktif);
 

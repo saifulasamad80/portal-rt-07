@@ -1,6 +1,6 @@
 import webpush from "web-push";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { kueriFallbackStatusAktif, type ErrorSupabase } from "@/lib/arsip-warga";
+import { kueriFallbackStatusAktif, skemaBelumSiap, type ErrorSupabase } from "@/lib/arsip-warga";
 
 export type PayloadNotifikasi = {
   title: string;
@@ -8,6 +8,9 @@ export type PayloadNotifikasi = {
   url?: string;
   tag?: string;
 };
+
+const PESAN_PUSH_BELUM_SIAP =
+  "Fitur notifikasi belum aktif di database. Jalankan SQL wargaku-v2-push-ibu-soft-delete.sql di Supabase.";
 
 function klienAdmin(): SupabaseClient {
   return createClient(
@@ -27,7 +30,10 @@ export function siapkanVapid(): boolean {
 
 async function hapusLanggananMati(endpoint: string) {
   const supabase = klienAdmin();
-  await supabase.from("push_langganan").delete().eq("endpoint", endpoint);
+  const { error } = await supabase.from("push_langganan").delete().eq("endpoint", endpoint);
+  if (error && !skemaBelumSiap(error)) {
+    console.error("Gagal membersihkan langganan push mati:", error.message);
+  }
 }
 
 async function kirimKeLangganan(langganan: { endpoint: string; p256dh: string; auth: string }, payload: PayloadNotifikasi) {
@@ -54,7 +60,10 @@ export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNo
   if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
   const supabase = klienAdmin();
   const { data, error } = await supabase.from("push_langganan").select("endpoint, p256dh, auth").eq("warga_id", wargaId);
-  if (error || !data?.length) return { terkirim: 0, pesan: error?.message };
+  if (error) {
+    return { terkirim: 0, pesan: skemaBelumSiap(error) ? PESAN_PUSH_BELUM_SIAP : error.message };
+  }
+  if (!data?.length) return { terkirim: 0 };
   let terkirim = 0;
   for (const row of data) {
     if (await kirimKeLangganan(row, payload)) terkirim += 1;
@@ -62,18 +71,38 @@ export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNo
   return { terkirim };
 }
 
-export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi) {
+export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rtId: string) {
+  const rtBersih = String(rtId || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rtBersih)) {
+    return { terkirim: 0, pesan: "Siaran push ditolak: wilayah RT sesi tidak valid." };
+  }
   if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
   const supabase = klienAdmin();
-  const { data, error } = await supabase.from("push_langganan").select("endpoint, p256dh, auth, warga_id");
-  if (error || !data?.length) return { terkirim: 0, pesan: error?.message };
+  const { data: wargaRt, error: errWargaRt } = await supabase
+    .from("warga")
+    .select("id")
+    .eq("rt_id", rtBersih)
+    .limit(5000);
+  if (errWargaRt) {
+    console.error("Gagal membatasi siaran push ke RT sesi:", errWargaRt.message);
+    return { terkirim: 0, pesan: "Penerima siaran belum dapat diverifikasi." };
+  }
+  const idWargaRt = (wargaRt || []).map((w) => String(w.id));
+  if (!idWargaRt.length) return { terkirim: 0 };
+
+  const { data, error } = await supabase
+    .from("push_langganan")
+    .select("endpoint, p256dh, auth, warga_id")
+    .in("warga_id", idWargaRt);
+  if (error) {
+    return { terkirim: 0, pesan: skemaBelumSiap(error) ? PESAN_PUSH_BELUM_SIAP : error.message };
+  }
+  if (!data?.length) return { terkirim: 0 };
 
   const wargaIds = [...new Set(data.map((row) => row.warga_id).filter(Boolean))];
-  // Default fail-open: seluruh pelanggan dianggap aktif. Penyaringan hanya
-  // dipersempit bila query benar-benar berhasil, sebab bila query gagal
-  // (mis. kolom status_aktif belum ada) daftar kosong akan membuat SETIAP
-  // penerima terlewat dan notifikasi siaran tidak terkirim ke siapa pun.
-  let wargaAktif = new Set<string>(wargaIds as string[]);
+  // Fail-closed: bila status akun tidak bisa dibaca, jangan anggap semua
+  // pelanggan sah. Daftar kosong di sini menahan siaran, bukan membukanya.
+  let wargaAktif = new Set<string>();
   if (wargaIds.length > 0) {
     const { data: daftarWarga, error: errWarga } = await kueriFallbackStatusAktif<{
       data: { id: string; status_aktif?: boolean | null }[] | null;
@@ -84,7 +113,10 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi) {
     );
 
     if (errWarga) {
-      console.error("Gagal memeriksa status aktif warga, notifikasi dikirim ke semua pelanggan:", errWarga.message);
+      // Fail-closed: jangan siarkan ke seluruh pelanggan ketika status akun
+      // tidak bisa diverifikasi. Fail-open sebelumnya mengirim ke akun arsip.
+      console.error("Gagal memeriksa status aktif warga, siaran dibatalkan:", errWarga.message);
+      return { terkirim: 0, pesan: "Status penerima belum dapat diverifikasi." };
     } else if (daftarWarga) {
       wargaAktif = new Set(daftarWarga.filter((w) => w.status_aktif !== false).map((w) => w.id));
     }
@@ -112,7 +144,10 @@ export async function catatDanKirimSekali(
     if (error.code === "23505") return { terkirim: 0, dilewati: true };
     console.error("Gagal mencatat riwayat notifikasi:", error.message);
   }
-  if (sasaran.semua) return kirimNotifikasiKeSemuaWarga(payload);
+  if (sasaran.semua) {
+    console.error("Siaran push ke semua tenant ditolak; wajib rt_id dari sesi.");
+    return { terkirim: 0, pesan: "Siaran push lintas RT ditolak." };
+  }
   if (sasaran.wargaId) return kirimNotifikasiKeWarga(sasaran.wargaId, payload);
   return { terkirim: 0 };
 }

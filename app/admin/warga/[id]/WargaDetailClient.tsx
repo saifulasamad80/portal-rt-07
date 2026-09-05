@@ -26,6 +26,45 @@ const kelasInput =
 const kelasKunci =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-500 bg-slate-50 cursor-not-allowed";
 
+type AnggotaWargaDetail = {
+  id: string;
+  nik: string | null;
+  nama_lengkap: string | null;
+  hubungan_keluarga: string | null;
+  hubungan_detail: string | null;
+  tanggal_lahir: string | null;
+  tempat_lahir: string | null;
+  jenis_kelamin: string | null;
+  agama: string | null;
+  pekerjaan: string | null;
+};
+
+type ProfilWargaDetail = {
+  id: string;
+  nik: string;
+  nama_lengkap: string | null;
+  no_whatsapp: string | null;
+  status_tinggal: string | null;
+  detail_alamat: string | null;
+  tanggal_lahir: string | null;
+  tempat_lahir: string | null;
+  jenis_kelamin: string | null;
+  agama: string | null;
+  pekerjaan: string | null;
+  pendapatan_bulanan: string | null;
+  daya_listrik: string | null;
+  status_verifikasi: string | null;
+  ktp_path: string | null;
+  kk_path: string | null;
+  anggota_keluarga: AnggotaWargaDetail[] | null;
+};
+
+function pesanKesalahan(error: unknown) {
+  return error instanceof Error && error.message
+    ? error.message
+    : "Jaringan atau server tidak merespons.";
+}
+
 function normalisasiGender(nilai: unknown) {
   const n = String(nilai || "").toLowerCase();
   if (n.startsWith("l")) return "Laki-laki";
@@ -49,8 +88,8 @@ function alasanDuplikat(alasan: DuplikatWarga["alasan"]) {
   return "NIK ini tercatat sebagai anggota KK lain";
 }
 
-function dariAnggota(warga: any): AnggotaInput[] {
-  return (warga?.anggota_keluarga || []).map((ak: any) => ({
+function dariAnggota(warga: ProfilWargaDetail): AnggotaInput[] {
+  return (warga.anggota_keluarga || []).map((ak) => ({
     id: ak.id,
     nama_lengkap: ak.nama_lengkap || "",
     nik: ak.nik || "",
@@ -74,14 +113,14 @@ export default function WargaDetailClient({
   aksiNikTidakSesuai,
   aksiHapusDuplikat,
 }: {
-  warga: any;
+  warga: ProfilWargaDetail;
   carik: RingkasanCarik | null;
   duplikat: DuplikatWarga[];
-  aksiVerifikasiAkun: (wargaId: string, status: string) => Promise<HasilCarik>;
-  aksiEdit: (wargaId: string, dataBaru: Record<string, unknown>, anggota: AnggotaInput[]) => Promise<HasilCarik>;
-  aksiVerifikasiCarik: (wargaId: string, dataBaru: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
-  aksiNikTidakSesuai: (wargaId: string) => Promise<HasilCarik>;
-  aksiHapusDuplikat: (idTarget: string) => Promise<HasilCarik>;
+  aksiVerifikasiAkun: (status: string) => Promise<HasilCarik>;
+  aksiEdit: (dataBaru: Record<string, unknown>, anggota: AnggotaInput[]) => Promise<HasilCarik>;
+  aksiVerifikasiCarik: (dataBaru: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
+  aksiNikTidakSesuai: () => Promise<HasilCarik>;
+  aksiHapusDuplikat: (idTarget: string, sumberTarget: DuplikatWarga["sumber"]) => Promise<HasilCarik>;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -130,8 +169,8 @@ export default function WargaDetailClient({
       } else {
         laporkan("gagal", hasil.message);
       }
-    } catch (error: any) {
-      laporkan("gagal", error?.message || "Jaringan atau server tidak merespons.");
+    } catch (error: unknown) {
+      laporkan("gagal", pesanKesalahan(error));
     }
     setLoading(false);
   };
@@ -224,10 +263,10 @@ export default function WargaDetailClient({
           <div className="mt-5 flex flex-wrap gap-2">
             {akunMenunggu && (
               <>
-                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiVerifikasiAkun(warga.id, "Disetujui"))} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
+                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiVerifikasiAkun("Disetujui"))} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
                   Setujui akun
                 </button>
-                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiVerifikasiAkun(warga.id, "Ditolak"))} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold">
+                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiVerifikasiAkun("Ditolak"))} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold">
                   Tolak akun
                 </button>
               </>
@@ -252,12 +291,12 @@ export default function WargaDetailClient({
                     <p className="font-semibold text-slate-800">{item.nama_lengkap}</p>
                     <p className="text-xs text-slate-500 font-mono mt-0.5">NIK {item.nik || "—"} · {alasanDuplikat(item.alasan)}</p>
                   </div>
-                  {item.sumber === "warga" ? (
-                    <button type="button" disabled={loading} onClick={() => jalankan(() => aksiHapusDuplikat(item.id))} className="px-3 py-2 rounded-lg bg-rose-600 text-white text-xs font-bold">
+                  {item.alasan === "nik_sama" || item.alasan === "nik_sebagai_anggota" ? (
+                    <button type="button" disabled={loading} onClick={() => jalankan(() => aksiHapusDuplikat(item.id, item.sumber))} className="px-3 py-2 rounded-lg bg-rose-600 text-white text-xs font-bold">
                       Hapus data kembar ini
                     </button>
                   ) : (
-                    <span className="text-[11px] font-semibold text-amber-800">Akan terhapus otomatis saat verifikasi carik dikirim.</span>
+                    <span className="text-[11px] font-semibold text-amber-800">Kesamaan nama/tanggal lahir wajib diperiksa manual.</span>
                   )}
                 </div>
               ))}
@@ -277,7 +316,7 @@ export default function WargaDetailClient({
                 <dt className="text-slate-500">WhatsApp</dt>
                 <dd className="col-span-2">
                   {!nilaiKosong(warga.no_whatsapp) ? (
-                    <a href={`https://wa.me/${formatWA(warga.no_whatsapp)}`} target="_blank" rel="noopener noreferrer" className="font-mono text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md text-xs font-semibold">
+                    <a href={`https://wa.me/${formatWA(warga.no_whatsapp || "")}`} target="_blank" rel="noopener noreferrer" className="font-mono text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md text-xs font-semibold">
                       {warga.no_whatsapp}
                     </a>
                   ) : <span className="text-slate-400">—</span>}
@@ -321,7 +360,7 @@ export default function WargaDetailClient({
               <tbody>
                 {!warga.anggota_keluarga?.length ? (
                   <tr><td colSpan={4} className="py-6 text-center text-slate-400">Tidak ada tanggungan tercatat.</td></tr>
-                ) : warga.anggota_keluarga.map((ak: any) => (
+                ) : warga.anggota_keluarga.map((ak) => (
                   <tr key={ak.id} className="border-b border-slate-100">
                     <td className="py-3 pr-3">
                       <div className="font-semibold text-slate-800">{ak.nama_lengkap}</div>
@@ -462,10 +501,10 @@ export default function WargaDetailClient({
 
               <div className="sticky bottom-0 bg-white pt-4 flex flex-col md:flex-row justify-end gap-2 border-t border-slate-100">
                 <button type="button" onClick={() => setFormTerbuka(false)} className="px-4 py-2 text-sm font-semibold text-slate-500">Batal</button>
-                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiEdit(warga.id, formData, anggota))} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold">
+                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiEdit(formData, anggota))} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold">
                   Simpan biodata
                 </button>
-                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiVerifikasiCarik(warga.id, formData, anggota, catatanCarik))} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold">
+                <button type="button" disabled={loading} onClick={() => jalankan(() => aksiVerifikasiCarik(formData, anggota, catatanCarik))} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold">
                   Simpan & catat verifikasi carik
                 </button>
               </div>
@@ -483,7 +522,7 @@ export default function WargaDetailClient({
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setModalNikSalah(false)} className="px-4 py-2 text-sm font-semibold text-slate-500">Batal</button>
-              <button type="button" disabled={loading} onClick={() => jalankan(() => aksiNikTidakSesuai(warga.id))} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold">
+              <button type="button" disabled={loading} onClick={() => jalankan(() => aksiNikTidakSesuai())} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold">
                 Hapus data ini
               </button>
             </div>

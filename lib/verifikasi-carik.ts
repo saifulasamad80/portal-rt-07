@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { prosesHapusAtauArsipWarga } from "@/lib/arsip-warga";
+import {
+  BATAS_ANGGOTA_KELUARGA,
+  PESAN_TINJAUAN_PENGURUS,
+  periksaKepemilikanAnggota,
+  type IdentitasAnggotaTersimpan,
+} from "@/lib/kebijakan-sensus";
 
 export const PILIHAN_STATUS_TINGGAL = [
   "Warga Tetap",
@@ -58,7 +63,13 @@ export type HasilCarik = {
   success: boolean;
   message: string;
   arah?: string;
-  duplikatDihapus?: number;
+  code?: "PERLU_TINJAUAN_PENGURUS";
+};
+
+export type IdentitasSensusMandiri = {
+  id: string;
+  nik: string;
+  rtId: string;
 };
 
 export type AnggotaInput = {
@@ -170,6 +181,9 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
   // NIK sengaja dibuang di sini: kolom itu gembok identitas dan tidak boleh
   // ikut payload UPDATE, baik dari warga maupun pengurus.
   const { nik: _nikDiabaikan, pin: _pinDiabaikan, id: _idDiabaikan, ...sisa } = mentah;
+  void _nikDiabaikan;
+  void _pinDiabaikan;
+  void _idDiabaikan;
 
   const data: BiodataInput = {
     nama_lengkap: teks(sisa.nama_lengkap).slice(0, 150),
@@ -191,8 +205,8 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
   if (!dalamDaftar(data.jenis_kelamin, PILIHAN_JENIS_KELAMIN)) {
     return { ok: false, message: "Jenis kelamin belum dipilih dengan benar." };
   }
-  if (!data.agama) {
-    return { ok: false, message: "Agama wajib dipilih." };
+  if (!dalamDaftar(data.agama, PILIHAN_AGAMA)) {
+    return { ok: false, message: "Agama belum dipilih dengan benar." };
   }
   if (!data.pekerjaan) return { ok: false, message: "Pekerjaan wajib diisi." };
   if (data.no_whatsapp.replace(/\D/g, "").length < 10) {
@@ -202,33 +216,54 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
     return { ok: false, message: "Status tinggal harus Warga Tetap, Penyewa Kos, atau Penyewa Kontrakan." };
   }
   if (!data.detail_alamat) return { ok: false, message: "Detail alamat (gang/blok/nomor rumah) wajib diisi." };
-  if (!data.pendapatan_bulanan) {
-    return { ok: false, message: "Pendapatan bulanan wajib dipilih." };
+  if (!dalamDaftar(data.pendapatan_bulanan, PILIHAN_PENDAPATAN)) {
+    return { ok: false, message: "Pendapatan bulanan belum dipilih dengan benar." };
   }
-  if (!data.daya_listrik) {
-    return { ok: false, message: "Daya listrik terpasang wajib dipilih." };
+  if (!dalamDaftar(data.daya_listrik, PILIHAN_DAYA_LISTRIK)) {
+    return { ok: false, message: "Daya listrik terpasang belum dipilih dengan benar." };
   }
 
   return { ok: true, data };
 }
 
 function sanitasiAnggota(
-  daftar: AnggotaInput[],
+  daftar: unknown[],
   nikKepala: string
 ): { ok: true; data: AnggotaInput[] } | { ok: false; message: string } {
+  if (daftar.length > BATAS_ANGGOTA_KELUARGA) {
+    return { ok: false, message: `Maksimal ${BATAS_ANGGOTA_KELUARGA} anggota keluarga per rumah tangga.` };
+  }
+
   const nikTerpakai = new Set<string>([teks(nikKepala)]);
+  const idTerpakai = new Set<string>();
   const bersih: AnggotaInput[] = [];
 
   for (let i = 0; i < daftar.length; i++) {
-    const a = daftar[i];
+    const mentah = daftar[i];
+    if (!mentah || typeof mentah !== "object" || Array.isArray(mentah)) {
+      return { ok: false, message: PESAN_TINJAUAN_PENGURUS };
+    }
+
+    const a = mentah as Record<string, unknown>;
     const label = teks(a.nama_lengkap) || `Anggota ${i + 1}`;
     const nama = teks(a.nama_lengkap).slice(0, 150);
     const nik = teks(a.nik).replace(/\D/g, "");
     const hubungan = teks(a.hubungan_keluarga);
+    const membawaId = Object.prototype.hasOwnProperty.call(a, "id");
+    const id = membawaId && typeof a.id === "string" ? teks(a.id) : undefined;
     const errNik = validasiNik(nik, label);
     if (errNik) return { ok: false, message: errNik };
+    // Jika properti ID hadir, nilainya wajib UUID valid. Nilai kosong/0/null
+    // tidak boleh diam-diam diturunkan menjadi INSERT anggota baru.
+    if (membawaId && (!id || !POLA_UUID.test(id))) {
+      return { ok: false, message: PESAN_TINJAUAN_PENGURUS };
+    }
+    if (id && idTerpakai.has(id)) {
+      return { ok: false, message: PESAN_TINJAUAN_PENGURUS };
+    }
+    if (id) idTerpakai.add(id);
     if (!nama) return { ok: false, message: `Nama ${label} wajib diisi.` };
-    if (!hubungan) {
+    if (!dalamDaftar(hubungan, PILIHAN_HUBUNGAN)) {
       return { ok: false, message: `Hubungan keluarga untuk ${label} wajib dipilih.` };
     }
     if (hubungan === "Lainnya" && !teks(a.hubungan_detail)) {
@@ -250,7 +285,7 @@ function sanitasiAnggota(
     nikTerpakai.add(nik);
 
     bersih.push({
-      id: a.id && POLA_UUID.test(a.id) ? a.id : undefined,
+      id,
       nama_lengkap: nama,
       nik,
       hubungan_keluarga: hubungan,
@@ -268,7 +303,7 @@ function sanitasiAnggota(
 
 export async function cariDuplikatWarga(
   supabase: SupabaseClient,
-  warga: { id: string; nik: string; nama_lengkap: string; tanggal_lahir: string | null }
+  warga: { id: string; nik: string; nama_lengkap: string; tanggal_lahir: string | null; rt_id: string }
 ): Promise<DuplikatWarga[]> {
   const hasil: DuplikatWarga[] = [];
   const nik = teks(warga.nik);
@@ -289,6 +324,7 @@ export async function cariDuplikatWarga(
       .from("warga")
       .select("id, nik, nama_lengkap, tanggal_lahir")
       .eq("nik", nik)
+      .eq("rt_id", warga.rt_id)
       .neq("id", warga.id);
 
     for (const baris of (nikSama || []) as BarisWarga[]) {
@@ -306,6 +342,7 @@ export async function cariDuplikatWarga(
       .from("anggota_keluarga")
       .select("id, nik, nama_lengkap, tanggal_lahir, warga_id")
       .eq("nik", nik)
+      .eq("rt_id", warga.rt_id)
       .neq("warga_id", warga.id);
 
     for (const baris of sebagaiAnggota || []) {
@@ -326,6 +363,7 @@ export async function cariDuplikatWarga(
       .from("warga")
       .select("id, nik, nama_lengkap, tanggal_lahir")
       .eq("tanggal_lahir", tgl)
+      .eq("rt_id", warga.rt_id)
       .neq("id", warga.id);
 
     for (const baris of (identitasSama || []) as BarisWarga[]) {
@@ -344,116 +382,89 @@ export async function cariDuplikatWarga(
   return hasil;
 }
 
-async function hapusDuplikatTerdeteksi(
-  supabase: SupabaseClient,
-  duplikat: DuplikatWarga[],
-  aktor: string
-) {
-  let terhapus = 0;
+type RencanaSinkronAnggota = {
+  anggotaLama: IdentitasAnggotaTersimpan[];
+};
 
-  for (const item of duplikat) {
-    if (item.sumber === "anggota_keluarga") {
-      const { error } = await supabase.from("anggota_keluarga").delete().eq("id", item.id);
-      if (!error) terhapus += 1;
-      continue;
-    }
+type GagalSinkron = {
+  ok: false;
+  message: string;
+  code?: "PERLU_TINJAUAN_PENGURUS";
+};
 
-    const hasil = await prosesHapusAtauArsipWarga(supabase, item.id, aktor);
-    if (hasil.success) terhapus += 1;
-  }
+type HasilSinkron = { ok: true } | GagalSinkron;
 
-  return terhapus;
+function perluTinjauanPengurus(): GagalSinkron {
+  return {
+    ok: false,
+    code: "PERLU_TINJAUAN_PENGURUS",
+    message: PESAN_TINJAUAN_PENGURUS,
+  };
 }
 
-async function gabungkanKkDobelKeAnggota(
+/**
+ * Seluruh pemeriksaan kepemilikan dilakukan sebelum UPDATE pertama. Hasil
+ * pencarian lintas-rumah hanya dipakai sebagai boolean dan tidak pernah
+ * dikembalikan kepada warga, sehingga endpoint ini bukan oracle data NIK.
+ */
+async function siapkanSinkronAnggota(
   supabase: SupabaseClient,
-  wargaTujuanId: string,
-  rtId: string | null,
-  nikAnggota: string,
-  aktor: string,
-  nikYangDipertahankan: Set<string>
-): Promise<{ ok: true; idDipindah: string[] } | { ok: false; message: string }> {
-  const nik = teks(nikAnggota);
-  const { data: kkLain, error } = await supabase
-    .from("warga")
-    .select("id, nama_lengkap, nik")
-    .eq("nik", nik)
-    .neq("id", wargaTujuanId)
-    .maybeSingle();
-
-  if (error) return { ok: false, message: `Gagal memeriksa NIK ${nik}: ${error.message}` };
-  if (!kkLain || adalahArsipPemilu(kkLain)) return { ok: true, idDipindah: [] };
-
-  const idDipindah: string[] = [];
-  const { data: tanggungan, error: errTanggungan } = await supabase
+  wargaId: string,
+  rtId: string,
+  anggotaBaru: AnggotaInput[]
+): Promise<{ ok: true; rencana: RencanaSinkronAnggota } | { ok: false; message: string; code?: "PERLU_TINJAUAN_PENGURUS" }> {
+  const { data: anggotaLama, error: errLama } = await supabase
     .from("anggota_keluarga")
     .select("id, nik")
-    .eq("warga_id", kkLain.id);
+    .eq("warga_id", wargaId)
+    .eq("rt_id", rtId);
 
-  if (errTanggungan) {
-    return { ok: false, message: `Gagal membaca tanggungan ${kkLain.nama_lengkap}: ${errTanggungan.message}` };
+  if (errLama) {
+    console.error("Preflight anggota keluarga gagal:", errLama.message);
+    return { ok: false, message: "Data keluarga belum dapat diverifikasi. Coba lagi nanti." };
   }
 
-  for (const t of tanggungan || []) {
-    if (teks(t.nik) === nik) continue;
-    if (nikYangDipertahankan.has(teks(t.nik))) continue;
-    const { error: errPindah } = await supabase
-      .from("anggota_keluarga")
-      .update({ warga_id: wargaTujuanId, rt_id: rtId })
-      .eq("id", t.id);
-    if (errPindah) {
-      return { ok: false, message: `Gagal memindahkan tanggungan dari data dobel: ${errPindah.message}` };
+  const tersimpan = (anggotaLama || []).map((a) => ({
+    id: String(a.id),
+    nik: a.nik == null ? null : teks(a.nik),
+  }));
+  const kebijakan = periksaKepemilikanAnggota(tersimpan, anggotaBaru);
+  if (!kebijakan.ok) return perluTinjauanPengurus();
+
+  if (kebijakan.nikBaru.length > 0) {
+    const [cekWarga, cekAnggota] = await Promise.all([
+      supabase.from("warga").select("id").in("nik", kebijakan.nikBaru).limit(1),
+      supabase.from("anggota_keluarga").select("id").in("nik", kebijakan.nikBaru).limit(1),
+    ]);
+
+    if (cekWarga.error || cekAnggota.error) {
+      console.error(
+        "Pemeriksaan konflik NIK anggota gagal:",
+        cekWarga.error?.message || cekAnggota.error?.message
+      );
+      return perluTinjauanPengurus();
     }
-    idDipindah.push(String(t.id));
+    if ((cekWarga.data?.length || 0) > 0 || (cekAnggota.data?.length || 0) > 0) {
+      return perluTinjauanPengurus();
+    }
   }
 
-  const hapus = await prosesHapusAtauArsipWarga(supabase, String(kkLain.id), aktor);
-  if (!hapus.success) {
-    return {
-      ok: false,
-      message: `${kkLain.nama_lengkap} tercatat dobel sebagai kepala keluarga. Gagal menggabungkan: ${hapus.message}`,
-    };
-  }
-
-  await catatAudit(
-    supabase,
-    aktor,
-    "Gabung KK Dobel menjadi Anggota Keluarga",
-    `NIK ${nik} (${kkLain.nama_lengkap}) yang terimpor sebagai KK terpisah digabung ke KK ${wargaTujuanId}.`
-  );
-
-  return { ok: true, idDipindah };
+  return { ok: true, rencana: { anggotaLama: tersimpan } };
 }
 
 async function sinkronAnggota(
   supabase: SupabaseClient,
   wargaId: string,
-  rtId: string | null,
+  rtId: string,
   anggotaBaru: AnggotaInput[],
-  aktor: string
-): Promise<{ ok: true } | { ok: false; message: string }> {
-  const { data: anggotaLama, error: errLama } = await supabase
-    .from("anggota_keluarga")
-    .select("id")
-    .eq("warga_id", wargaId);
-
-  if (errLama) {
-    return { ok: false, message: `Gagal membaca anggota keluarga: ${errLama.message}` };
-  }
-
-  const idLama = new Set((anggotaLama || []).map((a) => String(a.id)));
+  rencana: RencanaSinkronAnggota
+): Promise<HasilSinkron> {
   const idTertahan = new Set<string>();
 
-  const nikYangDipertahankan = new Set(anggotaBaru.map((a) => teks(a.nik)));
-
   for (const a of anggotaBaru) {
-    const gabung = await gabungkanKkDobelKeAnggota(supabase, wargaId, rtId, a.nik, aktor, nikYangDipertahankan);
-    if (!gabung.ok) return gabung;
-    for (const id of gabung.idDipindah) idTertahan.add(id);
-
-    if (a.id && idLama.has(a.id)) {
+    if (a.id) {
       idTertahan.add(a.id);
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("anggota_keluarga")
         .update({
           nama_lengkap: a.nama_lengkap,
@@ -466,15 +477,21 @@ async function sinkronAnggota(
           pekerjaan: a.pekerjaan,
         })
         .eq("id", a.id)
-        .eq("warga_id", wargaId);
+        .eq("warga_id", wargaId)
+        .eq("rt_id", rtId)
+        .eq("nik", a.nik)
+        .select("id")
+        .maybeSingle();
 
       if (error) {
-        return { ok: false, message: `Gagal memperbarui data ${a.nama_lengkap}: ${error.message}` };
+        console.error("Update anggota keluarga gagal:", error.message);
+        return { ok: false, message: "Data anggota keluarga gagal diperbarui." };
       }
+      if (!data) return perluTinjauanPengurus();
       continue;
     }
 
-    const { error } = await supabase.from("anggota_keluarga").insert([
+    const { data, error } = await supabase.from("anggota_keluarga").insert([
       {
         warga_id: wargaId,
         rt_id: rtId,
@@ -488,27 +505,48 @@ async function sinkronAnggota(
         agama: a.agama,
         pekerjaan: a.pekerjaan,
       },
-    ]);
+    ]).select("id").maybeSingle();
 
     if (error) {
-      return { ok: false, message: `Gagal menambah ${a.nama_lengkap}: ${error.message}` };
+      console.error("Insert anggota keluarga gagal:", error.message);
+      return error.code === "23505"
+        ? perluTinjauanPengurus()
+        : { ok: false, message: "Data anggota keluarga gagal ditambahkan." };
     }
+    if (!data) return { ok: false, message: "Data anggota keluarga gagal ditambahkan." };
   }
 
-  for (const id of idLama) {
-    if (idTertahan.has(id)) continue;
-    const { error } = await supabase.from("anggota_keluarga").delete().eq("id", id).eq("warga_id", wargaId);
+  for (const lama of rencana.anggotaLama) {
+    if (idTertahan.has(lama.id)) continue;
+
+    let query = supabase
+      .from("anggota_keluarga")
+      .delete()
+      .eq("id", lama.id)
+      .eq("warga_id", wargaId);
+    query = query.eq("rt_id", rtId);
+    query = lama.nik === null ? query.is("nik", null) : query.eq("nik", lama.nik);
+    const { data, error } = await query.select("id").maybeSingle();
+
     if (error) {
-      return { ok: false, message: `Gagal menghapus anggota lama: ${error.message}` };
+      console.error("Hapus anggota milik sendiri gagal:", error.message);
+      return { ok: false, message: "Data anggota keluarga lama gagal diperbarui." };
     }
+    if (!data) return perluTinjauanPengurus();
   }
 
   return { ok: true };
 }
 
-async function catatAudit(supabase: SupabaseClient, aktor: string, aksi: string, detail: string) {
+async function catatAudit(
+  supabase: SupabaseClient,
+  aktor: string,
+  aksi: string,
+  detail: string,
+  rtId: string
+) {
   const { error } = await supabase.from("audit_log").insert([
-    { aktor, aksi, tabel_target: "warga", detail },
+    { aktor, aksi, tabel_target: "warga", detail, rt_id: rtId },
   ]);
   if (error) console.error("Audit log verifikasi carik gagal:", error.message);
 }
@@ -526,12 +564,20 @@ async function tandaiSensus(
     .maybeSingle();
 
   if (errCek) {
-    return { ok: false, message: `Gagal memeriksa status verifikasi carik: ${errCek.message}` };
+    console.error("Gagal memeriksa status verifikasi carik:", errCek.code || "database_error");
+    return { ok: false, message: "Status verifikasi belum dapat diperiksa. Coba lagi nanti." };
   }
 
-  const payload = {
+  const statusPayload = {
     catatan_tambahan: catatan,
     status_validasi: status,
+  };
+
+  // Nilai awal ini hanya untuk INSERT baris sensus baru. Baris yang sudah ada
+  // mungkin berisi data kesehatan/kesejahteraan nyata dan tidak boleh disapu
+  // menjadi default hanya karena status verifikasi Carik berubah.
+  const payloadAwal = {
+    ...statusPayload,
     ada_ibu_hamil: false,
     ada_disabilitas: false,
     ada_ibu_menyusui: false,
@@ -551,24 +597,39 @@ async function tandaiSensus(
   };
 
   if (sudahAda?.id) {
-    const { error } = await supabase.from("sensus_kesejahteraan").update(payload).eq("id", sudahAda.id);
-    if (error) return { ok: false, message: `Gagal memperbarui cap verifikasi: ${error.message}` };
+    const { data, error } = await supabase
+      .from("sensus_kesejahteraan")
+      .update(statusPayload)
+      .eq("id", sudahAda.id)
+      .eq("warga_id", wargaId)
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      console.error("Gagal memperbarui cap verifikasi:", error.code || "database_error");
+      return { ok: false, message: "Cap verifikasi belum dapat diperbarui. Coba lagi nanti." };
+    }
+    if (!data) return { ok: false, message: "Status verifikasi berubah saat diperbarui. Coba lagi." };
     return { ok: true };
   }
 
-  const { error } = await supabase.from("sensus_kesejahteraan").insert([{ warga_id: wargaId, ...payload }]);
-  if (error) return { ok: false, message: `Gagal mencatat verifikasi carik: ${error.message}` };
+  const { error } = await supabase
+    .from("sensus_kesejahteraan")
+    .insert([{ warga_id: wargaId, ...payloadAwal }]);
+  if (error) {
+    console.error("Gagal mencatat verifikasi carik:", error.code || "database_error");
+    return { ok: false, message: "Verifikasi carik belum dapat dicatat. Coba lagi nanti." };
+  }
   return { ok: true };
 }
 
-export async function simpanVerifikasiCarik(
+async function simpanVerifikasiCarikInternal(
   supabase: SupabaseClient,
   wargaId: string,
   biodataMentah: Record<string, unknown>,
-  anggotaMentah: AnggotaInput[],
+  anggotaMentah: unknown,
   catatan: string,
-  aktor: string,
-  opsi?: { hapusDuplikat?: boolean; capCarik?: boolean }
+  aktorMentah: string | null,
+  opsi: { capCarik: boolean }
 ): Promise<HasilCarik> {
   if (!POLA_UUID.test(wargaId)) {
     return { success: false, message: "ID warga tidak valid." };
@@ -580,178 +641,211 @@ export async function simpanVerifikasiCarik(
     .eq("id", wargaId)
     .maybeSingle();
 
-  if (errWarga) return { success: false, message: `Gagal membaca data warga: ${errWarga.message}` };
+  if (errWarga) {
+    console.error("Pembacaan warga untuk verifikasi Carik gagal:", errWarga.message);
+    return { success: false, message: "Data warga belum dapat diverifikasi. Coba lagi nanti." };
+  }
   if (!warga) return { success: false, message: "Data warga tidak ditemukan. Mungkin sudah dihapus." };
+
+  const rtId = String(warga.rt_id || "");
+  if (!POLA_UUID.test(rtId)) {
+    return { success: false, message: "Wilayah data warga belum valid. Hubungi pengurus RT." };
+  }
 
   const biodata = sanitasiBiodata(biodataMentah);
   if (!biodata.ok) return { success: false, message: biodata.message };
 
-  const anggota = sanitasiAnggota(Array.isArray(anggotaMentah) ? anggotaMentah : [], String(warga.nik));
+  // FormData/Server Action arguments are attacker-controlled at runtime even
+  // when the TypeScript signature says `AnggotaInput[]`. Never coerce a
+  // malformed value to `[]`: doing so would interpret a bad request as an
+  // instruction to delete every existing family member.
+  if (!Array.isArray(anggotaMentah)) {
+    return { success: false, message: PESAN_TINJAUAN_PENGURUS };
+  }
+  const anggota = sanitasiAnggota(anggotaMentah, String(warga.nik));
   if (!anggota.ok) return { success: false, message: anggota.message };
 
-  const { error: errUpdate } = await supabase
+  // Preflight kepemilikan dan konflik harus selesai sebelum mutasi pertama.
+  const persiapan = await siapkanSinkronAnggota(supabase, wargaId, rtId, anggota.data);
+  if (!persiapan.ok) {
+    return { success: false, message: persiapan.message, code: persiapan.code };
+  }
+
+  const queryUpdate = supabase
     .from("warga")
     .update(biodata.data)
-    .eq("id", wargaId);
+    .eq("id", wargaId)
+    .eq("nik", String(warga.nik))
+    .eq("rt_id", rtId);
+
+  const { data: wargaDiperbarui, error: errUpdate } = await queryUpdate.select("id").maybeSingle();
 
   if (errUpdate) {
-    return { success: false, message: `Gagal menyimpan biodata: ${errUpdate.message}` };
+    console.error("Penyimpanan biodata Carik gagal:", errUpdate.message);
+    return { success: false, message: "Biodata belum berhasil disimpan. Coba lagi nanti." };
+  }
+  if (!wargaDiperbarui) {
+    return { success: false, message: "Data warga berubah saat diverifikasi. Muat ulang halaman." };
   }
 
   const sinkron = await sinkronAnggota(
     supabase,
     wargaId,
-    (warga.rt_id as string | null) ?? null,
+    rtId,
     anggota.data,
-    aktor
+    persiapan.rencana
   );
-  if (!sinkron.ok) return { success: false, message: sinkron.message };
-
-  let duplikatDihapus = 0;
-  if (opsi?.hapusDuplikat !== false && opsi?.capCarik !== false) {
-    const duplikat = await cariDuplikatWarga(supabase, {
-      id: wargaId,
-      nik: String(warga.nik),
-      nama_lengkap: biodata.data.nama_lengkap,
-      tanggal_lahir: biodata.data.tanggal_lahir,
-    });
-    duplikatDihapus = await hapusDuplikatTerdeteksi(supabase, duplikat, aktor);
+  if (!sinkron.ok) {
+    return { success: false, message: sinkron.message, code: sinkron.code };
   }
 
-  if (opsi?.capCarik !== false) {
-    const catatanCap = teks(catatan) || "Data Carik divalidasi mandiri oleh warga";
+  if (opsi.capCarik) {
+    const catatanCap =
+      teks(catatan).slice(0, 1000) ||
+      "Data Carik diverifikasi oleh pengurus RT";
     const cap = await tandaiSensus(supabase, wargaId, catatanCap, "Disetujui");
     if (!cap.ok) return { success: false, message: cap.message };
   }
 
-  const tambahanDuplikat =
-    duplikatDihapus > 0
-      ? ` ${duplikatDihapus} data kembar dihapus agar satu NIK hanya punya satu catatan.`
-      : "";
+  const aktor = teks(aktorMentah).slice(0, 150) || "pengurus";
 
   await catatAudit(
     supabase,
     aktor,
-    opsi?.capCarik === false ? "Edit Data Warga" : "Verifikasi Data Carik",
-    `NIK ${warga.nik} (${biodata.data.nama_lengkap}) ${opsi?.capCarik === false ? "diperbarui tanpa mengubah NIK." : "mengonfirmasi data warisan."}${tambahanDuplikat}`
+    opsi.capCarik ? "Verifikasi Data Carik" : "Edit Data Warga",
+    `NIK ${warga.nik} (${biodata.data.nama_lengkap}) ${
+      opsi.capCarik ? "mengonfirmasi data warisan tanpa resolusi duplikat otomatis." : "diperbarui tanpa mengubah NIK."
+    }`,
+    rtId
   );
 
   return {
     success: true,
     message:
-      opsi?.capCarik === false
-        ? `Biodata dan anggota keluarga berhasil diperbarui. NIK tetap terkunci.${tambahanDuplikat}`
-        : `Data keluarga berhasil diverifikasi.${tambahanDuplikat}`,
-    duplikatDihapus,
-    arah: opsi?.capCarik === false ? undefined : "/portal",
+      opsi.capCarik
+        ? "Data keluarga berhasil diverifikasi. Duplikat, bila ada, hanya dapat ditangani pengurus."
+        : "Biodata dan anggota keluarga berhasil diperbarui. NIK tetap terkunci.",
+    arah: undefined,
   };
 }
 
-export async function simpanBiodataTanpaCap(
+/**
+ * Jalur pengurus pun sengaja non-destruktif. Resolusi duplikat hanya boleh
+ * lewat hapusDuplikatPilihan(), setelah kandidat divalidasi ulang.
+ */
+export async function simpanVerifikasiCarik(
   supabase: SupabaseClient,
   wargaId: string,
   biodataMentah: Record<string, unknown>,
-  aktor: string
+  anggotaMentah: AnggotaInput[],
+  catatan: string,
+  aktor: string,
+  opsi?: { capCarik?: boolean }
 ): Promise<HasilCarik> {
-  if (!POLA_UUID.test(wargaId)) {
-    return { success: false, message: "ID warga tidak valid." };
+  return simpanVerifikasiCarikInternal(
+    supabase,
+    wargaId,
+    biodataMentah,
+    anggotaMentah,
+    catatan,
+    aktor,
+    { capCarik: opsi?.capCarik !== false }
+  );
+}
+
+export async function simpanVerifikasiCarikMandiri(
+  supabase: SupabaseClient,
+  identitas: IdentitasSensusMandiri,
+  biodataMentah: Record<string, unknown>,
+  anggotaMentah: unknown,
+  catatan: string
+): Promise<HasilCarik> {
+  if (
+    !POLA_UUID.test(identitas.id) ||
+    !POLA_UUID.test(identitas.rtId) ||
+    !/^\d{16}$/.test(identitas.nik)
+  ) {
+    return { success: false, message: "Identitas sesi warga tidak valid." };
   }
 
   const biodata = sanitasiBiodata(biodataMentah);
   if (!biodata.ok) return { success: false, message: biodata.message };
 
-  const { data: warga, error: errWarga } = await supabase
-    .from("warga")
-    .select("id, nik, nama_lengkap")
-    .eq("id", wargaId)
-    .maybeSingle();
-
-  if (errWarga) return { success: false, message: `Gagal membaca data warga: ${errWarga.message}` };
-  if (!warga) return { success: false, message: "Data warga tidak ditemukan." };
-
-  const { error } = await supabase.from("warga").update(biodata.data).eq("id", wargaId);
-  if (error) return { success: false, message: `Gagal menyimpan biodata: ${error.message}` };
-
-  await catatAudit(
-    supabase,
-    aktor,
-    "Edit Data Warga",
-    `Memperbarui biodata NIK ${warga.nik} (${biodata.data.nama_lengkap}) tanpa mengubah NIK.`
-  );
-
-  return { success: true, message: "Biodata berhasil diperbarui. NIK tetap terkunci." };
-}
-
-export async function hapusKarenaNikTidakSesuai(
-  supabase: SupabaseClient,
-  wargaId: string,
-  aktor: string
-): Promise<HasilCarik> {
-  if (!POLA_UUID.test(wargaId)) {
-    return { success: false, message: "ID warga tidak valid." };
+  // Argumen Server Action tetap attacker-controlled pada runtime. Nilai non-
+  // array tidak boleh berubah arti menjadi daftar kosong (hapus semua anggota).
+  if (!Array.isArray(anggotaMentah)) {
+    return { success: false, message: PESAN_TINJAUAN_PENGURUS };
   }
+  const anggota = sanitasiAnggota(anggotaMentah, identitas.nik);
+  if (!anggota.ok) return { success: false, message: anggota.message };
 
-  const { data: warga, error } = await supabase
-    .from("warga")
-    .select("id, nik, nama_lengkap")
-    .eq("id", wargaId)
-    .maybeSingle();
+  // Tidak ada fallback multi-query. RPC mengunci dan memvalidasi ulang warga,
+  // tenant, NIK, serta ownership anggota di dalam satu transaksi PostgreSQL.
+  const { error } = await supabase.rpc("simpan_sensus_mandiri", {
+    p_warga_id: identitas.id,
+    p_nik: identitas.nik,
+    p_rt_id: identitas.rtId,
+    p_biodata: biodata.data,
+    p_anggota: anggota.data,
+    p_catatan: teks(catatan).slice(0, 1000),
+  });
 
-  if (error) return { success: false, message: `Gagal membaca data warga: ${error.message}` };
-  if (!warga) {
-    return {
-      success: true,
-      message: "Data ini sudah tidak ada di buku induk. Silakan daftar ulang dengan NIK yang benar.",
-      arah: "/register?alasan=nik-tidak-sesuai",
-    };
+  if (error) {
+    console.error("RPC sensus mandiri ditolak:", error.code || "database_error");
+    if (error.code === "42501" || error.code === "23505") {
+      return {
+        success: false,
+        message: PESAN_TINJAUAN_PENGURUS,
+        code: "PERLU_TINJAUAN_PENGURUS",
+      };
+    }
+    if (error.code === "40001") {
+      return { success: false, message: "Data berubah saat disimpan. Muat ulang halaman lalu coba lagi." };
+    }
+    return { success: false, message: "Verifikasi belum dapat disimpan. Coba lagi nanti." };
   }
-
-  const hasil = await prosesHapusAtauArsipWarga(supabase, wargaId, aktor);
-  if (!hasil.success) return { success: false, message: hasil.message };
-
-  await catatAudit(
-    supabase,
-    aktor,
-    "Hapus Warga karena NIK Tidak Sesuai",
-    `NIK ${warga.nik} (${warga.nama_lengkap}) dihapus/diarsipkan. Warga wajib lapor diri ulang dengan NIK yang benar.`
-  );
-
-  const tambahanArsip =
-    hasil.mode === "arsip_pemilu"
-      ? " Indeks pemilih e-voting tetap disimpan, tetapi akun portal ini tidak bisa dipakai lagi."
-      : "";
 
   return {
     success: true,
-    message: `Data lama dihapus karena NIK tidak sesuai.${tambahanArsip} Silakan daftar ulang dengan NIK yang tertera di KTP.`,
-    arah: "/register?alasan=nik-tidak-sesuai",
+    message: "Data keluarga berhasil diverifikasi. Duplikat, bila ada, hanya dapat ditangani pengurus.",
+    arah: "/portal",
   };
 }
 
-export async function hapusDuplikatPilihan(
+/**
+ * Laporan mandiri bersifat reversible: akun sendiri diblokir sementara dan
+ * masuk antrean pengurus. Jalur ini tidak pernah memanggil penghapus warga.
+ */
+export async function laporkanNikTidakSesuaiMandiri(
   supabase: SupabaseClient,
-  idTarget: string,
-  idYangDitahan: string,
-  aktor: string
+  identitas: IdentitasSensusMandiri
 ): Promise<HasilCarik> {
-  if (!POLA_UUID.test(idTarget) || !POLA_UUID.test(idYangDitahan)) {
-    return { success: false, message: "ID warga tidak valid." };
+  if (
+    !POLA_UUID.test(identitas.id) ||
+    !POLA_UUID.test(identitas.rtId) ||
+    !/^\d{16}$/.test(identitas.nik)
+  ) {
+    return { success: false, message: "Identitas sesi warga tidak valid." };
   }
-  if (idTarget === idYangDitahan) {
-    return { success: false, message: "Tidak bisa menghapus data yang sedang dibuka. Pilih data kembar yang lain." };
+
+  const { error } = await supabase.rpc("laporkan_nik_tidak_sesuai_mandiri", {
+    p_warga_id: identitas.id,
+    p_nik: identitas.nik,
+    p_rt_id: identitas.rtId,
+  });
+  if (error) {
+    console.error("RPC laporan NIK mandiri ditolak:", error.code || "database_error");
+    if (error.code === "40001") {
+      return { success: false, message: "Status akun berubah. Muat ulang halaman sebelum mencoba lagi." };
+    }
+    return { success: false, message: "Laporan belum dapat diproses. Coba lagi nanti." };
   }
 
-  const hasil = await prosesHapusAtauArsipWarga(supabase, idTarget, aktor);
-  if (!hasil.success) return { success: false, message: hasil.message };
-
-  await catatAudit(
-    supabase,
-    aktor,
-    "Hapus Data Warga Kembar",
-    `Menghapus duplikat ${idTarget}; data yang dipertahankan: ${idYangDitahan}.`
-  );
-
-  return { success: true, message: hasil.message || "Data kembar berhasil dihapus." };
+  return {
+    success: true,
+    message: "Laporan diterima. Akun diblokir sementara sampai pengurus RT memeriksa NIK Anda; tidak ada data yang dihapus.",
+    arah: "/login?alasan=nik-tidak-sesuai",
+  };
 }
 
 export async function ambilStatusCarik(supabase: SupabaseClient, wargaId: string) {
@@ -762,7 +856,8 @@ export async function ambilStatusCarik(supabase: SupabaseClient, wargaId: string
     .maybeSingle();
 
   if (error) {
-    return { ok: false as const, message: `Gagal membaca status carik: ${error.message}` };
+    console.error("Gagal membaca status carik:", error.code || "database_error");
+    return { ok: false as const, message: "Status verifikasi belum dapat dibaca. Coba lagi nanti." };
   }
 
   return { ok: true as const, data: (data as RingkasanCarik | null) ?? null };

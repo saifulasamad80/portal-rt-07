@@ -1,78 +1,65 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import InventarisClient from "./InventarisClient";
+import { otentikasiWargaAktif, wajibOtentikasiWarga } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
-
-// INJEKSI MUTLAK: Gembok Keamanan Zero-Trust
-async function pastikanOtentikasiWarga() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
-  if (!token) throw new Error("Akses Ditolak: Sesi Anda tidak valid.");
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload; 
-  } catch (error) { throw new Error("Akses Ditolak: Token keamanan rusak."); }
-}
+const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function InventarisPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  if (!token) redirect("/login");
-
-  let wargaAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    wargaAktif = payload;
-  } catch (error) {
-    redirect("/login");
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
   
   const [masterRes, riwayatRes, semuaPinjamRes] = await Promise.all([
-    supabaseAdmin.from("master_inventaris").select("*").order("nama_barang", { ascending: true }),
-    supabaseAdmin.from("peminjaman_inventaris").select("*").eq("warga_id", wargaAktif.id).order("tanggal_pinjam", { ascending: true }),
+    supabaseAdmin.from("master_inventaris").select("*").eq("rt_id", wargaAktif.rtId).order("nama_barang", { ascending: true }).limit(500),
+    supabaseAdmin.from("peminjaman_inventaris").select("*").eq("warga_id", wargaAktif.id).eq("rt_id", wargaAktif.rtId).order("tanggal_pinjam", { ascending: true }).limit(200),
     // FAKTA: Tarik jadwal barang yang sudah SUKSES DIPINJAM orang lain untuk dilempar ke kalender warga
-    supabaseAdmin.from("peminjaman_inventaris").select("nama_barang, tanggal_pinjam").eq("status", "Disetujui")
+    supabaseAdmin.from("peminjaman_inventaris").select("nama_barang, tanggal_pinjam").eq("status", "Disetujui").eq("rt_id", wargaAktif.rtId).limit(2000)
   ]);
 
   // REFACTOR MUTLAK: Eksekusi Validasi Lapis Baja Anti Double-Booking
   async function ajukanBooking(namaBarang: string, tanggal: string, keterangan: string) {
     "use server";
-    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+    const sesi = await wajibOtentikasiWarga();
+    const namaBersih = String(namaBarang || "").trim().slice(0, 200);
+    const tanggalBersih = String(tanggal || "").trim();
+    const keteranganBersih = String(keterangan || "").trim().slice(0, 1000);
+    if (!namaBersih || !POLA_TANGGAL.test(tanggalBersih)) return { success: false, message: "Barang atau tanggal peminjaman tidak valid." };
     
-    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const supabaseAdmin = await buatKlienTerautentikasi(sesi);
     
+    const { data: barang } = await supabaseAdmin.from("master_inventaris").select("id, nama_barang").eq("nama_barang", namaBersih).eq("rt_id", sesi.rtId).maybeSingle();
+    if (!barang) return { success: false, message: "Barang tidak tersedia di RT Anda." };
+
     // ----------------------------------------------------------------------------------
     // PENGECEKAN DOUBLE-BOOKING DI BACKEND (Menahan serangan brutal / glitch)
     // ----------------------------------------------------------------------------------
     const { data: cekBentrok } = await supabaseAdmin
       .from("peminjaman_inventaris")
       .select("id")
-      .eq("nama_barang", namaBarang)
-      .eq("tanggal_pinjam", tanggal)
+      .eq("nama_barang", namaBersih)
+      .eq("tanggal_pinjam", tanggalBersih)
+      .eq("rt_id", sesi.rtId)
       .eq("status", "Disetujui"); // Hanya mengecek yang sudah beneran di-ACC Pak RT
 
     if (cekBentrok && cekBentrok.length > 0) {
-      throw new Error(`PERINGATAN: Fasilitas "${namaBarang}" sudah di-Booking & Disetujui untuk warga lain pada tanggal tersebut. Silakan pilih tanggal lain.`);
+      return { success: false, message: "Fasilitas sudah dipesan untuk tanggal tersebut. Silakan pilih tanggal lain." };
     }
     // ----------------------------------------------------------------------------------
 
     const { error } = await supabaseAdmin.from("peminjaman_inventaris").insert([{
       warga_id: sesi.id, // Gunakan ID asli
-      nama_barang: namaBarang,
-      tanggal_pinjam: tanggal,
-      keterangan: keterangan,
+      nama_barang: namaBersih,
+      tanggal_pinjam: tanggalBersih,
+      keterangan: keteranganBersih,
+      rt_id: sesi.rtId,
       status: "Menunggu"
     }]);
 
-    if (error) throw new Error("Database Error: " + error.message);
+    if (error) return { success: false, message: error.code === "23505" ? "Fasilitas sudah dipesan untuk tanggal tersebut." : "Peminjaman gagal disimpan." };
+    return { success: true, message: "Pengajuan peminjaman terkirim." };
   }
 
   return <InventarisClient 

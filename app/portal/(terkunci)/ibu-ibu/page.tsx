@@ -1,33 +1,10 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import KerangkaIbuIbu from "@/components/ibu-ibu/KerangkaIbuIbu";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+import { otentikasiWargaAktif } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
 const MODUL = [
-  {
-    href: "/portal/ibu-ibu/lansia",
-    judul: "Posyandu Lansia",
-    deskripsi: "Catatan tekanan darah, gula darah, dan kunjungan kesehatan lansia.",
-    ikon: "👵",
-    aksen: "bg-violet-50 text-violet-700 border-violet-100",
-    statKey: "lansia" as const,
-    statLabel: "kunjungan tercatat",
-  },
-  {
-    href: "/portal/ibu-ibu/balita",
-    judul: "Posyandu Balita",
-    deskripsi: "Pencatatan berat, tinggi, dan imunisasi anak.",
-    ikon: "👶",
-    aksen: "bg-sky-50 text-sky-700 border-sky-100",
-    statKey: "balita" as const,
-    statLabel: "kunjungan tercatat",
-  },
   {
     href: "/portal/ibu-ibu/arisan",
     judul: "Arisan Ibu-ibu",
@@ -40,45 +17,28 @@ const MODUL = [
 ];
 
 export default async function PortalIbuIbuPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
-  if (!token) redirect("/login");
-  try {
-    await jwtVerify(token, JWT_SECRET);
-  } catch {
-    redirect("/login");
-  }
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = await buatKlienTerautentikasi(wargaAktif);
 
-  const [{ count: totalLansia }, { count: totalBalita }, { count: totalArisan }, { data: arisanAktif }] = await Promise.all([
-    supabase.from("posyandu_lansia").select("id", { count: "exact", head: true }),
-    supabase.from("posyandu_balita").select("id", { count: "exact", head: true }),
-    supabase.from("arisan_ibu").select("id", { count: "exact", head: true }),
-    supabase.from("arisan_ibu").select("setoran_terakhir, pinjaman_berjalan"),
+  const [{ count: totalArisan }, { data: arisanAktif }] = await Promise.all([
+    supabase.from("arisan_ibu").select("id", { count: "exact", head: true }).eq("rt_id", wargaAktif.rtId),
+    supabase.from("arisan_ibu").select("setoran_terakhir, pinjaman_berjalan").eq("rt_id", wargaAktif.rtId).limit(500),
   ]);
 
   const totalDanaTerkumpul = (arisanAktif || []).reduce((sum, a) => sum + Number(a.setoran_terakhir || 0), 0);
   const statistik: Record<string, number> = {
-    lansia: totalLansia || 0,
-    balita: totalBalita || 0,
     arisan: totalArisan || 0,
   };
 
   return (
     <KerangkaIbuIbu
       judul="Pusat kegiatan Ibu-ibu RT"
-      deskripsi="Pilih sub-modul Posyandu Lansia, Posyandu Balita, atau manajemen pendaftaran simpan-pinjam arisan."
+      deskripsi="Kelola pendaftaran dan ringkasan simpan-pinjam arisan ibu-ibu RT. Rekam kesehatan individu hanya tersedia bagi pengurus berwenang."
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1">Kunjungan Lansia</p>
-          <p className="text-2xl font-black text-violet-700">{statistik.lansia}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1">Kunjungan Balita</p>
-          <p className="text-2xl font-black text-sky-700">{statistik.balita}</p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1">Anggota Arisan</p>
           <p className="text-2xl font-black text-rose-700">{statistik.arisan}</p>
@@ -89,7 +49,7 @@ export default async function PortalIbuIbuPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-1 gap-4">
         {MODUL.map((item) => (
           <Link
             key={item.href}

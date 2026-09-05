@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import ModulJumantik from "../ModulJumantik";
 
 type TabId = "balita" | "lansia" | "arisan";
@@ -89,15 +88,33 @@ export default function IbuIbuAdminClient({
   aksiSimpanArisan,
   aksiSimpanTransaksi,
   aksiHapus,
-}: {
-  kunjunganLansia: BarisKunjunganLansia[];
-  kunjunganBalita: BarisKunjunganBalita[];
-  arisan: any[];
-  transaksi: any[];
-  aksiSimpanArisan: (payload: any) => Promise<{ success: boolean; message?: string }>;
-  aksiSimpanTransaksi: (payload: any) => Promise<{ success: boolean; message?: string }>;
-  aksiHapus: (tabel: string, id: string) => Promise<{ success: boolean; message?: string }>;
-}) {
+      aksiSimpanKunjunganBalita,
+      aksiSimpanKunjunganLansia,
+      bolehKelolaKunjungan,
+      laporanJumantik,
+      aksiCatatJumantik,
+    }: {
+      kunjunganLansia: BarisKunjunganLansia[];
+      kunjunganBalita: BarisKunjunganBalita[];
+      arisan: any[];
+      transaksi: any[];
+      aksiSimpanArisan: (payload: any) => Promise<{ success: boolean; message?: string }>;
+      aksiSimpanTransaksi: (payload: any) => Promise<{ success: boolean; message?: string }>;
+      aksiHapus: (tabel: string, id: string) => Promise<{ success: boolean; message?: string }>;
+      aksiSimpanKunjunganBalita: (payload: unknown) => Promise<{ success: boolean; message?: string; data?: BarisKunjunganBalita }>;
+      aksiSimpanKunjunganLansia: (payload: unknown) => Promise<{ success: boolean; message?: string; data?: BarisKunjunganLansia }>;
+      bolehKelolaKunjungan: boolean;
+      laporanJumantik: {
+        jumlah_rumah_diperiksa: number | null;
+        warga_terjangkit_dbd: boolean | null;
+        ditemukan_jentik: boolean | null;
+      } | null;
+      aksiCatatJumantik: (payload: {
+        jumlah_rumah_diperiksa: number;
+        warga_terjangkit_dbd: boolean;
+        ditemukan_jentik: boolean;
+      }) => Promise<{ success: boolean; message?: string }>;
+    }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabId>("balita");
   const [loading, setLoading] = useState(false);
@@ -157,36 +174,35 @@ export default function IbuIbuAdminClient({
 
   const simpanKunjunganBalita = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!bolehKelolaKunjungan) {
+      setPesanBalita({ tipe: "gagal", teks: "Rekam medis kunjungan legacy hanya dapat dikelola webmaster sampai pemetaan RT tersedia." });
+      return;
+    }
     setMenyimpanBalita(true);
     setPesanBalita(null);
 
-    const { data, error } = await supabase
-      .from("kunjungan_balita")
-      .insert([
-        {
-          nama_anak: formBalita.nama_anak.trim(),
-          nama_ibu: formBalita.nama_ibu.trim(),
-          tanggal_kunjungan: formBalita.tanggal_kunjungan,
-          berat_kg: angkaOpsional(formBalita.berat_kg),
-          tinggi_cm: angkaOpsional(formBalita.tinggi_cm),
-          imunisasi: teksOpsional(formBalita.imunisasi),
-          catatan: teksOpsional(formBalita.catatan),
-        },
-      ])
-      .select()
-      .single();
+    const hasil = await aksiSimpanKunjunganBalita({
+      nama_anak: formBalita.nama_anak.trim(),
+      nama_ibu: formBalita.nama_ibu.trim(),
+      tanggal_kunjungan: formBalita.tanggal_kunjungan,
+      berat_kg: angkaOpsional(formBalita.berat_kg),
+      tinggi_cm: angkaOpsional(formBalita.tinggi_cm),
+      imunisasi: teksOpsional(formBalita.imunisasi),
+      catatan: teksOpsional(formBalita.catatan),
+    });
 
     setMenyimpanBalita(false);
 
-    if (error || !data) {
+    if (!hasil.success || !hasil.data) {
       setPesanBalita({
         tipe: "gagal",
-        teks: "Kunjungan balita gagal disimpan. Periksa koneksi, lalu tekan Simpan lagi.",
+        teks: hasil.message || "Kunjungan balita gagal disimpan. Periksa koneksi, lalu tekan Simpan lagi.",
       });
       return;
     }
 
-    setDaftarBalita((sebelum) => [data as BarisKunjunganBalita, ...sebelum]);
+    const data = hasil.data;
+    setDaftarBalita((sebelum) => [data, ...sebelum]);
     setFormBalita({ ...FORM_BALITA_KOSONG, tanggal_kunjungan: tanggalHariIni() });
     setPesanBalita({
       tipe: "sukses",
@@ -196,35 +212,34 @@ export default function IbuIbuAdminClient({
 
   const simpanKunjunganLansia = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!bolehKelolaKunjungan) {
+      setPesanLansia({ tipe: "gagal", teks: "Rekam medis kunjungan legacy hanya dapat dikelola webmaster sampai pemetaan RT tersedia." });
+      return;
+    }
     setMenyimpanLansia(true);
     setPesanLansia(null);
 
-    const { data, error } = await supabase
-      .from("kunjungan_lansia")
-      .insert([
-        {
-          nama_peserta: formLansia.nama_peserta.trim(),
-          tanggal_kunjungan: formLansia.tanggal_kunjungan,
-          tensi_darah: teksOpsional(formLansia.tensi_darah),
-          gula_darah: angkaOpsional(formLansia.gula_darah),
-          berat_kg: angkaOpsional(formLansia.berat_kg),
-          catatan: teksOpsional(formLansia.catatan),
-        },
-      ])
-      .select()
-      .single();
+    const hasil = await aksiSimpanKunjunganLansia({
+      nama_peserta: formLansia.nama_peserta.trim(),
+      tanggal_kunjungan: formLansia.tanggal_kunjungan,
+      tensi_darah: teksOpsional(formLansia.tensi_darah),
+      gula_darah: angkaOpsional(formLansia.gula_darah),
+      berat_kg: angkaOpsional(formLansia.berat_kg),
+      catatan: teksOpsional(formLansia.catatan),
+    });
 
     setMenyimpanLansia(false);
 
-    if (error || !data) {
+    if (!hasil.success || !hasil.data) {
       setPesanLansia({
         tipe: "gagal",
-        teks: "Kunjungan lansia gagal disimpan. Periksa koneksi, lalu tekan Simpan lagi.",
+        teks: hasil.message || "Kunjungan lansia gagal disimpan. Periksa koneksi, lalu tekan Simpan lagi.",
       });
       return;
     }
 
-    setDaftarLansia((sebelum) => [data as BarisKunjunganLansia, ...sebelum]);
+    const data = hasil.data;
+    setDaftarLansia((sebelum) => [data, ...sebelum]);
     setFormLansia({ ...FORM_LANSIA_KOSONG, tanggal_kunjungan: tanggalHariIni() });
     setPesanLansia({
       tipe: "sukses",
@@ -244,6 +259,11 @@ export default function IbuIbuAdminClient({
           <h1 className="text-2xl font-black text-white">Modul Ibu-ibu RT</h1>
           <p className="text-slate-400 text-sm mt-1">Rekam medis kunjungan per individu, Jumantik, dan simpan-pinjam arisan.</p>
         </div>
+        {!bolehKelolaKunjungan && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Data kunjungan balita/lansia legacy belum memiliki pemetaan RT. Akses rekam medis ditahan untuk admin RT agar data warga lain tidak terbaca; webmaster dapat mengelolanya setelah migrasi.
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
@@ -270,7 +290,7 @@ export default function IbuIbuAdminClient({
         </div>
 
         <div className="min-w-0">
-          <ModulJumantik />
+          <ModulJumantik laporanTerbaru={laporanJumantik} aksiCatat={aksiCatatJumantik} />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -326,7 +346,7 @@ export default function IbuIbuAdminClient({
                   {pesanBalita.teks}
                 </p>
               )}
-              <button type="submit" disabled={menyimpanBalita} className="w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+              <button type="submit" disabled={menyimpanBalita || !bolehKelolaKunjungan} className="w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                 {menyimpanBalita ? "Menyimpan..." : "Simpan"}
               </button>
             </form>
@@ -390,7 +410,7 @@ export default function IbuIbuAdminClient({
                   {pesanLansia.teks}
                 </p>
               )}
-              <button type="submit" disabled={menyimpanLansia} className="w-full bg-violet-700 hover:bg-violet-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+              <button type="submit" disabled={menyimpanLansia || !bolehKelolaKunjungan} className="w-full bg-violet-700 hover:bg-violet-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                 {menyimpanLansia ? "Menyimpan..." : "Simpan"}
               </button>
             </form>

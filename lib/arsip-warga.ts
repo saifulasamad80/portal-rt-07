@@ -294,6 +294,7 @@ export type RingkasanWarga = {
   id: string;
   nama_lengkap: string | null;
   status_aktif: boolean | null;
+  rt_id: string | null;
 };
 
 export type HasilAmbilWarga =
@@ -319,7 +320,7 @@ export async function ambilRingkasanWarga(
 
   let { data, error } = await supabase
     .from("warga")
-    .select("id, nama_lengkap, status_aktif")
+    .select("id, nama_lengkap, status_aktif, rt_id")
     .eq("id", wargaId)
     .maybeSingle();
 
@@ -327,7 +328,7 @@ export async function ambilRingkasanWarga(
     dukungStatusAktif = false;
     ({ data, error } = await supabase
       .from("warga")
-      .select("id, nama_lengkap")
+      .select("id, nama_lengkap, rt_id")
       .eq("id", wargaId)
       .maybeSingle());
   }
@@ -349,6 +350,7 @@ export async function ambilRingkasanWarga(
       status_aktif: dukungStatusAktif
         ? (((data as Record<string, unknown>).status_aktif as boolean) ?? null)
         : null,
+      rt_id: ((data as Record<string, unknown>).rt_id as string) ?? null,
     },
   };
 }
@@ -439,7 +441,8 @@ async function catatAudit(
   supabase: SupabaseClient,
   aktor: string | undefined,
   aksi: string,
-  detail: string
+  detail: string,
+  rtId: string | null
 ) {
   const { error } = await supabase.from("audit_log").insert([
     {
@@ -447,6 +450,7 @@ async function catatAudit(
       aksi,
       tabel_target: "warga",
       detail,
+      rt_id: rtId,
     },
   ]);
   if (error) console.error("Audit log gagal dicatat:", error.message);
@@ -502,7 +506,8 @@ export async function prosesHapusAtauArsipWarga(
         supabase,
         aktor,
         "Arsip Warga (Soft Delete / E-Voting)",
-        `Data personal ${namaTarget} dilepas; indeks pemilih e-voting dipertahankan.`
+        `Data personal ${namaTarget} dilepas; indeks pemilih e-voting dipertahankan.`,
+        target.rt_id
       );
       return hasil;
     } catch (err: unknown) {
@@ -563,7 +568,8 @@ export async function prosesHapusAtauArsipWarga(
       supabase,
       aktor,
       "Hapus Warga",
-      `Menghapus data warga yang tidak terikat pemilu: ${namaTarget}`
+      `Menghapus data warga yang tidak terikat pemilu: ${namaTarget}`,
+      target.rt_id
     );
 
     return {

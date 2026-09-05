@@ -1,36 +1,24 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
+import { otentikasiWargaAktif } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
 export default async function KeuanganWarga() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  if (!token) redirect("/login");
-
-  let wargaAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    wargaAktif = payload;
-  } catch (error) {
-    redirect("/login");
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
   const { data: riwayatPribadi } = await supabaseAdmin
     .from("kas_rt")
-    .select("*")
+    .select("id, created_at, nominal, tipe_transaksi, kategori, keterangan")
     .eq("warga_id", wargaAktif.id)
-    .order("created_at", { ascending: false });
+    .eq("rt_id", wargaAktif.rtId)
+    .order("created_at", { ascending: false })
+    .limit(1000);
 
   const riwayat = riwayatPribadi || [];
-  const totalPartisipasi = riwayat.reduce((sum, t) => sum + t.nominal, 0);
+  const totalPartisipasi = riwayat.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0);
 
   // -------------------------------------------------------------------------
   // INJEKSI MUTLAK: MESIN KALKULASI TUNGGAKAN IURAN (SISI WARGA)

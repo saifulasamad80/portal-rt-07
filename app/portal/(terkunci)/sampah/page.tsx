@@ -1,43 +1,23 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import SampahClient from "./SampahClient"; // Kita pisah Client Component-nya
+import { otentikasiWargaAktif, wajibOtentikasiWarga, wargaUntukKlien } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
-
-async function pastikanOtentikasiWarga() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
-  if (!token) throw new Error("Akses Ditolak: Sesi tidak valid.");
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload; 
-  } catch (error) { throw new Error("Akses Ditolak: Token rusak."); }
-}
 
 export default async function PortalSampahPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  if (!token) redirect("/login");
-
-  let wargaAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    wargaAktif = payload;
-  } catch (error) { redirect("/login"); }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   // 1. Tarik Data Sampah Kiloan (Tabungan Tradisional)
   const { data: kiloanRes } = await supabaseAdmin
     .from("transaksi_sampah")
     .select("berat_kg, jenis_transaksi, nominal_warga, tanggal_transaksi, keterangan")
     .eq("warga_id", wargaAktif.id)
-    .order("tanggal_transaksi", { ascending: false });
+    .order("tanggal_transaksi", { ascending: false })
+    .limit(1000);
 
   const riwayatKiloan = kiloanRes || [];
   const totalSetorWarga = riwayatKiloan.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
@@ -49,35 +29,50 @@ export default async function PortalSampahPage() {
   // Perhatikan: Kita join ke tabel lapak_warga untuk narik nama Teknisi (Jika sudah di-assign RT)
   const { data: rakBinRes } = await supabaseAdmin
     .from("limbah_ekonomis")
-    .select("*, lapak_warga(nama_usaha, nomor_wa)")
+    .select("id, nama_barang, kategori, opsi_tujuan, status, lapak_warga(nama_usaha, nomor_wa)")
     .eq("warga_id", wargaAktif.id)
+    .eq("rt_id", wargaAktif.rtId)
     .order("created_at", { ascending: false });
 
   const riwayatRakBin = rakBinRes || [];
 
   // FAKTA: Server Action untuk melempar barang ke Rak Bin
-  async function laporLimbahEkonomis(payload: any) {
+  async function laporLimbahEkonomis(payload: unknown) {
     "use server";
-    const sesi = await pastikanOtentikasiWarga(); // BARRIER AKTIF
+    const sesi = await wajibOtentikasiWarga();
 
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Data barang tidak valid.");
+    }
+    const input = payload as Record<string, unknown>;
+    const namaBarang = String(input.nama_barang || "").trim().slice(0, 200);
+    const kategori = String(input.kategori || "").trim();
+    const opsiTujuan = String(input.opsi_tujuan || "").trim();
+    const deskripsi = String(input.deskripsi || "").trim().slice(0, 2000);
+    const kategoriDiizinkan = ["Elektronik", "Furnitur", "Otomotif/Sepeda", "Pakaian/Kain"];
+    const tujuanDiizinkan = ["Hibah ke RT", "Jual via RT (Konsinyasi)", "Reparasi (Via UMKM Warga)"];
+    if (!namaBarang || !deskripsi || !kategoriDiizinkan.includes(kategori) || !tujuanDiizinkan.includes(opsiTujuan)) {
+      throw new Error("Data barang tidak valid.");
+    }
+
+    const supabase = await buatKlienTerautentikasi(sesi);
     
     const { error } = await supabase.from("limbah_ekonomis").insert([{
       warga_id: sesi.id,
-      rt_id: sesi.rt_id,
-      nama_barang: payload.nama_barang,
-      kategori: payload.kategori,
-      opsi_tujuan: payload.opsi_tujuan,
-      deskripsi: payload.deskripsi,
+      rt_id: sesi.rtId,
+      nama_barang: namaBarang,
+      kategori,
+      opsi_tujuan: opsiTujuan,
+      deskripsi,
       status: "Menunggu Verifikasi"
     }]);
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error("Laporan barang gagal disimpan.");
   }
 
   return (
     <SampahClient 
-      wargaAktif={wargaAktif}
+      wargaAktif={wargaUntukKlien(wargaAktif)}
       saldo={saldoKiloan}
       totalKg={totalBeratKiloan}
       riwayatKiloan={riwayatKiloan}

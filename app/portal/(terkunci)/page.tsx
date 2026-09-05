@@ -1,14 +1,10 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import KartuLayanan from "@/components/portal/KartuLayanan";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+import { otentikasiWargaAktif } from "@/lib/session-security";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
 const FITUR_LAPOR_AKTIF = false;
 
@@ -22,20 +18,11 @@ function formatTanggalId(nilai: string) {
 }
 
 export default async function PortalWarga() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("warga_session")?.value;
+  const otentikasi = await otentikasiWargaAktif();
+  if (!otentikasi.ok) redirect("/login");
+  const wargaAktif = otentikasi.sesi;
 
-  if (!token) redirect("/login");
-
-  let wargaAktif: any;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    wargaAktif = payload;
-  } catch {
-    redirect("/login");
-  }
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseAdmin = await buatKlienTerautentikasi(wargaAktif);
 
   const currDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
   const currentMonth = currDate.getMonth() + 1;
@@ -48,18 +35,16 @@ export default async function PortalWarga() {
 
   const { data: profilWarga } = await supabaseAdmin
     .from("warga")
-    .select("*, anggota_keluarga(*)")
+    .select("id, nik, nama_lengkap, status_tinggal, tanggal_lahir, anggota_keluarga(id, nama_lengkap, tanggal_lahir)")
     .eq("id", wargaAktif.id)
+    .eq("nik", wargaAktif.nik)
+    .eq("rt_id", wargaAktif.rtId)
     .single();
-
-  if (profilWarga?.status_aktif === false) {
-    redirect("/api/warga/logout");
-  }
 
   const [{ data: statusCarik }, { data: jadwalRonda }, { data: pengumumanBaru }, { data: iuranTerakhir }] = await Promise.all([
     supabaseAdmin.from("sensus_kesejahteraan").select("id").eq("warga_id", wargaAktif.id).maybeSingle(),
-    supabaseAdmin.from("jadwal_ronda").select("*").eq("warga_id", wargaAktif.id).gte("tanggal_tugas", todayStr).order("tanggal_tugas", { ascending: true }).limit(1).maybeSingle(),
-    supabaseAdmin.from("pengumuman_rt").select("id, judul, tanggal_publikasi").gte("tanggal_publikasi", threeDaysAgoStr).order("tanggal_publikasi", { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from("jadwal_ronda").select("id, tanggal_tugas, status").eq("warga_id", wargaAktif.id).eq("rt_id", wargaAktif.rtId).gte("tanggal_tugas", todayStr).order("tanggal_tugas", { ascending: true }).limit(1).maybeSingle(),
+    supabaseAdmin.from("pengumuman_rt").select("id, judul, tanggal_publikasi").eq("rt_id", wargaAktif.rtId).gte("tanggal_publikasi", threeDaysAgoStr).order("tanggal_publikasi", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("kas_rt").select("created_at, nominal, tipe_transaksi").eq("warga_id", wargaAktif.id).eq("tipe_transaksi", "Pemasukan").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
@@ -73,11 +58,11 @@ export default async function PortalWarga() {
     }
   }
   if (profilWarga?.anggota_keluarga) {
-    profilWarga.anggota_keluarga.forEach((ak: any) => {
+    profilWarga.anggota_keluarga.forEach((ak: { nama_lengkap: string | null; tanggal_lahir: string | null }) => {
       if (ak.tanggal_lahir) {
         const bdate = new Date(ak.tanggal_lahir);
         if (bdate.getMonth() + 1 === currentMonth && bdate.getDate() === currentDay) {
-          birthdayNames.push(ak.nama_lengkap);
+          birthdayNames.push(ak.nama_lengkap || "Anggota keluarga");
         }
       }
     });

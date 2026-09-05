@@ -135,20 +135,22 @@ BEGIN
         'SYSTEM/DB_TRIGGER'
     );
 
+    -- Audit hanya menyimpan metadata operasi. row_to_json(OLD/NEW) dilarang
+    -- karena menyalin NIK, nomor kontak, alamat, hash PIN, dan path dokumen.
     IF (TG_OP = 'INSERT') THEN
         v_detail := 'Pencatatan data baru pada tabel ' || TG_TABLE_NAME || ' dengan ID: ' || NEW.id;
     ELSIF (TG_OP = 'UPDATE') THEN
-        v_detail := 'Perubahan data tabel ' || TG_TABLE_NAME || ' pada ID: ' || OLD.id || '. Data lama: ' || row_to_json(OLD)::text || ', Data Baru: ' || row_to_json(NEW)::text;
+        v_detail := 'Perubahan data tabel ' || TG_TABLE_NAME || ' pada ID: ' || OLD.id;
     ELSIF (TG_OP = 'DELETE') THEN
-        v_detail := 'Penghapusan data tabel ' || TG_TABLE_NAME || ' pada ID: ' || OLD.id || '. Data terhapus: ' || row_to_json(OLD)::text;
+        v_detail := 'Penghapusan data tabel ' || TG_TABLE_NAME || ' pada ID: ' || OLD.id;
     END IF;
 
-    INSERT INTO audit_log (aktor, aksi, tabel_target, detail)
+    INSERT INTO public.audit_log (aktor, aksi, tabel_target, detail)
     VALUES (v_aktor, TG_OP || ' ON ' || TG_TABLE_NAME, TG_TABLE_NAME, v_detail);
 
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public;
 
 DROP TRIGGER IF EXISTS tr_audit_warga ON warga;
 CREATE TRIGGER tr_audit_warga AFTER INSERT OR UPDATE OR DELETE ON warga FOR EACH ROW EXECUTE FUNCTION log_aktivitas_otomatis();

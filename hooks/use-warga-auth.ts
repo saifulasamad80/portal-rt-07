@@ -57,7 +57,7 @@ export function useWargaAuth() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ nik, password: password_plain }),
+        body: JSON.stringify({ nik, pin: password_plain }),
       });
 
       const result = await response.json();

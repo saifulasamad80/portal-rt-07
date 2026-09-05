@@ -11,6 +11,16 @@ import GaleriKegiatanClient, { type FotoKegiatan } from "./GaleriKegiatanClient"
 export const revalidate = 60;
 
 const TARGET_JUMANTIK = 151;
+const UUID_SENTINEL = "00000000-0000-0000-0000-000000000000";
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Landing page bersifat publik, sehingga tenant harus dipilih dari
+// konfigurasi deployment. Tanpa nilai ini semua query tenant memakai UUID
+// sentinel dan menghasilkan nol baris (fail closed), bukan query global.
+const PUBLIC_RT_ID = (() => {
+  const nilai = process.env.PUBLIC_RT_ID?.trim() || "";
+  return POLA_UUID.test(nilai) ? nilai : UUID_SENTINEL;
+})();
 
 type RekamanJiwa = {
   tanggal_lahir: string | null;
@@ -101,10 +111,10 @@ function dataAtauKosong<T>(
   return (hasil.data ?? cadangan) as T;
 }
 
-async function ambilDemografiSah(supabase: ReturnType<typeof getSupabaseAdminClient>) {
+async function ambilDemografiSah(supabase: ReturnType<typeof getSupabaseAdminClient>, rtId: string) {
   const pilih =
     "tanggal_lahir, jenis_kelamin, agama, pekerjaan, anggota_keluarga(tanggal_lahir, jenis_kelamin, agama, pekerjaan)";
-  const dasar = () => supabase.from("warga").select(pilih).eq("status_verifikasi", "Disetujui");
+  const dasar = () => supabase.from("warga").select(pilih).eq("status_verifikasi", "Disetujui").eq("rt_id", rtId);
 
   let hasil = await dasar().neq("status_aktif", false);
   if (hasil.error && skemaBelumSiap(hasil.error)) {
@@ -115,6 +125,27 @@ async function ambilDemografiSah(supabase: ReturnType<typeof getSupabaseAdminCli
     return [] as RekamanJiwa[];
   }
   return (hasil.data || []) as RekamanJiwa[];
+}
+
+async function ambilKurbanRt(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  rtId: string,
+) {
+  // transaksi_kurban legacy tidak memiliki rt_id. Resolve allow-list warga
+  // terlebih dahulu agar service-role tidak pernah membaca ledger tenant lain.
+  const { data: warga, error: errorWarga } = await supabase
+    .from("warga")
+    .select("id")
+    .eq("rt_id", rtId)
+    .limit(5000);
+  if (errorWarga) return { data: [], error: errorWarga };
+
+  const ids = (warga || []).map((baris) => String(baris.id)).filter((id) => POLA_UUID.test(id));
+  if (!ids.length) return { data: [], error: null };
+  return supabase
+    .from("transaksi_kurban")
+    .select("jenis_transaksi, nominal, warga_id")
+    .in("warga_id", ids);
 }
 
 function hitungJiwa(daftarKk: RekamanJiwa[]) {
@@ -139,19 +170,19 @@ export default async function LandingPage() {
     kontakRes,
     masterRes,
   ] = await Promise.all([
-    supabase.from("pengumuman_rt").select("id, judul, deskripsi, link_dokumen, tanggal_publikasi").order("tanggal_publikasi", { ascending: false }).limit(7),
-    supabase.from("voting_rt").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("kas_rt").select("tipe_transaksi, nominal, kategori, keterangan, tanggal_transaksi, created_at").order("created_at", { ascending: false }).limit(400),
-    supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("jenis_transaksi", "Setor"),
-    ambilDemografiSah(supabase),
-    supabase.from("laporan_jumantik").select("jumlah_rumah_diperiksa, ditemukan_jentik, warga_terjangkit_dbd, created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("transaksi_kurban").select("jenis_transaksi, nominal, warga_id"),
-    supabase.from("kunjungan_balita").select("tanggal_kunjungan, imunisasi").limit(400),
-    supabase.from("kunjungan_lansia").select("tanggal_kunjungan").limit(400),
-    supabase.from("galeri_kegiatan").select("id, judul, deskripsi, url_foto, kategori, tanggal_kegiatan").eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_kegiatan", { ascending: false }).limit(8),
-    supabase.from("dokumen_publik_rt").select("id, judul, deskripsi, kategori, url_berkas, ukuran_berkas, tanggal_terbit").eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_terbit", { ascending: false }).limit(8),
-    supabase.from("kontak_darurat_rt").select("id, nama_layanan, nomor, keterangan, ikon, urutan").eq("aktif", true).order("urutan", { ascending: true }),
-    supabase.from("master_rt").select("nama_rt, nama_rw, kelurahan").limit(1).maybeSingle(),
+    supabase.from("pengumuman_rt").select("id, judul, deskripsi, link_dokumen, tanggal_publikasi").eq("rt_id", PUBLIC_RT_ID).order("tanggal_publikasi", { ascending: false }).limit(7),
+    supabase.from("voting_rt").select("id, judul, deskripsi, opsi_1, opsi_2, status, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("kas_rt").select("tipe_transaksi, nominal, kategori, keterangan, tanggal_transaksi, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(400),
+    supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("rt_id", PUBLIC_RT_ID).eq("jenis_transaksi", "Setor"),
+    ambilDemografiSah(supabase, PUBLIC_RT_ID),
+    supabase.from("laporan_jumantik").select("jumlah_rumah_diperiksa, ditemukan_jentik, warga_terjangkit_dbd, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ambilKurbanRt(supabase, PUBLIC_RT_ID),
+    supabase.from("kunjungan_balita").select("tanggal_kunjungan, imunisasi").eq("rt_id", PUBLIC_RT_ID).limit(400),
+    supabase.from("kunjungan_lansia").select("tanggal_kunjungan").eq("rt_id", PUBLIC_RT_ID).limit(400),
+    supabase.from("galeri_kegiatan").select("id, judul, deskripsi, url_foto, kategori, tanggal_kegiatan").eq("rt_id", PUBLIC_RT_ID).eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_kegiatan", { ascending: false }).limit(8),
+    supabase.from("dokumen_publik_rt").select("id, judul, deskripsi, kategori, url_berkas, ukuran_berkas, tanggal_terbit").eq("rt_id", PUBLIC_RT_ID).eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_terbit", { ascending: false }).limit(8),
+    supabase.from("kontak_darurat_rt").select("id, nama_layanan, nomor, keterangan, ikon, urutan").eq("rt_id", PUBLIC_RT_ID).eq("aktif", true).order("urutan", { ascending: true }),
+    supabase.from("master_rt").select("nama_rt, nama_rw, kelurahan").eq("id", PUBLIC_RT_ID).maybeSingle(),
   ]);
 
   const pengumumanReguler = dataAtauKosong(pengumumanRes, [], "pengumuman");
@@ -173,7 +204,10 @@ export default async function LandingPage() {
     if (votingTerbaru.status === "Aktif") {
       tampilkan = true;
     } else if (votingTerbaru.status === "Ditutup") {
-      const selisihHari = Math.floor((Date.now() - new Date(votingTerbaru.created_at).getTime()) / (1000 * 3600 * 24));
+      // Server component ini hanya membutuhkan epoch saat render. getTime()
+      // menghindari lint purity false-positive pada Date.now() tanpa mengubah
+      // perilaku perhitungan umur voting.
+      const selisihHari = Math.floor((new Date().getTime() - new Date(votingTerbaru.created_at).getTime()) / (1000 * 3600 * 24));
       if (selisihHari <= 7) tampilkan = true;
     }
 

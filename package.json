@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck:security:sensus": "tsc -p tsconfig.security-sensus.json",
+    "test:security:sensus": "node --no-warnings tests/sensus-security.test.mjs",
+    "test:security:sesi": "node --no-warnings tests/session-version.test.mjs",
+    "test:security:data-layer": "node --no-warnings tests/data-layer-authenticated.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

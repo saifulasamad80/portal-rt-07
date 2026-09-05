@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 
 const TARGET_MUTLAK = 151;
 
-type BarisJumantik = {
+export type BarisJumantik = {
   jumlah_rumah_diperiksa: number | null;
   warga_terjangkit_dbd: boolean | null;
   ditemukan_jentik: boolean | null;
@@ -17,7 +16,17 @@ function angkaRumah(nilai: unknown) {
   return Math.max(0, Math.floor(Number(nilai) || 0));
 }
 
-export default function ModulJumantik() {
+export default function ModulJumantik({
+  laporanTerbaru,
+  aksiCatat,
+}: {
+  laporanTerbaru: BarisJumantik | null;
+  aksiCatat: (payload: {
+    jumlah_rumah_diperiksa: number;
+    warga_terjangkit_dbd: boolean;
+    ditemukan_jentik: boolean;
+  }) => Promise<{ success: boolean; message?: string }>;
+}) {
   const [rumahDiperiksa, setRumahDiperiksa] = useState(0);
   const [isian, setIsian] = useState("");
   const [wargaTerjangkitDbd, setWargaTerjangkitDbd] = useState(false);
@@ -29,46 +38,16 @@ export default function ModulJumantik() {
   const ancamanAktif = wargaTerjangkitDbd || ditemukanJentik;
 
   useEffect(() => {
-    let hidup = true;
-
-    const muatLaporanTerbaru = async () => {
-      const pilih = "jumlah_rumah_diperiksa, warga_terjangkit_dbd, ditemukan_jentik";
-      let { data, error } = await supabase
-        .from("laporan_jumantik")
-        .select(pilih)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Kolom created_at tidak wajib: tabel yang dibuat manual mungkin hanya punya id.
-      if (error && (error.code === "42703" || error.code === "PGRST204")) {
-        ({ data, error } = await supabase.from("laporan_jumantik").select(pilih).order("id", { ascending: false }).limit(1).maybeSingle());
-      }
-
-      if (!hidup) return;
-      if (error) {
-        console.warn("Gagal memuat laporan Jumantik:", error.message);
-        return;
-      }
-
-      const baris = data as BarisJumantik | null;
-      if (!baris) return;
-
-      const angka = angkaRumah(baris.jumlah_rumah_diperiksa);
-      const dbd = Boolean(baris.warga_terjangkit_dbd);
-      const jentik = Boolean(baris.ditemukan_jentik);
-      setRumahDiperiksa(angka);
-      setIsian(angka > 0 ? String(angka) : "");
-      setWargaTerjangkitDbd(dbd);
-      setDitemukanJentik(jentik);
-      setModalDarurat(dbd || jentik);
-    };
-
-    void muatLaporanTerbaru();
-    return () => {
-      hidup = false;
-    };
-  }, []);
+    if (!laporanTerbaru) return;
+    const angka = angkaRumah(laporanTerbaru.jumlah_rumah_diperiksa);
+    const dbd = Boolean(laporanTerbaru.warga_terjangkit_dbd);
+    const jentik = Boolean(laporanTerbaru.ditemukan_jentik);
+    setRumahDiperiksa(angka);
+    setIsian(angka > 0 ? String(angka) : "");
+    setWargaTerjangkitDbd(dbd);
+    setDitemukanJentik(jentik);
+    setModalDarurat(dbd || jentik);
+  }, [laporanTerbaru]);
 
   const persentase = useMemo(() => {
     if (rumahDiperiksa <= 0) return 0;
@@ -93,22 +72,20 @@ export default function ModulJumantik() {
     setSedangMenyimpan(true);
     setPesan(null);
 
-    const { error } = await supabase.from("laporan_jumantik").insert([
-      {
-        jumlah_rumah_diperiksa: angka,
-        warga_terjangkit_dbd: wargaTerjangkitDbd,
-        ditemukan_jentik: ditemukanJentik,
-      },
-    ]);
+    const hasil = await aksiCatat({
+      jumlah_rumah_diperiksa: angka,
+      warga_terjangkit_dbd: wargaTerjangkitDbd,
+      ditemukan_jentik: ditemukanJentik,
+    });
 
     setSedangMenyimpan(false);
 
-    if (error) {
+    if (!hasil.success) {
       setRumahDiperiksa(sebelumnya);
       setIsian(sebelumnya > 0 ? String(sebelumnya) : "");
       setPesan({
         tipe: "gagal",
-        teks: "Laporan gagal disimpan ke server. Periksa koneksi, lalu tekan Catat Laporan lagi.",
+        teks: hasil.message || "Laporan gagal disimpan ke server. Periksa koneksi, lalu tekan Catat Laporan lagi.",
       });
       return;
     }

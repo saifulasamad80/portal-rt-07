@@ -1,42 +1,27 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
-import { createClient } from "@supabase/supabase-js";
 import { arsipkanWargaKarenaPemilu, prosesHapusAtauArsipWarga, terkaitConstraintPemilu } from "@/lib/arsip-warga";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "super-secret-rt07-key-change-this-in-production");
-
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
-
-async function otentikasiAdmin() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    if (!payload) return null;
-    return payload as { nama?: string; role?: string };
-  } catch {
-    return null;
-  }
-}
+import {
+  otentikasiAdminAktif,
+  otorisasiWargaUntukAdmin,
+} from "@/lib/session-security";
+import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
 
 export async function GET() {
   try {
-    const sesi = await otentikasiAdmin();
-    if (!sesi) {
+    const otentikasi = await otentikasiAdminAktif();
+    if (!otentikasi.ok) {
       return NextResponse.json({ error: "Akses Ditolak: Sesi tidak valid atau kedaluwarsa" }, { status: 401 });
     }
 
-    const { data, error } = await supabaseAdmin
+    const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
+    let query = supabase
       .from("warga")
       .select("id, nik, nama_lengkap, no_whatsapp, status_tinggal, created_at")
-      .eq("status_verifikasi", "Menunggu")
-      .order("created_at", { ascending: false });
+      .eq("status_verifikasi", "Menunggu");
+    if (otentikasi.sesi.role !== "webmaster") {
+      query = query.eq("rt_id", otentikasi.sesi.rtId);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error) throw error;
     return NextResponse.json({ success: true, data });
@@ -48,8 +33,8 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
-    const sesi = await otentikasiAdmin();
-    if (!sesi) {
+    const otentikasi = await otentikasiAdminAktif();
+    if (!otentikasi.ok) {
       return NextResponse.json({ success: false, message: "Akses ditolak: sesi pengurus tidak valid." }, { status: 401 });
     }
 
@@ -63,21 +48,26 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, message: "ID warga wajib diisi." }, { status: 400 });
     }
 
-    // Alur utama: coba hapus permanen, dan jika data warga terikat constraint
-    // IMMUTABLE tabel partisipasi_pemilihan, fungsi ini otomatis melakukan
-    // fallback soft-delete (nonaktifkan akun + lepas data personal, tanpa
-    // menyentuh baris indeks pemilih demi integritas surat suara).
+    const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
+    const target = await otorisasiWargaUntukAdmin(supabase, otentikasi.sesi, wargaId);
+    if (!target.ok) {
+      return NextResponse.json({ success: false, message: target.message }, { status: 403 });
+    }
+
+    const privileged = getSupabaseAdminClientDariSesi(otentikasi.sesi);
+
     try {
-      const hasil = await prosesHapusAtauArsipWarga(supabaseAdmin, wargaId, sesi.nama);
+      const hasil = await prosesHapusAtauArsipWarga(privileged, target.sesi.id, otentikasi.sesi.nama);
       const status = hasil.success ? 200 : 400;
       return NextResponse.json(hasil, { status });
     } catch (err: unknown) {
-      // Jaring pengaman terakhir: hanya tersentuh bila constraint pemilu
-      // gagal ditangani secara internal (mis. error tak terduga saat proses
-      // pembersihan relasi). Langsung arsipkan tanpa mengulang seluruh alur.
       if (terkaitConstraintPemilu(err as { message?: string; code?: string })) {
         try {
-          const cadangan = await arsipkanWargaKarenaPemilu(supabaseAdmin, wargaId, undefined);
+          const cadangan = await arsipkanWargaKarenaPemilu(
+            privileged,
+            target.sesi.id,
+            target.sesi.nama
+          );
           return NextResponse.json(cadangan);
         } catch (fallbackErr: unknown) {
           const fallbackPesan = fallbackErr instanceof Error ? fallbackErr.message : "Gagal mengarsipkan warga setelah constraint pemilu.";
