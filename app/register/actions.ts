@@ -11,7 +11,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase-server";
  * browser.  Every value below is treated as hostile input nevertheless.
  */
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_NOL = "00000000-0000-0000-0000-000000000000";
 const BUCKET_DOKUMEN = "dokumen_warga";
 const MAKS_ANGGOTA = 30;
@@ -312,11 +312,18 @@ async function unggahDokumen(
   return data.path;
 }
 
+export type HasilRegister = {
+  success: boolean;
+  message: string;
+};
+
 /**
  * Server Action for public self-registration.  It deliberately accepts
  * `unknown` instead of trusting a client-side TypeScript shape.
+ * Failures are returned as a plain result object: throwing a custom Error
+ * subclass across the RSC boundary becomes React #441 in production.
  */
-export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unknown): Promise<"SUKSES"> {
+export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unknown): Promise<HasilRegister> {
   let supabase: ReturnType<typeof getSupabaseAdminClient> | null = null;
   let wargaId: string | null = null;
   const uploadedPaths: string[] = [];
@@ -430,7 +437,7 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       }
     }
 
-    return "SUKSES";
+    return { success: true, message: "SUKSES" };
   } catch (error: unknown) {
     // Compensating cleanup is deliberately scoped to the UUID generated in
     // this invocation.  It cannot delete another registrant's row or file.
@@ -442,8 +449,12 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
     }
     if (supabase) await hapusBerkas(uploadedPaths, supabase);
 
-    if (error instanceof RegistrasiAmanError) throw error;
-    console.error("Registrasi warga gagal:", error instanceof Error ? error.message : error);
-    throw new Error(PESAN_INTERNAL);
+    if (!(error instanceof RegistrasiAmanError)) {
+      console.error("Registrasi warga gagal:", error instanceof Error ? error.message : error);
+    }
+    return {
+      success: false,
+      message: error instanceof RegistrasiAmanError ? error.message : PESAN_INTERNAL,
+    };
   }
 }

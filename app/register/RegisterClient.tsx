@@ -19,7 +19,8 @@ type AnggotaKeluarga = {
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
-type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown) => Promise<"SUKSES">;
+type HasilRegister = { success: boolean; message: string };
+type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown) => Promise<HasilRegister>;
 
 export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister: AksiRegister; alasan?: string }) {
   const router = useRouter();
@@ -163,13 +164,21 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
       };
 
       setProgressTeks("Mendaftarkan & Mengunggah via Server (Jalur Aman)...");
-      await aksiRegister(payloadKepala, anggotaPayload);
+      const hasil = await aksiRegister(payloadKepala, anggotaPayload);
+      if (!hasil?.success) {
+        alert(hasil?.message || "Pendaftaran belum dapat diproses saat ini.");
+        setLoading(false); setProgressTeks("");
+        return;
+      }
 
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
       router.replace("/login");
       
     } catch (err: unknown) {
-      const pesan = err instanceof Error && err.message ? err.message : "Pendaftaran belum dapat diproses saat ini.";
+      const pesanMentah = err instanceof Error && err.message ? err.message : "";
+      const pesan = !pesanMentah || /minified react error/i.test(pesanMentah)
+        ? "Pendaftaran belum dapat diproses saat ini."
+        : pesanMentah;
       alert(pesan);
       setLoading(false); setProgressTeks("");
     } 
