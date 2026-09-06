@@ -43,7 +43,7 @@ const PESAN_VALIDASI = "Data pendaftaran tidak valid. Periksa kembali isian form
 // Keep duplicate handling deliberately generic.  A public registration action
 // must not become a NIK-existence oracle (the caller can submit arbitrary NIKs
 // without an authenticated session).
-const PESAN_DUPLIKAT = "Pendaftaran tidak dapat diproses saat ini. Hubungi pengurus RT bila Anda sudah pernah terdaftar.";
+const PESAN_DUPLIKAT = "PENDAFTARAN DITOLAK: Salah satu NIK yang Anda masukkan (Kepala Keluarga atau Anggota) sudah terdaftar di sistem. Jika Suami/Istri Anda sudah terdaftar sebagai Kepala Keluarga, dilarang mendaftar ulang. Silakan LOGIN menggunakan NIK yang sudah terdaftar tersebut untuk merevisi data keluarga.";
 const PESAN_INTERNAL = "Pendaftaran belum dapat diproses saat ini. Silakan coba lagi nanti atau hubungi pengurus RT.";
 
 function pesanSupabase(error: unknown, cadangan: string): string {
