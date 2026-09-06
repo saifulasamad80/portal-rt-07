@@ -1,0 +1,23 @@
+# CORE ARCHITECTURE
+- Framework: Next.js App Router (React Server/Client Components).
+- Styling: Tailwind CSS.
+- Database & Auth: Supabase (PostgreSQL) with strict Row Level Security (RLS).
+- Paradigm: Multi-tenant architecture isolated by `rt_id`.
+
+# 1. ANTI-HALLUCINATION & FILE AWARENESS
+- NEVER guess database schemas or existing logic. Scan/read referenced files before writing code.
+- Check `package.json` before suggesting any `npm install`. Do not add redundant libraries.
+
+# 2. SECURITY & RLS (CRITICAL)
+- NEVER expose `service_role` key in client components or untrusted server routes.
+- ALL database queries MUST explicitly include `.eq('rt_id', current_rt_id)`.
+- Server Actions MUST independently verify the user's session and `rt_id` before executing mutations. No trust from client payloads.
+
+# 3. DOMINO EFFECT PREVENTION
+- Before modifying state or routing, analyze dependencies. 
+- Ensure changes in one module (e.g., 'Sensus') do not bypass lockouts or break admin modules (e.g., 'Lapor Warga').
+- Maintain atomic transactions for multi-table updates to prevent orphan data.
+
+# 4. ABSOLUTE EXECUTION
+- Output FULL, copy-pasteable code blocks for modified files.
+- DO NOT use vague placeholders like "// add logic here" or "insert below line 50". Provide the exact implementation.

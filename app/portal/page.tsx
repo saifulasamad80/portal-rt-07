@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import KartuLayanan from "@/components/portal/KartuLayanan";
+import { adalahCapCarikDisetujui, adalahCapCarikMenunggu } from "@/lib/kebijakan-sensus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
@@ -42,13 +43,15 @@ export default async function PortalWarga() {
     .single();
 
   const [{ data: statusCarik }, { data: jadwalRonda }, { data: pengumumanBaru }, { data: iuranTerakhir }] = await Promise.all([
-    supabaseAdmin.from("sensus_kesejahteraan").select("id").eq("warga_id", wargaAktif.id).maybeSingle(),
+    supabaseAdmin.from("sensus_kesejahteraan").select("id, status_validasi").eq("warga_id", wargaAktif.id).maybeSingle(),
     supabaseAdmin.from("jadwal_ronda").select("id, tanggal_tugas, status").eq("warga_id", wargaAktif.id).eq("rt_id", wargaAktif.rtId).gte("tanggal_tugas", todayStr).order("tanggal_tugas", { ascending: true }).limit(1).maybeSingle(),
     supabaseAdmin.from("pengumuman_rt").select("id, judul, tanggal_publikasi").eq("rt_id", wargaAktif.rtId).gte("tanggal_publikasi", threeDaysAgoStr).order("tanggal_publikasi", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("kas_rt").select("created_at, nominal, tipe_transaksi").eq("warga_id", wargaAktif.id).eq("tipe_transaksi", "Pemasukan").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  const isDataTervalidasiWarga = !!statusCarik;
+  const capDisetujui = adalahCapCarikDisetujui(statusCarik?.status_validasi);
+  const capMenunggu = adalahCapCarikMenunggu(statusCarik?.status_validasi);
+  const layananTerkunci = !capDisetujui;
 
   const birthdayNames: string[] = [];
   if (profilWarga?.tanggal_lahir) {
@@ -150,9 +153,13 @@ export default async function PortalWarga() {
               <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">💰</span>
             </div>
             <p className={`text-sm font-semibold leading-snug ${aksenIuran}`}>{statusIuran}</p>
-            <Link href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
-              Lihat transparansi kas →
-            </Link>
+            {layananTerkunci ? (
+              <p className="text-[11px] text-slate-400 font-semibold mt-1.5">Transparansi kas terkunci</p>
+            ) : (
+              <Link href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
+                Lihat transparansi kas →
+              </Link>
+            )}
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
             <div className="flex items-center justify-between mb-2">
@@ -196,9 +203,15 @@ export default async function PortalWarga() {
                   </p>
                 </div>
               </div>
-              <Link href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
-                Konfirmasi
-              </Link>
+              {layananTerkunci ? (
+                <span className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-200 text-slate-500">
+                  Terkunci
+                </span>
+              ) : (
+                <Link href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
+                  Konfirmasi
+                </Link>
+              )}
             </div>
           )}
 
@@ -217,7 +230,33 @@ export default async function PortalWarga() {
             </div>
           )}
 
-          {!isDataTervalidasiWarga && (
+          {capDisetujui ? (
+            <div className="bg-white border border-emerald-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+              <div className="flex gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xl shrink-0">📋</div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[13px] text-emerald-900 mb-0.5">Data carik keluarga sudah diverifikasi</h3>
+                  <p className="text-[13px] text-slate-600 leading-relaxed">NIK terkunci. Anda dapat melihat KK tercatat; perubahan diajukan ke pengurus RT.</p>
+                </div>
+              </div>
+              <Link href="/portal/keluarga" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-colors">
+                Lihat data
+              </Link>
+            </div>
+          ) : capMenunggu ? (
+            <div className="bg-white border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+              <div className="flex gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-xl shrink-0">📋</div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[13px] text-amber-900 mb-0.5">Revisi data keluarga belum lengkap</h3>
+                  <p className="text-[13px] text-slate-600">Pengurus mengizinkan koreksi. Layanan portal terbuka kembali setelah form Carik disimpan. NIK tetap terkunci.</p>
+                </div>
+              </div>
+              <Link href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+                Lanjutkan revisi
+              </Link>
+            </div>
+          ) : (
             <div className="bg-white border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
               <div className="flex gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-xl shrink-0">📋</div>
@@ -231,15 +270,6 @@ export default async function PortalWarga() {
               </Link>
             </div>
           )}
-          {isDataTervalidasiWarga && (
-            <div className="bg-white border border-emerald-100 rounded-2xl p-4 flex gap-3.5 shadow-sm">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xl shrink-0">📋</div>
-              <div>
-                <h3 className="font-bold text-[13px] text-emerald-900 mb-0.5">Data carik keluarga sudah diverifikasi</h3>
-                <p className="text-[13px] text-slate-600 leading-relaxed">NIK terkunci. Perubahan data lain dapat diajukan ke pengurus RT.</p>
-              </div>
-            </div>
-          )}
         </section>
 
         <section>
@@ -249,11 +279,12 @@ export default async function PortalWarga() {
             </h2>
             <p className="text-[11px] text-slate-400 hidden md:block">Urusan surat, kas, suara, dan aset RT</p>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" />
-            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" />
-            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" />
-            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <KartuLayanan href="/portal/keluarga" ikon="👪" judul="Data keluarga" deskripsi="KK yang tercatat" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" terkunci={layananTerkunci} />
           </div>
         </section>
 
@@ -265,11 +296,10 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Sirkular ekonomi &amp; kegiatan keluarga</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="UMKM & jasa tetangga" />
-            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" />
-            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" />
-            {/* Atribut warna pink dicabut */}
-            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" />
+            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="UMKM & jasa tetangga" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" terkunci={layananTerkunci} />
           </div>
         </section>
 
@@ -281,10 +311,9 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Ronda dan pelaporan fasilitas</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Atribut warna gelap dicabut */}
-            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" />
+            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" terkunci={layananTerkunci} />
             {FITUR_LAPOR_AKTIF && (
-              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" />
+              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" terkunci={layananTerkunci} />
             )}
           </div>
         </section>

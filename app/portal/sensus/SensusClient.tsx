@@ -108,10 +108,12 @@ export default function SensusClient({
   warga,
   aksiSimpan,
   aksiNikTidakSesuai,
+  modeRevisi = false,
 }: {
   warga: ProfilSensus;
   aksiSimpan: (biodata: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
   aksiNikTidakSesuai: () => Promise<HasilCarik>;
+  modeRevisi?: boolean;
 }) {
   const router = useRouter();
   const [langkah, setLangkah] = useState(0);
@@ -246,11 +248,16 @@ export default function SensusClient({
     <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-800">
       <header className="bg-slate-900 text-white">
         <div className="max-w-3xl mx-auto px-4 md:px-6 pt-8 pb-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-300 mb-2">Wajib · Verifikasi Data Carik</p>
-          <h1 className="text-2xl md:text-3xl font-bold leading-tight">Perbarui data keluarga Anda</h1>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-300 mb-2">
+            {modeRevisi ? "Revisi · Izin pengurus" : "Wajib · Verifikasi Data Carik"}
+          </p>
+          <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+            {modeRevisi ? "Koreksi data keluarga Anda" : "Perbarui data keluarga Anda"}
+          </h1>
           <p className="text-sm text-slate-300 mt-3 leading-relaxed max-w-2xl">
-            Catatan ini diambil dari pendataan tahun-tahun sebelumnya. Pengurus RT tidak boleh mengubah NIK.
-            Bandingkan dengan KTP. Jika NIK salah, kirim laporan agar pengurus dapat memeriksanya tanpa menghapus data.
+            {modeRevisi
+              ? "Pengurus RT mengizinkan perubahan. NIK tetap terkunci. Layanan portal lain terbuka kembali setelah data ini disimpan."
+              : "Catatan ini diambil dari pendataan tahun-tahun sebelumnya. Pengurus RT tidak boleh mengubah NIK. Bandingkan dengan KTP. Jika NIK salah, kirim laporan agar pengurus dapat memeriksanya tanpa menghapus data."}
           </p>
         </div>
       </header>

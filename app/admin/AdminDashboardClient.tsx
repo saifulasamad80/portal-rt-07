@@ -263,12 +263,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Manajemen Voting</h2>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Buat topik pemilihan</p>
             </Link>
-            <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
-              <span className="absolute top-3 right-3 bg-slate-200 text-slate-600 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Digembok</span>
-              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 grayscale opacity-70">🚨</div>
-              <h2 className="font-semibold text-slate-500 text-[13px] leading-snug tracking-tight">Laporan Warga</h2>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Ditunda instruksi RT</p>
-            </div>
+            <Link href="/admin/lapor" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🚨</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Laporan Warga</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Tiket perubahan data keluarga</p>
+            </Link>
             {adminAktif?.role === 'webmaster' ? (
               <Link href="/admin/audit" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
                 <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🔍</div>

@@ -19,7 +19,7 @@ export default async function SensusPage() {
   const statusCarik = await ambilStatusCarik(supabase, otentikasi.sesi.id);
   if (!statusCarik.ok) redirect("/login");
   if (statusCarik.data?.status_validasi === "Disetujui") {
-    redirect("/portal");
+    redirect("/portal/keluarga");
   }
 
   const { data: profilWarga, error: errProfil } = await supabase
@@ -148,6 +148,7 @@ export default async function SensusPage() {
       warga={profilAman}
       aksiSimpan={aksiSimpanCarik}
       aksiNikTidakSesuai={aksiNikTidakSesuai}
+      modeRevisi={statusCarik.data?.status_validasi === "Menunggu"}
     />
   );
 }

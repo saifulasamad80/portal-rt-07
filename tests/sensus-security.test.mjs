@@ -5,7 +5,11 @@ import test from "node:test";
 import { SignJWT, jwtVerify } from "jose";
 import {
   PESAN_TINJAUAN_PENGURUS,
+  adalahCapCarikDisetujui,
+  adalahCapCarikMenunggu,
+  adalahTiketPerubahanKeluarga,
   periksaKepemilikanAnggota,
+  samarkanNik,
 } from "../lib/kebijakan-sensus.ts";
 
 const ID_PEMILIK = "11111111-1111-4111-8111-111111111111";
@@ -59,6 +63,87 @@ test("pesan konflik tidak menjadi oracle identitas korban", () => {
   assert.equal(PESAN_TINJAUAN_PENGURUS.includes(NIK_KORBAN), false);
   assert.equal(PESAN_TINJAUAN_PENGURUS.includes(ID_ASING), false);
   assert.match(PESAN_TINJAUAN_PENGURUS, /diperiksa pengurus RT/);
+});
+
+test("NIK anggota disamarkan tanpa mengembalikan 16 digit utuh", () => {
+  assert.equal(samarkanNik("3175040305800012"), "317504******0012");
+  assert.equal(samarkanNik(NIK_KORBAN), "327501******0002");
+  assert.equal(samarkanNik("123"), "Tidak tercatat");
+  assert.equal(samarkanNik(null), "Tidak tercatat");
+  assert.equal(samarkanNik("3175040305800012").includes("3175040305800012"), false);
+});
+
+test("cap Carik Disetujui dan Menunggu tidak tertukar dengan keberadaan baris", () => {
+  assert.equal(adalahCapCarikDisetujui("Disetujui"), true);
+  assert.equal(adalahCapCarikDisetujui("Menunggu"), false);
+  assert.equal(adalahCapCarikDisetujui(null), false);
+  assert.equal(adalahCapCarikMenunggu("Menunggu"), true);
+  assert.equal(adalahCapCarikMenunggu("Disetujui"), false);
+});
+
+test("halaman keluarga terverifikasi hanya baca dan tidak membuka form carik", async () => {
+  const halaman = await readFile(
+    new URL("../app/portal/(terkunci)/keluarga/page.tsx", import.meta.url),
+    "utf8"
+  );
+  const permohonan = await readFile(
+    new URL("../app/portal/(terkunci)/keluarga/PermohonanKeluargaClient.tsx", import.meta.url),
+    "utf8"
+  );
+  const sensus = await readFile(new URL("../app/portal/sensus/page.tsx", import.meta.url), "utf8");
+
+  assert.match(halaman, /samarkanNik/);
+  assert.match(halaman, /JUDUL_PERMOHONAN_PERUBAHAN_KELUARGA/);
+  assert.match(halaman, /adalahCapCarikDisetujui/);
+  assert.match(halaman, /redirect\("\/portal\/sensus"\)/);
+  assert.doesNotMatch(halaman, /simpanVerifikasiCarikMandiri|sanitasiBiodata|\.update\(/);
+  assert.doesNotMatch(permohonan, /simpanVerifikasiCarikMandiri|type="text"|input /);
+  assert.match(sensus, /redirect\("\/portal\/keluarga"\)/);
+});
+
+test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () => {
+  const adminLapor = await readFile(new URL("../app/admin/lapor/page.tsx", import.meta.url), "utf8");
+  const adminUi = await readFile(new URL("../app/admin/lapor/LaporAdminClient.tsx", import.meta.url), "utf8");
+  const dasbor = await readFile(new URL("../app/admin/AdminDashboardClient.tsx", import.meta.url), "utf8");
+  const portalLapor = await readFile(new URL("../app/portal/(terkunci)/lapor/page.tsx", import.meta.url), "utf8");
+  const portalDasbor = await readFile(new URL("../app/portal/page.tsx", import.meta.url), "utf8");
+  const sensusClient = await readFile(new URL("../app/portal/sensus/SensusClient.tsx", import.meta.url), "utf8");
+  const sensusPage = await readFile(new URL("../app/portal/sensus/page.tsx", import.meta.url), "utf8");
+  const rpc = await readFile(new URL("../sensus-mandiri-atomic-migration.sql", import.meta.url), "utf8");
+
+  assert.equal(adalahTiketPerubahanKeluarga("Permohonan perubahan data keluarga"), true);
+  assert.equal(adalahTiketPerubahanKeluarga("Lampu mati"), false);
+
+  assert.match(adminLapor, /aksiIzinkanRevisi/);
+  assert.match(adminLapor, /status_validasi: "Menunggu"/);
+  assert.match(adminLapor, /\.eq\("status_validasi", "Disetujui"\)/);
+  assert.match(adminLapor, /Izinkan Revisi Data Keluarga/);
+  assert.match(adminLapor, /hanya ditutup lewat Izinkan Revisi/);
+  assert.doesNotMatch(adminLapor, /status_verifikasi/);
+  assert.match(adminUi, /Izinkan Revisi/);
+  assert.match(dasbor, /href="\/admin\/lapor"/);
+  assert.doesNotMatch(dasbor, /Digembok/);
+  assert.match(portalLapor, /redirect\("\/portal"\)/);
+  assert.doesNotMatch(portalLapor, /kirimLaporan/);
+  assert.match(portalDasbor, /FITUR_LAPOR_AKTIF = false/);
+  assert.match(portalDasbor, /adalahCapCarikDisetujui/);
+  assert.match(portalDasbor, /adalahCapCarikMenunggu/);
+  assert.match(portalDasbor, /Lanjutkan revisi/);
+  assert.match(portalDasbor, /href="\/portal\/sensus"/);
+  assert.doesNotMatch(portalDasbor, /isDataTervalidasiWarga = !!statusCarik/);
+  assert.match(sensusClient, /modeRevisi/);
+  assert.match(sensusPage, /modeRevisi=\{statusCarik\.data\?\.status_validasi === "Menunggu"\}/);
+  assert.match(rpc, /status_validasi = 'Disetujui'/);
+  assert.match(rpc, /Verifikasi sensus sudah diselesaikan/);
+});
+
+test("kartu layanan portal tergembok tanpa tautan saat cap belum Disetujui", async () => {
+  const kartu = await readFile(new URL("../components/portal/KartuLayanan.tsx", import.meta.url), "utf8");
+  const dasbor = await readFile(new URL("../app/portal/page.tsx", import.meta.url), "utf8");
+  assert.match(kartu, /terkunci \?/);
+  assert.match(kartu, /cursor-not-allowed/);
+  assert.match(kartu, /aria-disabled/);
+  assert.match(dasbor, /terkunci=\{layananTerkunci\}/);
 });
 
 test("modul sensus mandiri tidak memiliki kapabilitas penghapus warga", async () => {
