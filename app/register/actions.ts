@@ -339,10 +339,6 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
   const uploadedPaths: string[] = [];
 
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'A',location:'app/register/actions.ts:aksiRegister:entry',message:'register action start',data:{kepalaTipe:typeof payloadKepala,anggotaArray:Array.isArray(anggotaPayload),anggotaN:Array.isArray(anggotaPayload)?anggotaPayload.length:-1},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     const kepala = normalisasiKepala(payloadKepala);
     const anggota = normalisasiAnggota(anggotaPayload);
     const semuaNik = semuaNikUnik(kepala, anggota);
@@ -360,9 +356,6 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       .select("id")
       .eq("id", rtId)
       .maybeSingle();
-    // #region agent log
-    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'D',location:'app/register/actions.ts:aksiRegister:tenant',message:'tenant lookup',data:{adaError:Boolean(errTenant),kodeError:errTenant?.code||null,pesanError:errTenant?.message||null,tenantKetemu:Boolean(tenant?.id),rtIdTail:rtId.slice(-4)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (errTenant) {
       throw new Error(pesanSupabase(errTenant, PESAN_KONFIGURASI));
     }
@@ -412,10 +405,6 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       }])
       .select("id")
       .single();
-
-    // #region agent log
-    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'B',location:'app/register/actions.ts:aksiRegister:insertWarga',message:'insert warga result',data:{adaError:Boolean(errWarga),kodeError:errWarga?.code||null,pesanError:errWarga?.message||null,adaId:Boolean(wargaBaru?.id)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (errWarga) {
       if (kodeError(errWarga) === "23505") throw new RegistrasiAmanError(PESAN_DUPLIKAT, "duplikat");
@@ -471,10 +460,6 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       .select("id")
       .single();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'C',location:'app/register/actions.ts:aksiRegister:insertTiket',message:'insert laporan_warga result',data:{adaError:Boolean(errTiket),kodeError:errTiket?.code||null,pesanError:errTiket?.message||null,adaTiket:Boolean(tiketBaru?.id),jumlahAnggota:anggota.length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     if (errTiket) {
       throw new Error(pesanSupabase(errTiket, "Insert tiket verifikasi gagal."));
     }
@@ -482,10 +467,6 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       throw new Error("Insert tiket verifikasi gagal: Supabase tidak mengembalikan id dan tidak mengembalikan error.");
     }
     tiketId = String(tiketBaru.id);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'C',location:'app/register/actions.ts:aksiRegister:success',message:'register returning success after ticket',data:{adaWarga:Boolean(wargaId),adaTiket:Boolean(tiketId)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     return { success: true, message: "SUKSES" };
   } catch (error: unknown) {
@@ -508,10 +489,6 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       : error instanceof Error
         ? error.message
         : PESAN_INTERNAL;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'A',location:'app/register/actions.ts:aksiRegister:catch',message:'register returning failure',data:{tipeError:error instanceof RegistrasiAmanError ? error.kategori : error instanceof Error ? error.name : typeof error,pesanKeKlien:pesan.slice(0,180),success:false},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (!(error instanceof RegistrasiAmanError)) {
       console.error("Registrasi warga gagal:", error instanceof Error ? error.message : error);
