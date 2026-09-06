@@ -48,7 +48,7 @@ export default async function WargaAdminPage() {
       kk_path,
       created_at,
       rt_id,
-      anggota_keluarga (id, nama_lengkap, hubungan_keluarga, rt_id)
+      anggota_keluarga (id, nik, nama_lengkap, hubungan_keluarga, rt_id)
     `);
   queryWarga = queryWarga.eq("status_validasi", "Disetujui");
   if (otentikasiHalaman.sesi.role !== "webmaster") {
