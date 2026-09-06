@@ -35,16 +35,21 @@ const IZIN_SERVICE_ROLE = new Set([
   "app/register/actions.ts",
 ]);
 
-test("klien data memaksa role PostgREST authenticated, bukan kasta pengurus", async () => {
+test("klien data tidak menandatangani PostgREST dengan JWT_SECRET cookie", async () => {
   const sumber = await baca("lib/supabase-server.ts");
   assert.match(sumber, /export async function buatKlienTerautentikasi/);
+  assert.match(sumber, /function kunciJwtProyekSupabase/);
+  assert.match(sumber, /process\.env\.SUPABASE_JWT_SECRET/);
+  assert.match(sumber, /getSupabaseAdminClientDariSesi\(sesi\)/);
   assert.match(sumber, /role:\s*"authenticated"/);
   assert.match(sumber, /aud:\s*"authenticated"/);
   assert.match(sumber, /rt_id:\s*rtId/);
   assert.match(sumber, /app_role:\s*kastaAplikasiDariSesi\(sesi\)/);
   assert.match(sumber, /accessToken:\s*async \(\) => tokenData/);
+  assert.match(sumber, /penerbitJwtAuth\(urlProyek\)/);
   assert.match(sumber, /\.setSubject\(id\)/);
   assert.doesNotMatch(sumber, /role:\s*sesi\.role/);
+  assert.doesNotMatch(sumber, /function kunciJwtPostgrest/);
   assert.match(sumber, /export function getSupabaseAdminClientDariSesi/);
   assert.match(sumber, /!POLA_UUID\.test\(id\) \|\| !POLA_UUID\.test\(rtId\)/);
 });

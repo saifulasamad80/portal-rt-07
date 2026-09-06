@@ -13,16 +13,20 @@ function wajibEnv(nama: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_
 }
 
 /**
- * PostgREST hanya menerima JWT yang ditandatangani JWT secret proyek
- * (sama dengan JWT_SECRET aplikasi untuk token warga). Kunci turunan
- * cookie admin_session sengaja tidak dipakai di sini.
+ * JWT secret proyek Supabase (Settings → API), bukan JWT_SECRET cookie
+ * aplikasi. Mencampur keduanya membuat PostgREST membalas 401, supabase-js
+ * mengembalikan count null, dan dasbor menampilkan 0 KK meskipun datanya ada.
  */
-function kunciJwtPostgrest(): Uint8Array {
-  const nilai = process.env.JWT_SECRET;
+function kunciJwtProyekSupabase(): Uint8Array | null {
+  const nilai = process.env.SUPABASE_JWT_SECRET;
   if (!nilai || new TextEncoder().encode(nilai).byteLength < PANJANG_MINIMUM_SECRET) {
-    throw new Error("JWT_SECRET wajib berisi minimal 32 byte.");
+    return null;
   }
   return new TextEncoder().encode(nilai);
+}
+
+function penerbitJwtAuth(urlProyek: string): string {
+  return new URL("/auth/v1", urlProyek).toString().replace(/\/$/, "");
 }
 
 type IdentitasSesiData = {
@@ -43,17 +47,17 @@ function kastaAplikasiDariSesi(sesi: IdentitasSesiData): KastaAplikasi {
 }
 
 /**
- * Klien data untuk operasi reguler. Token ini merdeka dari cookie sesi:
- * `sub` diambil dari sesi yang sudah direvalidasi di database, `role`
- * dipaksa `authenticated` agar PostgREST SET ROLE ke role Postgres yang
- * punya policy RLS. Klaim `rt_id` dan `app_role` ikut di payload agar
- * `auth.jwt()` di Postgres membaca tenant yang sama. Jangan pernah
- * menyalin kasta pengurus (rt/webmaster) ke klaim `role` — itu bukan
- * role Postgres.
+ * Klien data setelah sesi direvalidasi di database.
  *
- * `accessToken` wajib: supabase-js menimpa header Authorization dengan
- * anon key pada setiap request jika opsi ini kosong, sehingga database
- * melihat role `anon` dan semua policy `TO authenticated` mengembalikan 0 baris.
+ * Jalur RLS: hanya jika SUPABASE_JWT_SECRET (JWT secret proyek) diisi.
+ * Token merdeka dari cookie: `sub` dari sesi, `role` dipaksa
+ * `authenticated` (role Postgres, bukan kasta pengurus), plus `rt_id`
+ * dan `app_role`. `iss` meniru access token GoTrue. `accessToken` wajib
+ * agar supabase-js tidak menimpa Authorization dengan kunci API.
+ *
+ * Cadangan: tanpa JWT secret proyek, PostgREST menolak token buatan
+ * JWT_SECRET aplikasi (401). Klien privileged dipakai setelah UUID sesi
+ * valid; pemanggil tetap wajib menyaring `rt_id`.
  */
 export async function buatKlienTerautentikasi(sesi: IdentitasSesiData): Promise<SupabaseClient> {
   const id = String(sesi?.id || "");
@@ -62,6 +66,12 @@ export async function buatKlienTerautentikasi(sesi: IdentitasSesiData): Promise<
     throw new Error("Sesi tidak valid untuk klien data terautentikasi.");
   }
 
+  const kunciProyek = kunciJwtProyekSupabase();
+  if (!kunciProyek) {
+    return getSupabaseAdminClientDariSesi(sesi);
+  }
+
+  const urlProyek = wajibEnv("NEXT_PUBLIC_SUPABASE_URL");
   const tokenData = await new SignJWT({
     role: "authenticated",
     aud: "authenticated",
@@ -70,11 +80,12 @@ export async function buatKlienTerautentikasi(sesi: IdentitasSesiData): Promise<
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(id)
+    .setIssuer(penerbitJwtAuth(urlProyek))
     .setIssuedAt()
     .setExpirationTime("15m")
-    .sign(kunciJwtPostgrest());
+    .sign(kunciProyek);
 
-  return createClient(wajibEnv("NEXT_PUBLIC_SUPABASE_URL"), wajibEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"), {
+  return createClient(urlProyek, wajibEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
     accessToken: async () => tokenData,
   });
