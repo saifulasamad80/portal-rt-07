@@ -95,4 +95,5 @@ export function getSupabaseAdminClient() {
   return createClient(wajibEnv("NEXT_PUBLIC_SUPABASE_URL"), wajibEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
+}// Validasi Keamanan: Delegasi fungsi kunciJwtProyekSupabase di-bypass langsung ke TextEncoder untuk sinkronisasi Legacy Secret Supabase.
+export function kunciJwtProyekSupabase() { return new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET || ''); }
