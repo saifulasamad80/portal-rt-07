@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import imageCompression from "browser-image-compression";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const FITUR_KTP_AKTIF = false; 
@@ -11,6 +11,8 @@ const MAKS_ANGGOTA = 30;
 // an image that could never be accepted by the action.
 const MAKS_BYTE_FILE_ASLI = 5 * 1024 * 1024;
 const TIPE_GAMBAR_SAH = new Set(["image/jpeg", "image/png", "image/webp"]);
+const KUNCI_DRAFT = (rt: string, wilayah: string) =>
+  `aplikasi-rt:register-draft:${encodeURIComponent(rt || wilayah || "default")}`;
 
 // FIX: Tambahkan properti agama
 type AnggotaKeluarga = {
@@ -19,11 +21,58 @@ type AnggotaKeluarga = {
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
+type AnggotaKeluargaDraft = Omit<AnggotaKeluarga, "fileKtp">;
+
+type DraftRegister = {
+  nik: string;
+  nama: string;
+  wa: string;
+  pin: string;
+  statusTinggal: string;
+  detailAlamat: string;
+  tglLahir: string;
+  tempatLahir: string;
+  gender: string;
+  agama: string;
+  pekerjaan: string;
+  pendapatan: string;
+  listrik: string;
+  dokumenMenyusul: boolean;
+  anggota: AnggotaKeluargaDraft[];
+};
+
 type HasilRegister = { success: boolean; message: string };
 type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown) => Promise<HasilRegister>;
 
-export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister: AksiRegister; alasan?: string }) {
+function anggotaKeDraft(item: AnggotaKeluarga): AnggotaKeluargaDraft {
+  const { fileKtp: _fileKtp, ...sisa } = item;
+  void _fileKtp;
+  return sisa;
+}
+
+function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaKeluarga[]): AnggotaKeluarga[] {
+  if (!Array.isArray(mentah) || mentah.length === 0) return fallback;
+  return mentah
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    .map((item) => ({
+      nama: String(item.nama ?? ""),
+      nik: String(item.nik ?? ""),
+      hubungan: String(item.hubungan ?? ""),
+      hubunganDetail: String(item.hubunganDetail ?? ""),
+      tglLahir: String(item.tglLahir ?? ""),
+      tempatLahir: String(item.tempatLahir ?? ""),
+      gender: String(item.gender ?? ""),
+      agama: String(item.agama ?? ""),
+      pekerjaan: String(item.pekerjaan ?? ""),
+      fileKtp: null,
+      ktpMenyusul: Boolean(item.ktpMenyusul),
+    }));
+}
+
+export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { aksiRegister: AksiRegister; alasan?: string; namaWilayah: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const kunciDraft = KUNCI_DRAFT(searchParams.get("rt") || "", namaWilayah);
 
   const [nik, setNik] = useState(""); const [nama, setNama] = useState("");
   const [wa, setWa] = useState(""); const [pin, setPin] = useState(""); 
@@ -35,6 +84,83 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
   const [dokumenMenyusul, setDokumenMenyusul] = useState(false);
   const [anggota, setAnggota] = useState<AnggotaKeluarga[]>([]);
   const [loading, setLoading] = useState(false); const [progressTeks, setProgressTeks] = useState("");
+  const [draftSiap, setDraftSiap] = useState(false);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const mentah = window.localStorage.getItem(kunciDraft);
+      if (mentah) {
+        const parsed = JSON.parse(mentah) as Partial<DraftRegister> | null;
+        if (parsed && typeof parsed === "object") {
+          setNik(String(parsed.nik ?? ""));
+          setNama(String(parsed.nama ?? ""));
+          setWa(String(parsed.wa ?? ""));
+          setPin(String(parsed.pin ?? ""));
+          setStatusTinggal(String(parsed.statusTinggal ?? ""));
+          setDetailAlamat(String(parsed.detailAlamat ?? ""));
+          setTglLahir(String(parsed.tglLahir ?? ""));
+          setTempatLahir(String(parsed.tempatLahir ?? ""));
+          setGender(String(parsed.gender ?? ""));
+          setAgama(String(parsed.agama ?? ""));
+          setPekerjaan(String(parsed.pekerjaan ?? ""));
+          setPendapatan(String(parsed.pendapatan ?? ""));
+          setListrik(String(parsed.listrik ?? ""));
+          setDokumenMenyusul(Boolean(parsed.dokumenMenyusul));
+          setAnggota(normalisasiAnggotaDraft(parsed.anggota, []));
+        }
+      }
+    } catch {
+      // Draft rusak diabaikan.
+    } finally {
+      setDraftSiap(true);
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [kunciDraft]);
+
+  useEffect(() => {
+    if (!draftSiap) return;
+    try {
+      const draft: DraftRegister = {
+        nik,
+        nama,
+        wa,
+        pin,
+        statusTinggal,
+        detailAlamat,
+        tglLahir,
+        tempatLahir,
+        gender,
+        agama,
+        pekerjaan,
+        pendapatan,
+        listrik,
+        dokumenMenyusul,
+        anggota: anggota.map(anggotaKeDraft),
+      };
+      window.localStorage.setItem(kunciDraft, JSON.stringify(draft));
+    } catch {
+      // Abaikan kuota atau mode privat.
+    }
+  }, [
+    draftSiap,
+    kunciDraft,
+    nik,
+    nama,
+    wa,
+    pin,
+    statusTinggal,
+    detailAlamat,
+    tglLahir,
+    tempatLahir,
+    gender,
+    agama,
+    pekerjaan,
+    pendapatan,
+    listrik,
+    dokumenMenyusul,
+    anggota,
+  ]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, tipe: 'ktp' | 'kk') => {
     const file = e.target.files?.[0];
@@ -171,6 +297,12 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
         return;
       }
 
+      try {
+        window.localStorage.removeItem(kunciDraft);
+      } catch {
+        // Abaikan jika storage tidak tersedia.
+      }
+
       alert("Sempurna! Data Lapor Diri sukses dikirim. Tunggu verifikasi RT.");
       router.replace("/login");
       
@@ -194,8 +326,8 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
       </div>
 
       <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-4xl border-t-[8px] border-t-blue-600">
-        <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 text-center tracking-tight">Formulir Lapor Diri RT 07</h1>
-        <p className="text-center text-slate-500 text-xs md:text-sm mb-8 font-bold">Terintegrasi dengan sistem Pendataan Sensus & DPT Pemilu</p>
+        <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 text-center tracking-tight">Formulir Lapor Diri {namaWilayah}</h1>
+        <p className="text-center text-slate-500 text-xs md:text-sm mb-8 font-bold">Data masuk antrean pengurus. Belum tercatat sebagai warga sah sebelum disetujui.</p>
         {alasan === "nik-tidak-sesuai" && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 leading-relaxed">
             Data warisan sebelumnya dihapus karena NIK tidak sesuai. NIK tidak bisa diubah. Isi formulir ini dengan NIK yang tertera di KTP, lalu tunggu persetujuan pengurus RT.

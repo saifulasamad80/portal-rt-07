@@ -17,7 +17,7 @@ export async function GET() {
     let query = supabase
       .from("warga")
       .select("id, nik, nama_lengkap, no_whatsapp, status_tinggal, created_at")
-      .eq("status_verifikasi", "Menunggu");
+      .eq("status_validasi", "Menunggu");
     if (otentikasi.sesi.role !== "webmaster") {
       query = query.eq("rt_id", otentikasi.sesi.rtId);
     }

@@ -244,7 +244,10 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Buku Induk Warga</h1>
-            <p className="text-slate-400 text-sm">Database demografi, kontak, dan dokumen kependudukan RT 07.</p>
+            <p className="text-slate-400 text-sm">Hanya warga dengan status validasi Disetujui. Pendaftar baru ada di antrean verifikasi.</p>
+            <Link href="/admin/verifikasi" className="inline-block mt-3 text-[11px] font-bold uppercase tracking-widest text-amber-300 hover:text-amber-200">
+              Buka antrean verifikasi →
+            </Link>
           </div>
           <div className="text-5xl hidden md:block grayscale brightness-200">👥</div>
         </div>

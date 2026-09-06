@@ -1,10 +1,9 @@
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { SignJWT } from "jose";
+import { SignJWT, importPKCS8 } from "jose";
 
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PANJANG_MINIMUM_SECRET = 32;
 
 function wajibEnv(nama: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY" | "SUPABASE_SERVICE_ROLE_KEY") {
   const nilai = process.env[nama];
@@ -13,16 +12,16 @@ function wajibEnv(nama: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_
 }
 
 /**
- * JWT secret proyek Supabase (Settings → API), bukan JWT_SECRET cookie
+ * Private key PKCS8 proyek Supabase (Settings → API), bukan JWT_SECRET cookie
  * aplikasi. Mencampur keduanya membuat PostgREST membalas 401, supabase-js
  * mengembalikan count null, dan dasbor menampilkan 0 KK meskipun datanya ada.
  */
-function kunciJwtProyekSupabase(): Uint8Array | null {
+async function kunciJwtProyekSupabase() {
   const nilai = process.env.SUPABASE_JWT_SECRET;
-  if (!nilai || new TextEncoder().encode(nilai).byteLength < PANJANG_MINIMUM_SECRET) {
+  if (!nilai) {
     return null;
   }
-  return new TextEncoder().encode(nilai);
+  return importPKCS8(nilai, "ES256");
 }
 
 function penerbitJwtAuth(urlProyek: string): string {
@@ -49,7 +48,7 @@ function kastaAplikasiDariSesi(sesi: IdentitasSesiData): KastaAplikasi {
 /**
  * Klien data setelah sesi direvalidasi di database.
  *
- * Jalur RLS: hanya jika SUPABASE_JWT_SECRET (JWT secret proyek) diisi.
+ * Jalur RLS: hanya jika SUPABASE_JWT_SECRET (private key PKCS8 proyek) diisi.
  * Token merdeka dari cookie: `sub` dari sesi, `role` dipaksa
  * `authenticated` (role Postgres, bukan kasta pengurus), plus `rt_id`
  * dan `app_role`. `iss` meniru access token GoTrue. `accessToken` wajib
@@ -66,7 +65,7 @@ export async function buatKlienTerautentikasi(sesi: IdentitasSesiData): Promise<
     throw new Error("Sesi tidak valid untuk klien data terautentikasi.");
   }
 
-  const kunciProyek = kunciJwtProyekSupabase();
+  const kunciProyek = await kunciJwtProyekSupabase();
   if (!kunciProyek) {
     return getSupabaseAdminClientDariSesi(sesi);
   }
@@ -78,7 +77,7 @@ export async function buatKlienTerautentikasi(sesi: IdentitasSesiData): Promise<
     rt_id: rtId,
     app_role: kastaAplikasiDariSesi(sesi),
   })
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: "ES256" })
     .setSubject(id)
     .setIssuer(penerbitJwtAuth(urlProyek))
     .setIssuedAt()

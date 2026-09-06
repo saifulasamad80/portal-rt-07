@@ -180,7 +180,12 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <Link href="/admin/warga" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
               <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">👥</div>
               <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Buku Induk Warga</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Data demografi &amp; NIK</p>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Hanya warga yang sudah Disetujui</p>
+            </Link>
+            <Link href="/admin/verifikasi" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-amber-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🪪</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-amber-700 transition-colors">Verifikasi Pendaftaran</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Antrean status Menunggu</p>
             </Link>
             <Link href="/admin/pengumuman" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
               <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">📢</div>
@@ -290,7 +295,9 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
               <span className="w-1 h-3.5 rounded-full bg-amber-500 shrink-0"></span> Validasi pendaftaran warga baru
             </h2>
-            <span className="text-[10px] font-semibold text-slate-400 tabular-nums">{wargaList.length} antrean</span>
+            <Link href="/admin/verifikasi" className="text-[10px] font-semibold text-blue-600 hover:underline">
+              Buka halaman verifikasi →
+            </Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">

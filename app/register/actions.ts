@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { JUDUL_TIKET_PENDAFTARAN } from "@/lib/kebijakan-sensus";
+import { pastikanRtRegistrasiAda } from "@/lib/registrasi-tenant";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 
 /**
@@ -12,8 +13,6 @@ import { getSupabaseAdminClient } from "@/lib/supabase-server";
  * browser.  Every value below is treated as hostile input nevertheless.
  */
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const UUID_NOL = "00000000-0000-0000-0000-000000000000";
 const BUCKET_DOKUMEN = "dokumen_warga";
 const MAKS_ANGGOTA = 30;
 const MAKS_BYTE_DOKUMEN = 512 * 1024;
@@ -46,7 +45,6 @@ const PESAN_VALIDASI = "Data pendaftaran tidak valid. Periksa kembali isian form
 // without an authenticated session).
 const PESAN_DUPLIKAT = "Pendaftaran tidak dapat diproses saat ini. Hubungi pengurus RT bila Anda sudah pernah terdaftar.";
 const PESAN_INTERNAL = "Pendaftaran belum dapat diproses saat ini. Silakan coba lagi nanti atau hubungi pengurus RT.";
-const PESAN_KONFIGURASI = "Pendaftaran belum tersedia untuk wilayah ini. Hubungi pengurus RT.";
 
 function pesanSupabase(error: unknown, cadangan: string): string {
   if (!error || typeof error !== "object") return cadangan;
@@ -206,15 +204,10 @@ function dokumen(value: unknown): DokumenInput {
   return { jenis: "unggah", buffer, contentType, ekstensi };
 }
 
-function rtRegistrasi(): string {
-  // REGISTRATION_RT_ID is intentionally separate from any client-controlled
-  // value.  PUBLIC_RT_ID is a backwards-compatible fallback for deployments
-  // that already configure a single public tenant.
-  const value = (process.env.REGISTRATION_RT_ID || process.env.PUBLIC_RT_ID || "").trim();
-  if (!POLA_UUID.test(value) || value.toLowerCase() === UUID_NOL) {
-    throw new RegistrasiAmanError(PESAN_KONFIGURASI, "konfigurasi");
-  }
-  return value;
+async function rtRegistrasiTerikat(rtIdMasukan: unknown): Promise<string> {
+  const wilayah = await pastikanRtRegistrasiAda(rtIdMasukan);
+  if (!wilayah.ok) throw new RegistrasiAmanError(wilayah.message, "konfigurasi");
+  return wilayah.wilayah.rtId;
 }
 
 function normalisasiKepala(value: unknown): KepalaTernormalisasi {
@@ -332,7 +325,11 @@ export type HasilRegister = {
  * Failures are returned as a plain result object: throwing a custom Error
  * subclass across the RSC boundary becomes React #441 in production.
  */
-export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unknown): Promise<HasilRegister> {
+export async function aksiRegister(
+  rtIdMasukan: unknown,
+  payloadKepala: unknown,
+  anggotaPayload: unknown
+): Promise<HasilRegister> {
   let supabase: ReturnType<typeof getSupabaseAdminClient> | null = null;
   let wargaId: string | null = null;
   let tiketId: string | null = null;
@@ -345,23 +342,10 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
     if (jumlahByteDokumen(kepala, anggota) > MAKS_TOTAL_BYTE_DOKUMEN) {
       throw new RegistrasiAmanError(PESAN_VALIDASI);
     }
-    const rtId = rtRegistrasi();
+    // UUID terikat dari Server Component tetap dicek ulang ke master_rt.
+    // Tanpa baris tenant yang sah, INSERT wajib gagal — rt_id tidak boleh NULL.
+    const rtId = await rtRegistrasiTerikat(rtIdMasukan);
     supabase = getSupabaseAdminClient();
-
-    // Never silently assign a missing/unknown tenant.  A registration with a
-    // NULL rt_id would disappear from an RT admin queue and become a cross-
-    // tenant orphan. Tenant comes from server env, never from the client.
-    const { data: tenant, error: errTenant } = await supabase
-      .from("master_rt")
-      .select("id")
-      .eq("id", rtId)
-      .maybeSingle();
-    if (errTenant) {
-      throw new Error(pesanSupabase(errTenant, PESAN_KONFIGURASI));
-    }
-    if (!tenant) {
-      throw new RegistrasiAmanError(PESAN_KONFIGURASI, "konfigurasi");
-    }
 
     // National NIKs are globally unique.  This preflight also gives a clear,
     // non-destructive failure before any document is uploaded.  A database

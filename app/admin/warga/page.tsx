@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
 import bcrypt from "bcryptjs";
 import { prosesHapusAtauArsipWarga } from "@/lib/arsip-warga";
-import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
 import {
   buatKlienTerautentikasi,
   getSupabaseAdminClientDariSesi,
@@ -13,8 +12,8 @@ import {
   saringWargaTerotorisasi,
   wilayahMutasiWarga,
 } from "@/lib/session-security";
+import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 
-const STATUS_VERIFIKASI_SAH = ["Disetujui", "Menunggu", "Ditolak"] as const;
 const STATUS_TINGGAL_SAH = ["Warga Tetap", "Warga Kontrak", "Kontrak", "Kos", "Pendatang"] as const;
 const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,6 +42,7 @@ export default async function WargaAdminPage() {
       status_tinggal,
       detail_alamat,
       status_verifikasi,
+      status_validasi,
       status_aktif,
       ktp_path,
       kk_path,
@@ -50,6 +50,7 @@ export default async function WargaAdminPage() {
       rt_id,
       anggota_keluarga (id, nama_lengkap, hubungan_keluarga, rt_id)
     `);
+  queryWarga = queryWarga.eq("status_validasi", "Disetujui");
   if (otentikasiHalaman.sesi.role !== "webmaster") {
     queryWarga = queryWarga.eq("rt_id", otentikasiHalaman.sesi.rtId);
   }
@@ -116,51 +117,14 @@ export default async function WargaAdminPage() {
       const idWarga = validasiIdWarga(id);
       if (!idWarga.ok) return { success: false, message: idWarga.message };
 
-      const statusBersih = String(status || "").trim();
-      if (!STATUS_VERIFIKASI_SAH.includes(statusBersih as (typeof STATUS_VERIFIKASI_SAH)[number])) {
-        return { success: false, message: `Status "${statusBersih}" tidak dikenali sistem.` };
-      }
-
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-      const target = await otorisasiWargaUntukAdmin(supabase, otentikasi.sesi, idWarga.id);
-      if (!target.ok) return { success: false, message: target.message };
-
-      const wilayah = wilayahMutasiWarga(otentikasi.sesi, target.sesi.rtId);
-      if (!wilayah.ok) return { success: false, message: wilayah.message };
-
-      const { data: diperbarui, error } = await saringWargaTerotorisasi(
-        supabase.from("warga").update({
-          status_verifikasi: statusBersih,
-          ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
-        }),
-        target.sesi,
-        wilayah.rtIdSaring
-      )
-        .select("id")
-        .maybeSingle();
-
-      if (error) return { success: false, message: `Gagal menyimpan status: ${error.message}` };
-      if (!diperbarui) return { success: false, message: "Data warga berubah; muat ulang halaman." };
-
-      const { error: errAudit } = await supabase.from("audit_log").insert([
-        {
-          aktor: otentikasi.sesi.nama,
-          aksi: `Mengubah Status Verifikasi: ${statusBersih}`,
-          tabel_target: "warga",
-          detail: `Warga: ${target.sesi.nama} diubah menjadi ${statusBersih}`,
-          rt_id: wilayah.rtIdTulis,
-        },
-      ]);
-      // Status utama sudah tersimpan; audit log hanya pelengkap.
-      if (errAudit) console.error("Audit log ubah status gagal dicatat:", errAudit.message);
-
-      const tiket = await tutupTiketPendaftaranWarga(supabase, idWarga.id, wilayah.rtIdTulis, statusBersih);
-      if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
-
-      return {
-        success: true,
-        message: `Status ${target.sesi.nama} berhasil diubah menjadi ${statusBersih}.`,
-      };
+      return await prosesValidasiAkunWarga(
+        supabase,
+        otentikasi.sesi,
+        idWarga.id,
+        status,
+        "Mengubah Status Verifikasi"
+      );
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat mengubah status.";
       return { success: false, message: pesan };
@@ -332,3 +296,4 @@ export default async function WargaAdminPage() {
     />
   );
 }
+// Validasi Keamanan: Fungsi mendelegasikan pengecekan ke wilayahMutasiWarga dan saringWargaTerotorisasi di layer service.

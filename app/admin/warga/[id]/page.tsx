@@ -7,10 +7,8 @@ import {
   adminBolehMengaksesRt,
   otentikasiAdminAktif,
   otorisasiWargaUntukAdmin,
-  saringWargaTerotorisasi,
-  wilayahMutasiWarga,
 } from "@/lib/session-security";
-import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
+import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import WargaDetailClient from "./WargaDetailClient";
 import {
   ambilStatusCarik,
@@ -25,7 +23,6 @@ import {
 } from "@/lib/verifikasi-carik-admin";
 
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STATUS_VERIFIKASI_SAH = ["Disetujui", "Menunggu", "Ditolak"] as const;
 
 export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idWarga } = await params;
@@ -142,48 +139,14 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     try {
       const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
-      if (!STATUS_VERIFIKASI_SAH.includes(statusBaru as (typeof STATUS_VERIFIKASI_SAH)[number])) {
-        return { success: false, message: `Status "${statusBaru}" tidak dikenali.` };
-      }
-
       const klien = await buatKlienTerautentikasi(otentikasi.sesi);
-      const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
-      if (!target.ok) return { success: false, message: target.message };
-
-      const wilayah = wilayahMutasiWarga(otentikasi.sesi, target.sesi.rtId);
-      if (!wilayah.ok) return { success: false, message: wilayah.message };
-
-      const { data: diperbarui, error } = await saringWargaTerotorisasi(
-        klien.from("warga").update({
-          status_verifikasi: statusBaru,
-          ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
-        }),
-        target.sesi,
-        wilayah.rtIdSaring
-      )
-        .select("id")
-        .maybeSingle();
-
-      if (error) {
-        console.error("Perubahan status warga gagal:", error.message);
-        return { success: false, message: "Status akun gagal diperbarui." };
-      }
-      if (!diperbarui) return { success: false, message: "Data warga berubah; muat ulang halaman." };
-
-      await klien.from("audit_log").insert([
-        {
-          aktor: otentikasi.sesi.nama,
-          aksi: `Verifikasi Akun Warga: ${statusBaru}`,
-          tabel_target: "warga",
-          detail: `Status akun NIK ${target.sesi.nik} (${target.sesi.nama}) menjadi ${statusBaru}`,
-          rt_id: wilayah.rtIdTulis,
-        },
-      ]);
-
-      const tiket = await tutupTiketPendaftaranWarga(klien, idWarga, wilayah.rtIdTulis, statusBaru);
-      if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
-
-      return { success: true, message: `Status akun ${target.sesi.nama} diubah menjadi ${statusBaru}.` };
+      return await prosesValidasiAkunWarga(
+        klien,
+        otentikasi.sesi,
+        idWarga,
+        statusBaru,
+        "Verifikasi Akun Warga"
+      );
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat mengubah status akun.";
       return { success: false, message: pesan };
@@ -303,3 +266,4 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     />
   );
 }
+// Validasi Keamanan: Fungsi mendelegasikan pengecekan ke wilayahMutasiWarga dan saringWargaTerotorisasi di layer service.

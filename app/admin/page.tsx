@@ -4,16 +4,10 @@ import { redirect } from "next/navigation";
 import AdminLogin from "./AdminLogin";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
-import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
-import {
-  otentikasiAdminAktif as otentikasiAdmin,
-  otorisasiWargaUntukAdmin,
-  saringWargaTerotorisasi,
-  wilayahMutasiWarga,
-} from "@/lib/session-security";
+import { otentikasiAdminAktif as otentikasiAdmin } from "@/lib/session-security";
+import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 
-const STATUS_VALIDASI_SAH = ["Disetujui", "Ditolak", "Menunggu"] as const;
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -37,7 +31,7 @@ async function hitungWargaSah(supabase: SupabaseClient, rtId: string | null): Pr
     let query = supabase
       .from("warga")
       .select("id", { count: "exact" })
-      .eq("status_verifikasi", "Disetujui");
+      .eq("status_validasi", "Disetujui");
     if (rtId) query = query.eq("rt_id", rtId);
     return query;
   };
@@ -82,9 +76,9 @@ export default async function AdminDashboard() {
   let queryAntrean = supabaseAdmin
     .from("warga")
     .select(
-      "id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)"
+      "id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, status_validasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)"
     )
-    .eq("status_verifikasi", "Menunggu");
+    .eq("status_validasi", "Menunggu");
   if (rtTerbatas) queryAntrean = queryAntrean.eq("rt_id", rtTerbatas);
 
   let querySampah = supabaseAdmin
@@ -161,55 +155,14 @@ export default async function AdminDashboard() {
         return { success: false, message: "ID warga tidak valid." };
       }
 
-      const statusBersih = String(status || "").trim();
-      if (!STATUS_VALIDASI_SAH.includes(statusBersih as (typeof STATUS_VALIDASI_SAH)[number])) {
-        return { success: false, message: `Status "${statusBersih}" tidak dikenali sistem.` };
-      }
-
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-
-      const targetWarga = await otorisasiWargaUntukAdmin(supabase, otentikasi.sesi, idBersih);
-      if (!targetWarga.ok) return { success: false, message: targetWarga.message };
-
-      const wilayah = wilayahMutasiWarga(otentikasi.sesi, targetWarga.sesi.rtId);
-      if (!wilayah.ok) return { success: false, message: wilayah.message };
-
-      const { data: diperbarui, error } = await saringWargaTerotorisasi(
-        supabase.from("warga").update({
-          status_verifikasi: statusBersih,
-          ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
-        }),
-        targetWarga.sesi,
-        wilayah.rtIdSaring
-      )
-        .select("id")
-        .maybeSingle();
-
-      if (error) {
-        return { success: false, message: `Gagal menyimpan status: ${error.message}` };
-      }
-      if (!diperbarui) return { success: false, message: "Data warga berubah; muat ulang halaman." };
-
-      const { error: errAudit } = await supabase.from("audit_log").insert([
-        {
-          aktor: otentikasi.sesi.nama,
-          aksi: `Validasi Cepat: ${statusBersih}`,
-          tabel_target: "warga",
-          detail: `Memvalidasi NIK: ${targetWarga.sesi.nik}`,
-          rt_id: wilayah.rtIdTulis,
-        },
-      ]);
-      // Status warga sudah tersimpan; kegagalan audit log tidak boleh
-      // membatalkan keberhasilan aksi utama.
-      if (errAudit) console.error("Audit log validasi gagal dicatat:", errAudit.message);
-
-      const tiket = await tutupTiketPendaftaranWarga(supabase, idBersih, wilayah.rtIdTulis, statusBersih);
-      if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
-
-      return {
-        success: true,
-        message: `${targetWarga.sesi.nama} berhasil ditandai sebagai ${statusBersih}.`,
-      };
+      return await prosesValidasiAkunWarga(
+        supabase,
+        otentikasi.sesi,
+        idBersih,
+        status,
+        "Validasi Cepat"
+      );
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat memvalidasi.";
       return { success: false, message: pesan };
@@ -233,3 +186,4 @@ export default async function AdminDashboard() {
     />
   );
 }
+// Validasi Keamanan: Fungsi mendelegasikan pengecekan ke wilayahMutasiWarga dan saringWargaTerotorisasi di layer service.

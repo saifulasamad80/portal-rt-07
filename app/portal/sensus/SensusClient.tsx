@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   hitungKelengkapan,
@@ -28,6 +28,8 @@ const kelasInput =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 const kelasKunci =
   "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-600 bg-slate-50 cursor-not-allowed";
+const KUNCI_DRAFT = (idWarga: string, modeRevisi: boolean) =>
+  `aplikasi-rt:sensus-draft:${modeRevisi ? "revisi" : "mandiri"}:${idWarga}`;
 
 type AnggotaProfil = {
   id: string;
@@ -57,6 +59,30 @@ type ProfilSensus = {
   pendapatan_bulanan: string | null;
   daya_listrik: string | null;
   anggota_keluarga: AnggotaProfil[] | null;
+};
+
+type BiodataSensus = {
+  nama_lengkap: string;
+  tempat_lahir: string;
+  tanggal_lahir: string;
+  jenis_kelamin: string;
+  agama: string;
+  pekerjaan: string;
+  no_whatsapp: string;
+  status_tinggal: string;
+  detail_alamat: string;
+  pendapatan_bulanan: string;
+  daya_listrik: string;
+};
+
+type DraftSensus = {
+  biodata: BiodataSensus;
+  anggota: AnggotaInput[];
+  catatan: string;
+  nikDikonfirmasi: boolean;
+  setujuData: boolean;
+  setujuTanggungJawab: boolean;
+  langkah: number;
 };
 
 function pesanKesalahan(error: unknown, cadangan: string) {
@@ -104,6 +130,58 @@ function dariWarga(warga: ProfilSensus): AnggotaInput[] {
   }));
 }
 
+function buatBiodataAwal(warga: ProfilSensus): BiodataSensus {
+  return {
+    nama_lengkap: warga?.nama_lengkap || "",
+    tempat_lahir: warga?.tempat_lahir || "",
+    tanggal_lahir: String(warga?.tanggal_lahir || "").slice(0, 10),
+    jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
+    agama: warga?.agama || "",
+    pekerjaan: warga?.pekerjaan || "",
+    no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
+    status_tinggal: warga?.status_tinggal || "",
+    detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
+    pendapatan_bulanan: warga?.pendapatan_bulanan || "",
+    daya_listrik: warga?.daya_listrik || "",
+  };
+}
+
+function normalisasiBiodataDraft(mentah: unknown, fallback: BiodataSensus): BiodataSensus {
+  if (!mentah || typeof mentah !== "object" || Array.isArray(mentah)) return fallback;
+  const data = mentah as Record<string, unknown>;
+  return {
+    nama_lengkap: String(data.nama_lengkap ?? fallback.nama_lengkap),
+    tempat_lahir: String(data.tempat_lahir ?? fallback.tempat_lahir),
+    tanggal_lahir: String(data.tanggal_lahir ?? fallback.tanggal_lahir).slice(0, 10),
+    jenis_kelamin: String(data.jenis_kelamin ?? fallback.jenis_kelamin),
+    agama: String(data.agama ?? fallback.agama),
+    pekerjaan: String(data.pekerjaan ?? fallback.pekerjaan),
+    no_whatsapp: String(data.no_whatsapp ?? fallback.no_whatsapp),
+    status_tinggal: String(data.status_tinggal ?? fallback.status_tinggal),
+    detail_alamat: String(data.detail_alamat ?? fallback.detail_alamat),
+    pendapatan_bulanan: String(data.pendapatan_bulanan ?? fallback.pendapatan_bulanan),
+    daya_listrik: String(data.daya_listrik ?? fallback.daya_listrik),
+  };
+}
+
+function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaInput[]): AnggotaInput[] {
+  if (!Array.isArray(mentah) || mentah.length === 0) return fallback;
+  return mentah
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : undefined,
+      nama_lengkap: String(item.nama_lengkap ?? ""),
+      nik: String(item.nik ?? ""),
+      hubungan_keluarga: String(item.hubungan_keluarga ?? ""),
+      hubungan_detail: String(item.hubungan_detail ?? ""),
+      tanggal_lahir: String(item.tanggal_lahir ?? ""),
+      tempat_lahir: String(item.tempat_lahir ?? ""),
+      jenis_kelamin: String(item.jenis_kelamin ?? ""),
+      agama: String(item.agama ?? ""),
+      pekerjaan: String(item.pekerjaan ?? ""),
+    }));
+}
+
 export default function SensusClient({
   warga,
   aksiSimpan,
@@ -116,6 +194,7 @@ export default function SensusClient({
   modeRevisi?: boolean;
 }) {
   const router = useRouter();
+  const kunciDraft = KUNCI_DRAFT(warga?.id || warga?.nik || "unknown", modeRevisi);
   const [langkah, setLangkah] = useState(0);
   const [loading, setLoading] = useState(false);
   const [pesan, setPesan] = useState<{ tipe: "sukses" | "gagal"; teks: string } | null>(null);
@@ -125,24 +204,54 @@ export default function SensusClient({
   const [setujuData, setSetujuData] = useState(false);
   const [setujuTanggungJawab, setSetujuTanggungJawab] = useState(false);
   const [catatan, setCatatan] = useState("");
-
-  const [biodata, setBiodata] = useState({
-    nama_lengkap: warga?.nama_lengkap || "",
-    tempat_lahir: warga?.tempat_lahir || "",
-    tanggal_lahir: String(warga?.tanggal_lahir || "").slice(0, 10),
-    jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
-    agama: warga?.agama || "",
-    pekerjaan: warga?.pekerjaan || "",
-    no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
-    status_tinggal: warga?.status_tinggal || "",
-    detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
-    pendapatan_bulanan: warga?.pendapatan_bulanan || "",
-    daya_listrik: warga?.daya_listrik || "",
-  });
-
-  const [anggota, setAnggota] = useState<AnggotaInput[]>(dariWarga(warga));
+  const [biodata, setBiodata] = useState<BiodataSensus>(() => buatBiodataAwal(warga));
+  const [anggota, setAnggota] = useState<AnggotaInput[]>(() => dariWarga(warga));
+  const [draftSiap, setDraftSiap] = useState(false);
 
   const kelengkapan = useMemo(() => hitungKelengkapan(biodata), [biodata]);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const mentah = window.localStorage.getItem(kunciDraft);
+      if (mentah) {
+        const parsed = JSON.parse(mentah) as Partial<DraftSensus> | null;
+        if (parsed && typeof parsed === "object") {
+          const biodataFallback = buatBiodataAwal(warga);
+          setBiodata(normalisasiBiodataDraft(parsed.biodata, biodataFallback));
+          setAnggota(normalisasiAnggotaDraft(parsed.anggota, dariWarga(warga)));
+          setCatatan(typeof parsed.catatan === "string" ? parsed.catatan : "");
+          setNikDikonfirmasi(Boolean(parsed.nikDikonfirmasi));
+          setSetujuData(Boolean(parsed.setujuData));
+          setSetujuTanggungJawab(Boolean(parsed.setujuTanggungJawab));
+          setLangkah(Number.isInteger(parsed.langkah) ? Math.max(0, Math.min(parsed.langkah as number, LANGKAH.length - 1)) : 0);
+        }
+      }
+    } catch {
+      // Draft lama yang rusak diabaikan saja.
+    } finally {
+      setDraftSiap(true);
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [kunciDraft, warga]);
+
+  useEffect(() => {
+    if (!draftSiap) return;
+    try {
+      const draft: DraftSensus = {
+        biodata,
+        anggota,
+        catatan,
+        nikDikonfirmasi,
+        setujuData,
+        setujuTanggungJawab,
+        langkah,
+      };
+      window.localStorage.setItem(kunciDraft, JSON.stringify(draft));
+    } catch {
+      // Abaikan kuota atau mode privat.
+    }
+  }, [draftSiap, kunciDraft, biodata, anggota, catatan, nikDikonfirmasi, setujuData, setujuTanggungJawab, langkah]);
 
   const ubahBiodata = (nama: keyof typeof biodata, nilai: string) => {
     setBiodata((sebelum) => ({ ...sebelum, [nama]: nilai }));
@@ -213,6 +322,11 @@ export default function SensusClient({
     try {
       const hasil = await aksiSimpan(biodata, anggota, catatan);
       if (hasil.success) {
+        try {
+          window.localStorage.removeItem(kunciDraft);
+        } catch {
+          // Abaikan jika storage tidak tersedia.
+        }
         setPesan({ tipe: "sukses", teks: hasil.message });
         router.push(hasil.arah || "/portal");
         router.refresh();
