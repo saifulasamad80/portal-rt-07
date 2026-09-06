@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import VotingAdminClient from "./VotingAdminClient";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -56,6 +57,7 @@ export default async function AdminVotingPage() {
     const { error } = await supabase.from("voting_rt").insert([{ judul: judulBersih, deskripsi: deskripsiBersih, opsi_1: opsi1Bersih, opsi_2: opsi2Bersih, status: "Aktif", rt_id: sesi.rtId }]);
     if (error) return { success: false, message: "Topik voting gagal dibuat." };
     await supabase.from("audit_log").insert([{ aktor: sesi.nama, aksi: `Membuat Topik Voting`, tabel_target: "voting_rt", detail: `Judul: ${judulBersih}`, rt_id: sesi.rtId }]);
+    revalidatePath("/");
     return { success: true };
   }
 
@@ -71,6 +73,7 @@ export default async function AdminVotingPage() {
     const { data: diperbarui, error } = await query.select("id").maybeSingle();
     if (error || !diperbarui) return { success: false, message: "Status voting gagal diperbarui." };
     await supabase.from("audit_log").insert([{ aktor: sesi.nama, aksi: `Mengubah Status Voting`, tabel_target: "voting_rt", detail: `ID: ${idBersih} menjadi ${statusBersih}`, rt_id: sesi.rtId }]);
+    revalidatePath("/");
     return { success: true };
   }
 

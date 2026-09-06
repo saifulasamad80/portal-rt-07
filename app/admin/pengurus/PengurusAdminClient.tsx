@@ -33,23 +33,31 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah, aksiHapu
     if (!confirm(`PERINGATAN FATAL: Yakin ingin mencabut akses dan menghapus admin ${namaTarget}?`)) return;
     setLoadingId(id);
     try {
-      await aksiHapus(id);
-      alert(`Akses admin ${namaTarget} berhasil dihapus dari sistem!`);
-      router.refresh();
+      const res = await aksiHapus(id);
+      if (!res?.success) {
+        alert(res?.message || "Akun pengurus gagal dihapus.");
+      } else {
+        alert(`Akses admin ${namaTarget} berhasil dihapus dari sistem!`);
+        router.refresh();
+      }
     } catch (error: any) { alert(error.message); }
     setLoadingId("");
   };
 
   const handleReset = async (id: string, namaTarget: string) => {
-    const sandiBaru = prompt(`Masukkan PASSWORD BARU untuk admin ${namaTarget} (Minimal 6 karakter):`);
+    const sandiBaru = prompt(`Masukkan PASSWORD BARU untuk admin ${namaTarget} (Minimal 8 karakter):`);
     if (!sandiBaru) return;
-    if (sandiBaru.length < 6) return alert("GAGAL: Password baru harus minimal 6 karakter!");
+    if (sandiBaru.length < 8) return alert("GAGAL: Password baru harus minimal 8 karakter!");
 
     setLoadingId(id);
     try {
-      await aksiReset(id, sandiBaru);
-      alert(`Password untuk ${namaTarget} berhasil diperbarui!`);
-      router.refresh();
+      const res = await aksiReset(id, sandiBaru);
+      if (!res?.success) {
+        alert(res?.message || "Sandi pengurus gagal diubah.");
+      } else {
+        alert(`Password untuk ${namaTarget} berhasil diperbarui!`);
+        router.refresh();
+      }
     } catch (error: any) { alert(error.message); }
     setLoadingId("");
   };
@@ -85,7 +93,7 @@ export default function PengurusAdminClient({ pengurusList, aksiTambah, aksiHapu
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-2 uppercase">Password Akses</label>
-                <input type="password" required minLength={6} className="w-full border-2 border-slate-200 rounded-lg p-3 outline-none focus:border-indigo-500 text-sm" placeholder="******" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input type="password" required minLength={8} className="w-full border-2 border-slate-200 rounded-lg p-3 outline-none focus:border-indigo-500 text-sm" placeholder="******" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
               <button type="submit" disabled={loading} className={`w-full text-white font-black rounded-lg p-3.5 shadow-md mt-4 transition-colors ${loading ? 'bg-slate-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                 {loading ? "Membuat Akun..." : "Terbitkan Akses"}

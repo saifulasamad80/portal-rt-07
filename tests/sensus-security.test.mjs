@@ -120,6 +120,17 @@ test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () 
   assert.match(adminLapor, /Izinkan Revisi Data Keluarga/);
   assert.match(adminLapor, /hanya ditutup lewat Izinkan Revisi/);
   assert.doesNotMatch(adminLapor, /status_verifikasi/);
+
+  const mulaiRevisi = adminLapor.indexOf("async function aksiIzinkanRevisi");
+  const selesaiRevisi = adminLapor.indexOf("async function aksiTolakRevisi");
+  assert.ok(mulaiRevisi >= 0 && selesaiRevisi > mulaiRevisi);
+  const aksiRevisi = adminLapor.slice(mulaiRevisi, selesaiRevisi);
+  assert.match(aksiRevisi, /adminBolehMengaksesRt/);
+  assert.match(aksiRevisi, /\.from\("warga"\)/);
+  assert.match(aksiRevisi, /\.eq\("id", wargaId\)/);
+  assert.match(aksiRevisi, /\.eq\("rt_id", rtIdTujuan\)/);
+  assert.match(aksiRevisi, /\.eq\("id", idBersih\)[\s\S]*\.eq\("rt_id", rtIdTujuan\)/);
+  assert.doesNotMatch(aksiRevisi, /role !== "webmaster"/);
   assert.match(adminUi, /Izinkan Revisi/);
   assert.match(dasbor, /href="\/admin\/lapor"/);
   assert.doesNotMatch(dasbor, /Digembok/);

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import KurbanAdminClient from "./KurbanClient";
 import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
@@ -73,6 +74,7 @@ export default async function AdminKurbanPage() {
           console.error("Auto-debet kurban ditolak:", errRpc.code || "database_error");
           return { success: false, message: "Auto-debet belum dapat diproses. Saldo mungkin berubah; coba lagi." };
         }
+        revalidatePath("/");
         return { success: true };
       }
 
@@ -104,6 +106,7 @@ export default async function AdminKurbanPage() {
         rt_id: targetWarga.rt_id,
       }]);
       
+      revalidatePath("/");
       return { success: true };
     } catch (err: unknown) {
       console.error("Aksi transaksi kurban gagal:", err instanceof Error ? err.name : "unknown");

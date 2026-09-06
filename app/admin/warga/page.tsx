@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
 import bcrypt from "bcryptjs";
@@ -97,11 +98,13 @@ export default async function WargaAdminPage() {
       const target = await otorisasiWargaUntukAdmin(supabase, otentikasi.sesi, idWarga.id);
       if (!target.ok) return { success: false, message: target.message };
 
-      return await prosesHapusAtauArsipWarga(
+      const hasil = await prosesHapusAtauArsipWarga(
         getSupabaseAdminClientDariSesi(otentikasi.sesi),
         target.sesi.id,
         otentikasi.sesi.nama
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat menghapus.";
       return { success: false, message: pesan };
@@ -118,13 +121,15 @@ export default async function WargaAdminPage() {
       if (!idWarga.ok) return { success: false, message: idWarga.message };
 
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-      return await prosesValidasiAkunWarga(
+      const hasil = await prosesValidasiAkunWarga(
         supabase,
         otentikasi.sesi,
         idWarga.id,
         status,
         "Mengubah Status Verifikasi"
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat mengubah status.";
       return { success: false, message: pesan };
@@ -218,6 +223,7 @@ export default async function WargaAdminPage() {
       ]);
       if (errAudit) console.error("Audit log import gagal dicatat:", errAudit.message);
 
+      if (berhasil > 0) revalidatePath("/");
       return {
         success: true,
         message: `Impor selesai. Sukses ${berhasil} KK, gagal ${gagal} baris.`,

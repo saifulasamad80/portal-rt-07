@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import AdminLogin from "./AdminLogin";
@@ -156,13 +157,15 @@ export default async function AdminDashboard() {
       }
 
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-      return await prosesValidasiAkunWarga(
+      const hasil = await prosesValidasiAkunWarga(
         supabase,
         otentikasi.sesi,
         idBersih,
         status,
         "Validasi Cepat"
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat memvalidasi.";
       return { success: false, message: pesan };
@@ -176,6 +179,11 @@ export default async function AdminDashboard() {
     redirect("/");
   };
 
+  const modeWebmaster = otentikasiHalaman.sesi.role === "webmaster";
+  const judulDasbor = modeWebmaster
+    ? "Mode Webmaster: Menampilkan Data Global Seluruh RT"
+    : "Pusat Komando";
+
   return (
     <AdminDashboardClient
       adminAktif={adminAman}
@@ -183,6 +191,8 @@ export default async function AdminDashboard() {
       statistik={statistik}
       prosesValidasi={prosesValidasi}
       logoutAction={handleLogout}
+      modeWebmaster={modeWebmaster}
+      judulDasbor={judulDasbor}
     />
   );
 }

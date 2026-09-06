@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   buatKlienTerautentikasi,
@@ -140,13 +141,15 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       const otentikasi = await otentikasiAdminAktif();
       if (!otentikasi.ok) return { success: false, message: otentikasi.message };
       const klien = await buatKlienTerautentikasi(otentikasi.sesi);
-      return await prosesValidasiAkunWarga(
+      const hasil = await prosesValidasiAkunWarga(
         klien,
         otentikasi.sesi,
         idWarga,
         statusBaru,
         "Verifikasi Akun Warga"
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat mengubah status akun.";
       return { success: false, message: pesan };
@@ -165,7 +168,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
       if (!target.ok) return { success: false, message: target.message };
 
-      return await simpanVerifikasiCarik(
+      const hasil = await simpanVerifikasiCarik(
         klien,
         target.sesi.id,
         dataBaru,
@@ -174,6 +177,8 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
         otentikasi.sesi.nama,
         { capCarik: false }
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat menyimpan biodata.";
       return { success: false, message: pesan };
@@ -193,7 +198,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
       if (!target.ok) return { success: false, message: target.message };
 
-      return await simpanVerifikasiCarik(
+      const hasil = await simpanVerifikasiCarik(
         klien,
         target.sesi.id,
         dataBaru,
@@ -201,6 +206,8 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
         catatan || "Diverifikasi langsung oleh pengurus RT",
         otentikasi.sesi.nama
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat mencatat verifikasi carik.";
       return { success: false, message: pesan };
@@ -221,7 +228,10 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
         target.sesi.id,
         otentikasi.sesi.nama
       );
-      if (hasil.success) hasil.arah = "/admin/warga";
+      if (hasil.success) {
+        revalidatePath("/");
+        hasil.arah = "/admin/warga";
+      }
       return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat menghapus data.";
@@ -240,13 +250,15 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
         return { success: false, message: targetDipertahankan.message };
       }
 
-      return await hapusDuplikatPilihan(
+      const hasil = await hapusDuplikatPilihan(
         getSupabaseAdminClientDariSesi(otentikasi.sesi),
         idTarget,
         sumberTarget,
         targetDipertahankan.sesi.id,
         otentikasi.sesi.nama
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal saat menghapus data kembar.";
       return { success: false, message: pesan };

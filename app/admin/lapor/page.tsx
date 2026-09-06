@@ -6,7 +6,7 @@ import {
   STATUS_TIKET_TERBUKA,
   tiketKeluargaMasihTerbuka,
 } from "@/lib/kebijakan-sensus";
-import { otentikasiAdminAktif } from "@/lib/session-security";
+import { adminBolehMengaksesRt, otentikasiAdminAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -127,6 +127,21 @@ export default async function AdminLaporPage() {
         return { success: false, message: "Pemilik tiket tidak valid." };
       }
 
+      const rtIdTujuan = String(target.tiket.rt_id || "").trim();
+      if (!POLA_UUID.test(rtIdTujuan) || !adminBolehMengaksesRt(otentikasiAksi.sesi, rtIdTujuan)) {
+        return { success: false, message: "Laporan tidak berada dalam cakupan RT Anda." };
+      }
+
+      const { data: pemilik, error: errPemilik } = await supabase
+        .from("warga")
+        .select("id")
+        .eq("id", wargaId)
+        .eq("rt_id", rtIdTujuan)
+        .maybeSingle();
+      if (errPemilik || !pemilik) {
+        return { success: false, message: "Pemilik tiket tidak berada dalam cakupan RT tiket." };
+      }
+
       const { data: capDibuka, error: errCap } = await supabase
         .from("sensus_kesejahteraan")
         .update({ status_validasi: "Menunggu" })
@@ -155,16 +170,17 @@ export default async function AdminLaporPage() {
         }
       }
 
-      let queryTutup = supabase
+      const { data: tiketDitutup, error: errTutup } = await supabase
         .from("laporan_warga")
         .update({
           status: "Selesai",
           tanggapan_rt: PESAN_TANGGAPAN_IZINKAN_REVISI,
         })
         .eq("id", idBersih)
-        .in("status", [...STATUS_TIKET_TERBUKA]);
-      if (otentikasiAksi.sesi.role !== "webmaster") queryTutup = queryTutup.eq("rt_id", otentikasiAksi.sesi.rtId);
-      const { data: tiketDitutup, error: errTutup } = await queryTutup.select("id").maybeSingle();
+        .eq("rt_id", rtIdTujuan)
+        .in("status", [...STATUS_TIKET_TERBUKA])
+        .select("id")
+        .maybeSingle();
 
       if (errTutup || !tiketDitutup) {
         console.error("Penutupan tiket revisi gagal:", errTutup?.message);

@@ -62,14 +62,36 @@ export default async function AdminPengurusPage() {
     if (idBersih === sesiAsli.id) return { success: false, message: "Anda tidak dapat menghapus akun sendiri." };
 
     const supabase = await buatKlienTerautentikasi(sesiAsli);
-    const { data: target } = await supabase.from("pengurus_rt").select("nama_lengkap").eq("id", idBersih).maybeSingle();
-    if (!target) return { success: false, message: "Pengurus tidak ditemukan." };
-    
-    const { data: terhapus, error } = await supabase.from("pengurus_rt").delete().eq("id", idBersih).select("id").maybeSingle();
+    const { data: target, error: errBaca } = await supabase
+      .from("pengurus_rt")
+      .select("id, nama_lengkap, rt_id, level")
+      .eq("id", idBersih)
+      .maybeSingle();
+    if (errBaca || !target) return { success: false, message: "Pengurus tidak ditemukan." };
+
+    const rtIdTarget = String(target.rt_id || "").trim();
+    if (!POLA_UUID.test(rtIdTarget)) {
+      return { success: false, message: "Wilayah pengurus tidak valid." };
+    }
+    if (String(target.level || "") === "webmaster") {
+      return { success: false, message: "Akun webmaster tidak boleh dihapus lewat halaman ini." };
+    }
+
+    const { data: terhapus, error } = await supabase
+      .from("pengurus_rt")
+      .delete()
+      .eq("id", idBersih)
+      .eq("rt_id", rtIdTarget)
+      .select("id")
+      .maybeSingle();
     if (error || !terhapus) return { success: false, message: "Akun pengurus gagal dihapus atau sudah berubah." };
 
     await supabase.from("audit_log").insert([{
-      aktor: sesiAsli.nama, aksi: "Hapus Akun Pengurus", tabel_target: "pengurus_rt", detail: `Mencabut akses admin: ${target?.nama_lengkap}`, rt_id: sesiAsli.rtId
+      aktor: sesiAsli.nama,
+      aksi: "Hapus Akun Pengurus",
+      tabel_target: "pengurus_rt",
+      detail: `Mencabut akses admin: ${target.nama_lengkap}`,
+      rt_id: rtIdTarget,
     }]);
     return { success: true };
   }
@@ -81,10 +103,36 @@ export default async function AdminPengurusPage() {
     const sandi = String(sandiBaru || "");
     if (!POLA_UUID.test(idBersih) || sandi.length < 8 || sandi.length > 512) return { success: false, message: "ID atau sandi baru tidak valid." };
 
+    const supabaseBaca = await buatKlienTerautentikasi(sesiAsli);
+    const { data: target, error: errBaca } = await supabaseBaca
+      .from("pengurus_rt")
+      .select("id, nama_lengkap, rt_id, level")
+      .eq("id", idBersih)
+      .maybeSingle();
+    if (errBaca || !target) return { success: false, message: "Pengurus tidak ditemukan." };
+
+    const rtIdTarget = String(target.rt_id || "").trim();
+    if (!POLA_UUID.test(rtIdTarget)) {
+      return { success: false, message: "Wilayah pengurus tidak valid." };
+    }
+    if (String(target.level || "") === "webmaster" && String(target.id) !== sesiAsli.id) {
+      return { success: false, message: "Akun webmaster lain tidak boleh diubah." };
+    }
+
+    const { data: targetTerikat, error: errIkat } = await supabaseBaca
+      .from("pengurus_rt")
+      .select("id")
+      .eq("id", idBersih)
+      .eq("rt_id", rtIdTarget)
+      .maybeSingle();
+    if (errIkat || !targetTerikat) {
+      return { success: false, message: "Pengurus tidak ditemukan dalam cakupan RT-nya." };
+    }
+
     const supabase = getSupabaseAdminClientDariSesi(sesiAsli);
     const hashedPassword = await bcrypt.hash(sandi, 12);
 
-    const { error } = await supabase.rpc("simpan_pengurus_rt", {
+    const { data: idDiperbarui, error } = await supabase.rpc("simpan_pengurus_rt", {
       p_aktor_id: sesiAsli.id,
       p_pengurus_id: idBersih,
       p_nama: null,
@@ -99,6 +147,7 @@ export default async function AdminPengurusPage() {
       if (error.code === "42501") return { success: false, message: "Akses webmaster ditolak." };
       return { success: false, message: "Sandi pengurus gagal diubah." };
     }
+    if (!idDiperbarui) return { success: false, message: "Sandi pengurus gagal diubah." };
 
     return { success: true };
   }

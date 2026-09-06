@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import PengumumanAdminClient from "./PengumumanAdminClient";
 import { kirimNotifikasiKeSemuaWarga } from "@/lib/notifikasi-push";
@@ -53,6 +54,9 @@ export default async function AdminPengumumanPage() {
     } catch (pushErr) {
       console.error("Pengumuman tersimpan, namun notifikasi push gagal:", pushErr);
     }
+
+    revalidatePath("/");
+    return { success: true };
   }
 
   async function editPengumuman(id: string, judul: string, deskripsi: string, linkDokumen: string) {
@@ -74,6 +78,9 @@ export default async function AdminPengumumanPage() {
     await supabase.from("audit_log").insert([{
       aktor: sesi.nama, aksi: "Edit Pengumuman", tabel_target: "pengumuman_rt", detail: `Memperbarui pengumuman: ${judulBersih}`, rt_id: sesi.rtId
     }]);
+
+    revalidatePath("/");
+    return { success: true };
   }
 
   async function hapusPengumuman(id: string) {
@@ -92,6 +99,9 @@ export default async function AdminPengumumanPage() {
     await supabase.from("audit_log").insert([{
       aktor: sesi.nama, aksi: "Hapus Pengumuman", tabel_target: "pengumuman_rt", detail: `Menghapus siaran: ${target.judul}`, rt_id: sesi.rtId
     }]);
+
+    revalidatePath("/");
+    return { success: true };
   }
 
   return <PengumumanAdminClient 

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import VerifikasiWargaClient, { type WargaAntrean } from "./VerifikasiWargaClient";
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
@@ -87,13 +88,15 @@ export default async function VerifikasiWargaPage() {
       }
 
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-      return await prosesValidasiAkunWarga(
+      const hasil = await prosesValidasiAkunWarga(
         supabase,
         otentikasi.sesi,
         idBersih,
         status,
         "Verifikasi Pendaftaran"
       );
+      if (hasil.success) revalidatePath("/");
+      return hasil;
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat memvalidasi.";
       return { success: false, message: pesan };

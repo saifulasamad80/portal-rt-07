@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import KasAdminClient from "./KasAdminClient";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -87,6 +88,7 @@ export default async function AdminKasPage() {
       rt_id: idRt 
     }]);
 
+    revalidatePath("/");
     return { success: true };
   }
 

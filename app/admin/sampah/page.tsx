@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import SampahAdminClient from "./SampahAdminClient";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -117,6 +118,7 @@ export default async function AdminSampahPage() {
         rt_id: rtIdTarget,
       }]);
       
+      revalidatePath("/");
       return { success: true };
     } catch (err: unknown) { return { success: false, message: err instanceof Error ? err.message : "Aksi transaksi sampah gagal." }; }
   }

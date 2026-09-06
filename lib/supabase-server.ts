@@ -42,8 +42,7 @@ export async function buatKlienTerautentikasi(sesi: IdentitasSesiData): Promise<
   const rawSecret = process.env.SUPABASE_JWT_SECRET;
   
   if (!rawSecret) {
-    console.warn("WARNING: SUPABASE_JWT_SECRET kosong. Jatuh ke fallback service_role (Bypass RLS)!");
-    return getSupabaseAdminClientDariSesi(sesi);
+    throw new Error("CRITICAL: JWT Secret Kosong! Bypass RLS ditolak secara paksa.");
   }
 
   const urlProyek = wajibEnv("NEXT_PUBLIC_SUPABASE_URL");
