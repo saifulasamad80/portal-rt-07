@@ -165,6 +165,9 @@ export default function RegisterClient({ aksiRegister, alasan }: { aksiRegister:
 
       setProgressTeks("Mendaftarkan & Mengunggah via Server (Jalur Aman)...");
       const hasil = await aksiRegister(payloadKepala, anggotaPayload);
+      // #region agent log
+      fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'A',location:'app/register/RegisterClient.tsx:handleSubmit',message:'client received action result',data:{adaHasil:Boolean(hasil),success:Boolean(hasil?.success),pesan:String(hasil?.message||'').slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!hasil?.success) {
         alert(hasil?.message || "Pendaftaran belum dapat diproses saat ini.");
         setLoading(false); setProgressTeks("");

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import AdminLogin from "./AdminLogin";
 import AdminDashboardClient from "./AdminDashboardClient";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
+import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import {
   otentikasiAdminAktif as otentikasiAdmin,
@@ -125,6 +126,9 @@ export default async function AdminDashboard() {
   ]);
 
   if (wargaListRes.error) console.error("Gagal memuat antrean validasi:", wargaListRes.error.message);
+  // #region agent log
+  fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'E',location:'app/admin/page.tsx:queryAntrean',message:'admin dashboard antrean result',data:{adaError:Boolean(wargaListRes.error),kodeError:wargaListRes.error?.code||null,pesanError:wargaListRes.error?.message||null,jumlahMenunggu:Array.isArray(wargaListRes.data)?wargaListRes.data.length:0,wargaSah:totalWargaAktif,role:otentikasiHalaman.sesi.role,rtIdTail:String(otentikasiHalaman.sesi.rtId||'').slice(-4)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   if (sampahRes.error) console.error("Gagal memuat transaksi sampah:", sampahRes.error.message);
   if (kurbanRes.error) console.error("Gagal memuat transaksi kurban:", kurbanRes.error.message);
 
@@ -201,6 +205,12 @@ export default async function AdminDashboard() {
       // Status warga sudah tersimpan; kegagalan audit log tidak boleh
       // membatalkan keberhasilan aksi utama.
       if (errAudit) console.error("Audit log validasi gagal dicatat:", errAudit.message);
+
+      const tiket = await tutupTiketPendaftaranWarga(supabase, idBersih, wilayah.rtIdTulis, statusBersih);
+      // #region agent log
+      fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'C',location:'app/admin/page.tsx:prosesValidasi:tiket',message:'close registration ticket after validation',data:{adaError:Boolean(tiket.error),pesanError:tiket.error,jumlahDitutup:tiket.ditutup,statusWarga:statusBersih},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
 
       return {
         success: true,

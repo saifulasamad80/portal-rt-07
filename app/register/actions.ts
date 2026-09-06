@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
+import { JUDUL_TIKET_PENDAFTARAN } from "@/lib/kebijakan-sensus";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 
 /**
@@ -46,6 +47,15 @@ const PESAN_VALIDASI = "Data pendaftaran tidak valid. Periksa kembali isian form
 const PESAN_DUPLIKAT = "Pendaftaran tidak dapat diproses saat ini. Hubungi pengurus RT bila Anda sudah pernah terdaftar.";
 const PESAN_INTERNAL = "Pendaftaran belum dapat diproses saat ini. Silakan coba lagi nanti atau hubungi pengurus RT.";
 const PESAN_KONFIGURASI = "Pendaftaran belum tersedia untuk wilayah ini. Hubungi pengurus RT.";
+
+function pesanSupabase(error: unknown, cadangan: string): string {
+  if (!error || typeof error !== "object") return cadangan;
+  const e = error as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
+  const bagian = [e.code, e.message, e.details, e.hint]
+    .filter((nilai): nilai is string => typeof nilai === "string" && nilai.trim().length > 0)
+    .map((nilai) => nilai.trim());
+  return bagian.length > 0 ? bagian.join(" | ") : cadangan;
+}
 
 type Rekaman = Record<string, unknown>;
 
@@ -305,8 +315,7 @@ async function unggahDokumen(
     upsert: false,
   });
   if (error || !data?.path) {
-    console.error("Upload dokumen registrasi gagal:", error?.message || "path kosong");
-    throw new Error(PESAN_INTERNAL);
+    throw new Error(pesanSupabase(error, "Upload dokumen gagal: path kosong."));
   }
   uploadedPaths.push(data.path);
   return data.path;
@@ -326,9 +335,14 @@ export type HasilRegister = {
 export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unknown): Promise<HasilRegister> {
   let supabase: ReturnType<typeof getSupabaseAdminClient> | null = null;
   let wargaId: string | null = null;
+  let tiketId: string | null = null;
   const uploadedPaths: string[] = [];
 
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'A',location:'app/register/actions.ts:aksiRegister:entry',message:'register action start',data:{kepalaTipe:typeof payloadKepala,anggotaArray:Array.isArray(anggotaPayload),anggotaN:Array.isArray(anggotaPayload)?anggotaPayload.length:-1},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     const kepala = normalisasiKepala(payloadKepala);
     const anggota = normalisasiAnggota(anggotaPayload);
     const semuaNik = semuaNikUnik(kepala, anggota);
@@ -340,14 +354,19 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
 
     // Never silently assign a missing/unknown tenant.  A registration with a
     // NULL rt_id would disappear from an RT admin queue and become a cross-
-    // tenant orphan.
+    // tenant orphan. Tenant comes from server env, never from the client.
     const { data: tenant, error: errTenant } = await supabase
       .from("master_rt")
       .select("id")
       .eq("id", rtId)
       .maybeSingle();
-    if (errTenant || !tenant) {
-      console.error("Tenant registrasi tidak ditemukan:", errTenant?.message || "baris kosong");
+    // #region agent log
+    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'D',location:'app/register/actions.ts:aksiRegister:tenant',message:'tenant lookup',data:{adaError:Boolean(errTenant),kodeError:errTenant?.code||null,pesanError:errTenant?.message||null,tenantKetemu:Boolean(tenant?.id),rtIdTail:rtId.slice(-4)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    if (errTenant) {
+      throw new Error(pesanSupabase(errTenant, PESAN_KONFIGURASI));
+    }
+    if (!tenant) {
       throw new RegistrasiAmanError(PESAN_KONFIGURASI, "konfigurasi");
     }
 
@@ -358,10 +377,8 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       supabase.from("warga").select("id").in("nik", semuaNik).limit(1),
       supabase.from("anggota_keluarga").select("id").in("nik", semuaNik).limit(1),
     ]);
-    if (cekWarga.error || cekAnggota.error) {
-      console.error("Preflight NIK registrasi gagal:", cekWarga.error?.message || cekAnggota.error?.message);
-      throw new Error(PESAN_INTERNAL);
-    }
+    if (cekWarga.error) throw new Error(pesanSupabase(cekWarga.error, PESAN_INTERNAL));
+    if (cekAnggota.error) throw new Error(pesanSupabase(cekAnggota.error, PESAN_INTERNAL));
     if ((cekWarga.data?.length || 0) > 0 || (cekAnggota.data?.length || 0) > 0) {
       throw new RegistrasiAmanError(PESAN_DUPLIKAT, "duplikat");
     }
@@ -396,10 +413,16 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
       .select("id")
       .single();
 
-    if (errWarga || !wargaBaru?.id) {
+    // #region agent log
+    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'B',location:'app/register/actions.ts:aksiRegister:insertWarga',message:'insert warga result',data:{adaError:Boolean(errWarga),kodeError:errWarga?.code||null,pesanError:errWarga?.message||null,adaId:Boolean(wargaBaru?.id)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    if (errWarga) {
       if (kodeError(errWarga) === "23505") throw new RegistrasiAmanError(PESAN_DUPLIKAT, "duplikat");
-      console.error("Insert kepala keluarga gagal:", errWarga?.message || "id kosong");
-      throw new Error(PESAN_INTERNAL);
+      throw new Error(pesanSupabase(errWarga, "Insert warga gagal."));
+    }
+    if (!wargaBaru?.id) {
+      throw new Error("Insert warga gagal: Supabase tidak mengembalikan id dan tidak mengembalikan error.");
     }
     wargaId = String(wargaBaru.id);
 
@@ -431,16 +454,47 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
 
       const { error: errAnggota } = await supabase.from("anggota_keluarga").insert(anggotaToInsert);
       if (errAnggota) {
-        console.error("Insert anggota keluarga gagal:", errAnggota.message);
         if (kodeError(errAnggota) === "23505") throw new RegistrasiAmanError(PESAN_DUPLIKAT, "duplikat");
-        throw new Error(PESAN_INTERNAL);
+        throw new Error(pesanSupabase(errAnggota, "Insert anggota keluarga gagal."));
       }
     }
+
+    const { data: tiketBaru, error: errTiket } = await supabase
+      .from("laporan_warga")
+      .insert([{
+        warga_id: wargaId,
+        rt_id: rtId,
+        judul_laporan: JUDUL_TIKET_PENDAFTARAN,
+        deskripsi: `Lapor diri mandiri menunggu verifikasi pengurus. Jumlah anggota keluarga tercatat: ${anggota.length}.`,
+        status: "Menunggu",
+      }])
+      .select("id")
+      .single();
+
+    // #region agent log
+    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'C',location:'app/register/actions.ts:aksiRegister:insertTiket',message:'insert laporan_warga result',data:{adaError:Boolean(errTiket),kodeError:errTiket?.code||null,pesanError:errTiket?.message||null,adaTiket:Boolean(tiketBaru?.id),jumlahAnggota:anggota.length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    if (errTiket) {
+      throw new Error(pesanSupabase(errTiket, "Insert tiket verifikasi gagal."));
+    }
+    if (!tiketBaru?.id) {
+      throw new Error("Insert tiket verifikasi gagal: Supabase tidak mengembalikan id dan tidak mengembalikan error.");
+    }
+    tiketId = String(tiketBaru.id);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'C',location:'app/register/actions.ts:aksiRegister:success',message:'register returning success after ticket',data:{adaWarga:Boolean(wargaId),adaTiket:Boolean(tiketId)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     return { success: true, message: "SUKSES" };
   } catch (error: unknown) {
     // Compensating cleanup is deliberately scoped to the UUID generated in
     // this invocation.  It cannot delete another registrant's row or file.
+    if (supabase && tiketId) {
+      const { error: errTiket } = await supabase.from("laporan_warga").delete().eq("id", tiketId);
+      if (errTiket) console.error("Rollback tiket registrasi gagal:", errTiket.message);
+    }
     if (supabase && wargaId) {
       const { error: errAnggota } = await supabase.from("anggota_keluarga").delete().eq("warga_id", wargaId);
       if (errAnggota) console.error("Rollback anggota registrasi gagal:", errAnggota.message);
@@ -449,12 +503,22 @@ export async function aksiRegister(payloadKepala: unknown, anggotaPayload: unkno
     }
     if (supabase) await hapusBerkas(uploadedPaths, supabase);
 
+    const pesan = error instanceof RegistrasiAmanError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : PESAN_INTERNAL;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'A',location:'app/register/actions.ts:aksiRegister:catch',message:'register returning failure',data:{tipeError:error instanceof RegistrasiAmanError ? error.kategori : error instanceof Error ? error.name : typeof error,pesanKeKlien:pesan.slice(0,180),success:false},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     if (!(error instanceof RegistrasiAmanError)) {
       console.error("Registrasi warga gagal:", error instanceof Error ? error.message : error);
     }
     return {
       success: false,
-      message: error instanceof RegistrasiAmanError ? error.message : PESAN_INTERNAL,
+      message: pesan,
     };
   }
 }

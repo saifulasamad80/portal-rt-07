@@ -10,6 +10,7 @@ import {
   saringWargaTerotorisasi,
   wilayahMutasiWarga,
 } from "@/lib/session-security";
+import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
 import WargaDetailClient from "./WargaDetailClient";
 import {
   ambilStatusCarik,
@@ -178,6 +179,9 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
           rt_id: wilayah.rtIdTulis,
         },
       ]);
+
+      const tiket = await tutupTiketPendaftaranWarga(klien, idWarga, wilayah.rtIdTulis, statusBaru);
+      if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
 
       return { success: true, message: `Status akun ${target.sesi.nama} diubah menjadi ${statusBaru}.` };
     } catch (err: unknown) {

@@ -53,7 +53,11 @@ export default async function AdminLaporPage() {
     .order("created_at", { ascending: false })
     .limit(1000);
   if (otentikasi.sesi.role !== "webmaster") queryLaporan = queryLaporan.eq("rt_id", otentikasi.sesi.rtId);
-  const { data: laporanRes } = await queryLaporan;
+  const { data: laporanRes, error: errLaporan } = await queryLaporan;
+  // #region agent log
+  fetch('http://127.0.0.1:7451/ingest/bdf48fb7-809f-4eb9-8796-2124cb9050c0',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4c2797'},body:JSON.stringify({sessionId:'4c2797',runId:'post-fix',hypothesisId:'E',location:'app/admin/lapor/page.tsx:queryLaporan',message:'admin lapor query result',data:{adaError:Boolean(errLaporan),kodeError:errLaporan?.code||null,pesanError:errLaporan?.message||null,jumlahBaris:Array.isArray(laporanRes)?laporanRes.length:0,role:otentikasi.sesi.role,rtIdTail:String(otentikasi.sesi.rtId||'').slice(-4)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (errLaporan) console.error("Gagal memuat antrean laporan:", errLaporan.message);
 
   async function tanggapiLaporan(laporanId: string, statusBaru: string, tanggapanTeks: string): Promise<HasilAksiLapor> {
     "use server";

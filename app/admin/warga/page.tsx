@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import WargaAdminClient from "./WargaAdminClient";
 import bcrypt from "bcryptjs";
 import { prosesHapusAtauArsipWarga } from "@/lib/arsip-warga";
+import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
 import {
   buatKlienTerautentikasi,
   getSupabaseAdminClientDariSesi,
@@ -152,6 +153,9 @@ export default async function WargaAdminPage() {
       ]);
       // Status utama sudah tersimpan; audit log hanya pelengkap.
       if (errAudit) console.error("Audit log ubah status gagal dicatat:", errAudit.message);
+
+      const tiket = await tutupTiketPendaftaranWarga(supabase, idWarga.id, wilayah.rtIdTulis, statusBersih);
+      if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
 
       return {
         success: true,
