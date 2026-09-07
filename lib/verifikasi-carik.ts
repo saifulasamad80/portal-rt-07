@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   BATAS_ANGGOTA_KELUARGA,
   PESAN_TINJAUAN_PENGURUS,
@@ -655,6 +656,8 @@ async function simpanVerifikasiCarikInternal(
     return { success: false, message: "Wilayah data warga belum valid. Hubungi pengurus RT." };
   }
 
+  const supabasePrivileged = getSupabaseAdminClient();
+
   const biodata = sanitasiBiodata(biodataMentah);
   if (!biodata.ok) return { success: false, message: biodata.message };
 
@@ -669,12 +672,12 @@ async function simpanVerifikasiCarikInternal(
   if (!anggota.ok) return { success: false, message: anggota.message };
 
   // Preflight kepemilikan dan konflik harus selesai sebelum mutasi pertama.
-  const persiapan = await siapkanSinkronAnggota(supabase, wargaId, rtId, anggota.data);
+  const persiapan = await siapkanSinkronAnggota(supabasePrivileged, wargaId, rtId, anggota.data);
   if (!persiapan.ok) {
     return { success: false, message: persiapan.message, code: persiapan.code };
   }
 
-  const queryUpdate = supabase
+  const queryUpdate = supabasePrivileged
     .from("warga")
     .update(biodata.data)
     .eq("id", wargaId)
@@ -692,7 +695,7 @@ async function simpanVerifikasiCarikInternal(
   }
 
   const sinkron = await sinkronAnggota(
-    supabase,
+    supabasePrivileged,
     wargaId,
     rtId,
     anggota.data,
@@ -706,14 +709,14 @@ async function simpanVerifikasiCarikInternal(
     const catatanCap =
       teks(catatan).slice(0, 1000) ||
       "Data Carik diverifikasi oleh pengurus RT";
-    const cap = await tandaiSensus(supabase, wargaId, catatanCap, "Disetujui", rtId);
+    const cap = await tandaiSensus(supabasePrivileged, wargaId, catatanCap, "Disetujui", rtId);
     if (!cap.ok) return { success: false, message: cap.message };
   }
 
   const aktor = teks(aktorMentah).slice(0, 150) || "pengurus";
 
   await catatAudit(
-    supabase,
+    supabasePrivileged,
     aktor,
     opsi.capCarik ? "Verifikasi Data Carik" : "Edit Data Warga",
     `NIK ${warga.nik} (${biodata.data.nama_lengkap}) ${

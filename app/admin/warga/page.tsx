@@ -256,10 +256,12 @@ export default async function WargaAdminPage() {
       const wilayah = wilayahMutasiWarga(otentikasi.sesi, target.sesi.rtId);
       if (!wilayah.ok) return { success: false, message: wilayah.message };
 
+      const privileged = getSupabaseAdminClientDariSesi(otentikasi.sesi);
+
       const hashedPin = await bcrypt.hash(pinBersih, 10);
 
       const { data: diperbarui, error } = await saringWargaTerotorisasi(
-        supabase.from("warga").update({
+        privileged.from("warga").update({
           pin: hashedPin,
           percobaan_gagal: 0,
           terkunci_sampai: null,
@@ -273,7 +275,7 @@ export default async function WargaAdminPage() {
       if (error) return { success: false, message: `Gagal mereset PIN: ${error.message}` };
       if (!diperbarui) return { success: false, message: "Data warga berubah; muat ulang halaman." };
 
-      const { error: errAudit } = await supabase.from("audit_log").insert([
+      const { error: errAudit } = await privileged.from("audit_log").insert([
         {
           aktor: otentikasi.sesi.nama,
           aksi: "Reset PIN & Cabut Lockdown Warga",

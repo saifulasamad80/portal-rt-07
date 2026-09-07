@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidTenantSah } from "@/lib/uuid-tenant";
+import { getSupabaseAdminClient } from "@/lib/supabase-server";
 
 export type HasilHapusWarga = {
   success: boolean;
@@ -489,6 +490,7 @@ export async function prosesHapusAtauArsipWarga(
 
   const target = ringkasan.warga;
   const namaTarget = target.nama_lengkap || "Warga";
+  const supabasePrivileged = getSupabaseAdminClient();
 
   if (target.status_aktif === false) {
     return {
@@ -505,11 +507,11 @@ export async function prosesHapusAtauArsipWarga(
   // mentah ke Vercel.
   const arsipkanDanCatat = async (): Promise<HasilHapusWarga> => {
     try {
-      const hasil = await arsipkanWargaKarenaPemilu(supabase, wargaId, namaTarget);
+      const hasil = await arsipkanWargaKarenaPemilu(supabasePrivileged, wargaId, namaTarget);
       if (!hasil.success) return hasil;
 
       await catatAudit(
-        supabase,
+        supabasePrivileged,
         aktor,
         "Arsip Warga (Soft Delete / E-Voting)",
         `Data personal ${namaTarget} dilepas; indeks pemilih e-voting dipertahankan.`,
@@ -547,9 +549,9 @@ export async function prosesHapusAtauArsipWarga(
   }
 
   try {
-    await bersihkanRelasiNonPemilu(supabase, wargaId);
+    await bersihkanRelasiNonPemilu(supabasePrivileged, wargaId);
 
-    const { error: errHapus } = await supabase.from("warga").delete().eq("id", wargaId);
+    const { error: errHapus } = await supabasePrivileged.from("warga").delete().eq("id", wargaId);
     if (errHapus) {
       // Titik ini adalah satu-satunya tempat baris "warga" benar-benar
       // dihapus. Setelah semua tabel turunan non-pemilu sudah dibersihkan,
@@ -571,7 +573,7 @@ export async function prosesHapusAtauArsipWarga(
     // hanyalah pelengkap—kegagalannya tidak boleh mengubah status akhir
     // menjadi gagal atau memicu percobaan arsip pada baris yang sudah hilang.
     await catatAudit(
-      supabase,
+      supabasePrivileged,
       aktor,
       "Hapus Warga",
       `Menghapus data warga yang tidak terikat pemilu: ${namaTarget}`,

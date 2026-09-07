@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
+import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   otorisasiWargaUntukAdmin,
   saringWargaTerotorisasi,
@@ -38,8 +39,10 @@ export async function prosesValidasiAkunWarga(
   const wilayah = wilayahMutasiWarga(sesi, target.sesi.rtId);
   if (!wilayah.ok) return { success: false, message: wilayah.message };
 
+  const supabasePrivileged = getSupabaseAdminClient();
+
   const { data: diperbarui, error } = await saringWargaTerotorisasi(
-    supabase.from("warga").update({
+    supabasePrivileged.from("warga").update({
       status_verifikasi: statusBersih,
     }),
     target.sesi,
@@ -62,7 +65,7 @@ export async function prosesValidasiAkunWarga(
   ]);
   if (errAudit) console.error("Audit log validasi akun gagal dicatat:", errAudit.message);
 
-  const tiket = await tutupTiketPendaftaranWarga(supabase, idWarga, wilayah.rtIdTulis, statusBersih);
+  const tiket = await tutupTiketPendaftaranWarga(supabasePrivileged, idWarga, wilayah.rtIdTulis, statusBersih);
   if (tiket.error) console.error("Penutupan tiket pendaftaran gagal:", tiket.error);
 
   return {
