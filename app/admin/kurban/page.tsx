@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import KurbanAdminClient from "./KurbanClient";
 import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
 import {
@@ -11,6 +12,50 @@ import {
 
 const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_SENTINEL = "00000000-0000-0000-0000-000000000000";
+const UKURAN_KELOMPOK = 80;
+
+type BarisKurbanAdmin = {
+  tanggal_transaksi?: string | null;
+  [kunci: string]: unknown;
+};
+
+type BarisSampahAdmin = {
+  warga_id: string;
+  jenis_transaksi: string;
+  nominal_warga: number;
+};
+
+async function ambilKurbanCakupan(supabase: SupabaseClient, ids: string[]) {
+  const gabungan: BarisKurbanAdmin[] = [];
+  for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
+    const potong = ids.slice(i, i + UKURAN_KELOMPOK);
+    const { data, error } = await supabase
+      .from("transaksi_kurban")
+      .select("*, warga(nama_lengkap)")
+      .in("warga_id", potong);
+    if (error) return { data: [] as BarisKurbanAdmin[], error };
+    gabungan.push(...((data || []) as BarisKurbanAdmin[]));
+  }
+  gabungan.sort((a, b) =>
+    String(b.tanggal_transaksi || "").localeCompare(String(a.tanggal_transaksi || "")),
+  );
+  return { data: gabungan, error: null };
+}
+
+async function ambilSampahCakupan(supabase: SupabaseClient, ids: string[]) {
+  const gabungan: BarisSampahAdmin[] = [];
+  for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
+    const potong = ids.slice(i, i + UKURAN_KELOMPOK);
+    const { data, error } = await supabase
+      .from("transaksi_sampah")
+      .select("warga_id, jenis_transaksi, nominal_warga")
+      .in("warga_id", potong);
+    if (error) return { data: [] as BarisSampahAdmin[], error };
+    gabungan.push(...((data || []) as BarisSampahAdmin[]));
+  }
+  return { data: gabungan, error: null };
+}
 
 export default async function AdminKurbanPage() {
   const otentikasi = await otentikasiAdminAktif();
@@ -24,15 +69,24 @@ export default async function AdminKurbanPage() {
   if (otentikasi.sesi.role !== "webmaster") queryWarga = queryWarga.eq("rt_id", otentikasi.sesi.rtId);
   const { data: wargaRes } = await queryWarga.order("nama_lengkap", { ascending: true }).limit(1000);
   const idWargaCakupan = (wargaRes || []).map((w) => String(w.id));
-  let queryKurban = supabaseAdmin.from("transaksi_kurban").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500);
-  let querySampah = supabaseAdmin.from("transaksi_sampah").select("warga_id, jenis_transaksi, nominal_warga").limit(5000);
-  if (otentikasi.sesi.role !== "webmaster") {
-    // UUID sentinel mencegah query tanpa filter ketika RT tidak memiliki warga.
-    const ids = idWargaCakupan.length ? idWargaCakupan : ["00000000-0000-0000-0000-000000000000"];
-    queryKurban = queryKurban.in("warga_id", ids);
-    querySampah = querySampah.in("warga_id", ids);
-  }
-  const [{ data: kurbanRes }, { data: sampahRes }] = await Promise.all([queryKurban, querySampah]);
+  // PostgREST menaruh .in() di query string. Ratusan UUID sekali tembak pecah
+  // jadi HTTP 400 (URL terlalu panjang) — daftar/saldo kurban jadi kosong.
+  const [{ data: kurbanRes }, { data: sampahRes }] =
+    otentikasi.sesi.role === "webmaster"
+      ? await Promise.all([
+          supabaseAdmin.from("transaksi_kurban").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500),
+          supabaseAdmin.from("transaksi_sampah").select("warga_id, jenis_transaksi, nominal_warga").limit(5000),
+        ])
+      : await Promise.all([
+          ambilKurbanCakupan(
+            supabaseAdmin,
+            idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
+          ),
+          ambilSampahCakupan(
+            supabaseAdmin,
+            idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
+          ),
+        ]);
 
   async function simpanTransaksiKurban(wargaId: string, jenis: string, sumber: string, nominal: number, keterangan: string, tanggal: string) {
     "use server";

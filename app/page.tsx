@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
+import { hitungJiwa, rekapDemografi, type RekamanJiwa } from "@/lib/demografi-publik";
 import DemografiClient from "./DemografiClient";
 import PengumumanClient from "./PengumumanClient";
 import KinerjaSampahClient from "./portal/KinerjaSampahClient";
@@ -12,23 +13,24 @@ export const revalidate = 60;
 
 const TARGET_JUMANTIK = 151;
 const UUID_SENTINEL = "00000000-0000-0000-0000-000000000000";
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Pola kanonik proyek (sama seperti lib/session-security): 8-4-4-4-12 hex.
+// Jangan pakai RFC 4122 versi/varian — id tenant RT 07 berbentuk
+// 00000000-0000-0000-0000-000000000007, yang ditolak regex versi 1-5.
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Landing page bersifat publik, sehingga tenant harus dipilih dari
 // konfigurasi deployment. Tanpa nilai ini semua query tenant memakai UUID
 // sentinel dan menghasilkan nol baris (fail closed), bukan query global.
 const PUBLIC_RT_ID = (() => {
   const nilai = process.env.PUBLIC_RT_ID?.trim() || "";
-  return POLA_UUID.test(nilai) ? nilai : UUID_SENTINEL;
+  if (POLA_UUID.test(nilai) && nilai.toLowerCase() !== UUID_SENTINEL) {
+    return nilai;
+  }
+  if (nilai) {
+    console.error("PUBLIC_RT_ID tidak berbentuk UUID yang sah; portal publik fail-closed ke tenant kosong.");
+  }
+  return UUID_SENTINEL;
 })();
-
-type RekamanJiwa = {
-  tanggal_lahir: string | null;
-  jenis_kelamin: string | null;
-  agama: string | null;
-  pekerjaan: string | null;
-  anggota_keluarga?: RekamanJiwa[] | null;
-};
 
 type BarisKas = {
   tipe_transaksi: string;
@@ -113,15 +115,23 @@ function dataAtauKosong<T>(
 
 async function ambilDemografiSah(supabase: ReturnType<typeof getSupabaseAdminClient>, rtId: string) {
   const pilih =
-    "tanggal_lahir, jenis_kelamin, agama, pekerjaan, anggota_keluarga(tanggal_lahir, jenis_kelamin, agama, pekerjaan)";
-  const dasar = () => supabase.from("warga").select(pilih).eq("status_verifikasi", "Disetujui").eq("rt_id", rtId);
+    "id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan, anggota_keluarga(id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan)";
+  // Induk sudah dikunci rt_id. Nested C2 menolak rt_id tenant lain, tetapi
+  // anggota lama dengan rt_id NULL tetap dihitung sebagai jiwa KK ini.
+  const dasar = () =>
+    supabase
+      .from("warga")
+      .select(pilih)
+      .eq("status_verifikasi", "Disetujui")
+      .eq("rt_id", rtId)
+      .or(`rt_id.eq.${rtId},rt_id.is.null`, { foreignTable: "anggota_keluarga" });
 
   let hasil = await dasar().neq("status_aktif", false);
   if (hasil.error && skemaBelumSiap(hasil.error)) {
     hasil = await dasar();
   }
   if (hasil.error) {
-    console.warn("Portal publik gagal memuat demografi:", hasil.error.message);
+    console.error("Portal publik gagal memuat demografi:", hasil.error.message || hasil.error.code);
     return [] as RekamanJiwa[];
   }
   return (hasil.data || []) as RekamanJiwa[];
@@ -142,14 +152,69 @@ async function ambilKurbanRt(
 
   const ids = (warga || []).map((baris) => String(baris.id)).filter((id) => POLA_UUID.test(id));
   if (!ids.length) return { data: [], error: null };
-  return supabase
-    .from("transaksi_kurban")
-    .select("jenis_transaksi, nominal, warga_id")
-    .in("warga_id", ids);
+
+  // PostgREST menaruh .in() di query string. 680 UUID sekali tembak pecah
+  // jadi HTTP 400 (URL terlalu panjang) — kartu Dana Kurban jadi Rp 0.
+  const UKURAN_KELOMPOK = 80;
+  const gabungan: BarisKurban[] = [];
+  for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
+    const potong = ids.slice(i, i + UKURAN_KELOMPOK);
+    const { data, error } = await supabase
+      .from("transaksi_kurban")
+      .select("jenis_transaksi, nominal, warga_id")
+      .in("warga_id", potong);
+    if (error) return { data: [], error };
+    gabungan.push(...((data || []) as BarisKurban[]));
+  }
+  return { data: gabungan, error: null };
 }
 
-function hitungJiwa(daftarKk: RekamanJiwa[]) {
-  return daftarKk.reduce((jumlah, kk) => jumlah + 1 + (kk.anggota_keluarga?.length || 0), 0);
+async function ambilKasRt(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  rtId: string,
+) {
+  const UKURAN = 1000;
+  const semua: BarisKas[] = [];
+  let dari = 0;
+  while (dari < 20000) {
+    const { data, error } = await supabase
+      .from("kas_rt")
+      .select("tipe_transaksi, nominal, kategori, keterangan, tanggal_transaksi, created_at")
+      .eq("rt_id", rtId)
+      .order("created_at", { ascending: false })
+      .range(dari, dari + UKURAN - 1);
+    if (error) return { data: [], error };
+    const batch = (data || []) as BarisKas[];
+    semua.push(...batch);
+    if (batch.length < UKURAN) break;
+    dari += UKURAN;
+  }
+  return { data: semua, error: null };
+}
+
+async function ambilKunjunganPosyanduRt<T>(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  tabel: "kunjungan_balita" | "kunjungan_lansia",
+  kolom: string,
+  rtId: string,
+) {
+  const UKURAN = 1000;
+  const semua: T[] = [];
+  let dari = 0;
+  while (dari < 20000) {
+    const { data, error } = await supabase
+      .from(tabel)
+      .select(kolom)
+      .eq("rt_id", rtId)
+      .order("tanggal_kunjungan", { ascending: false })
+      .range(dari, dari + UKURAN - 1);
+    if (error) return { data: [] as T[], error };
+    const batch = (data || []) as T[];
+    semua.push(...batch);
+    if (batch.length < UKURAN) break;
+    dari += UKURAN;
+  }
+  return { data: semua, error: null };
 }
 
 export default async function LandingPage() {
@@ -172,13 +237,13 @@ export default async function LandingPage() {
   ] = await Promise.all([
     supabase.from("pengumuman_rt").select("id, judul, deskripsi, link_dokumen, tanggal_publikasi").eq("rt_id", PUBLIC_RT_ID).order("tanggal_publikasi", { ascending: false }).limit(7),
     supabase.from("voting_rt").select("id, judul, deskripsi, opsi_1, opsi_2, status, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("kas_rt").select("tipe_transaksi, nominal, kategori, keterangan, tanggal_transaksi, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(400),
+    ambilKasRt(supabase, PUBLIC_RT_ID),
     supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("rt_id", PUBLIC_RT_ID).eq("jenis_transaksi", "Setor"),
     ambilDemografiSah(supabase, PUBLIC_RT_ID),
     supabase.from("laporan_jumantik").select("jumlah_rumah_diperiksa, ditemukan_jentik, warga_terjangkit_dbd, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ambilKurbanRt(supabase, PUBLIC_RT_ID),
-    supabase.from("kunjungan_balita").select("tanggal_kunjungan, imunisasi").eq("rt_id", PUBLIC_RT_ID).limit(400),
-    supabase.from("kunjungan_lansia").select("tanggal_kunjungan").eq("rt_id", PUBLIC_RT_ID).limit(400),
+    ambilKunjunganPosyanduRt<BarisPosyanduBalita>(supabase, "kunjungan_balita", "tanggal_kunjungan, imunisasi", PUBLIC_RT_ID),
+    ambilKunjunganPosyanduRt<BarisPosyanduLansia>(supabase, "kunjungan_lansia", "tanggal_kunjungan", PUBLIC_RT_ID),
     supabase.from("galeri_kegiatan").select("id, judul, deskripsi, url_foto, kategori, tanggal_kegiatan").eq("rt_id", PUBLIC_RT_ID).eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_kegiatan", { ascending: false }).limit(8),
     supabase.from("dokumen_publik_rt").select("id, judul, deskripsi, kategori, url_berkas, ukuran_berkas, tanggal_terbit").eq("rt_id", PUBLIC_RT_ID).eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_terbit", { ascending: false }).limit(8),
     supabase.from("kontak_darurat_rt").select("id, nama_layanan, nomor, keterangan, ikon, urutan").eq("rt_id", PUBLIC_RT_ID).eq("aktif", true).order("urutan", { ascending: true }),
@@ -239,6 +304,7 @@ export default async function LandingPage() {
 
   const jumlahKkSah = dataDemografiReal.length;
   const jumlahJiwa = hitungJiwa(dataDemografiReal);
+  const rekapDemografiPublik = rekapDemografi(dataDemografiReal);
 
   const rumahDiperiksa = Number(jumantik?.jumlah_rumah_diperiksa || 0);
   const persenJumantik = rumahDiperiksa <= 0 ? 0 : Math.min(100, (rumahDiperiksa / TARGET_JUMANTIK) * 100);
@@ -277,7 +343,7 @@ export default async function LandingPage() {
                   alt="Lambang Pengurus RT 07/09"
                   width={96}
                   height={96}
-                  loading="eager"
+                  priority
                   className="h-full w-full scale-[1.08] object-cover object-center contrast-[1.08] saturate-[1.15]"
                 />
               </div>
@@ -320,7 +386,7 @@ export default async function LandingPage() {
                 fill
                 sizes="(max-width: 768px) 90vw, 736px"
                 quality={70}
-                loading="eager"
+                priority
                 className="object-contain mix-blend-multiply"
               />
             </div>
@@ -361,6 +427,7 @@ export default async function LandingPage() {
                     fill
                     sizes="328px"
                     quality={80}
+                    priority
                     className="scale-[1.07] object-cover object-center contrast-[1.07] saturate-[1.12]"
                   />
                   <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-b from-white/15 via-transparent to-[#0F241C]/20 mix-blend-soft-light" />
@@ -386,7 +453,7 @@ export default async function LandingPage() {
             judul="Demografi warga sah"
             deskripsi="Hanya KK berstatus Disetujui yang masuk peta ini. Arsip pemilu dan pendaftar menunggu tidak dihitung."
           />
-          <DemografiClient dataWarga={dataDemografiReal} />
+          <DemografiClient rekap={rekapDemografiPublik} />
         </section>
 
         <section id="lingkungan" className="scroll-mt-24 grid grid-cols-1 gap-4 lg:grid-cols-5">

@@ -9,14 +9,15 @@ import {
   wajibOtentikasiAdmin,
   wajibWebmaster,
 } from "@/lib/session-security";
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Tabel kunjungan_* adalah tabel legacy yang hanya boleh dibuka setelah
 // operator memetakan seluruh baris ke satu tenant. Jangan pernah menerima
 // rt_id dari payload warga/admin; target berasal dari konfigurasi server.
+const UUID_NOL = "00000000-0000-0000-0000-000000000000";
 const LEGACY_POSYANDU_RT_ID = (() => {
   const nilai = process.env.LEGACY_POSYANDU_RT_ID?.trim() || "";
-  return POLA_UUID.test(nilai) ? nilai : null;
+  return POLA_UUID.test(nilai) && nilai.toLowerCase() !== UUID_NOL ? nilai : null;
 })();
 
 function klienPrivileged(sesi: { id: string; rtId: string }) {

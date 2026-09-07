@@ -1,5 +1,6 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+
+import type { RekapDemografi } from "@/lib/demografi-publik";
 
 type SegmenDemografi = { label: string; nilai: number; persen: number; warna: string };
 
@@ -76,122 +77,53 @@ function KartuDemografi({
   );
 }
 
-export default function DemografiClient({ dataWarga }: { dataWarga: any[] }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const demoStat = useMemo(() => {
-    let totalJiwa = 0;
-    let laki = 0, perempuan = 0;
-    let balita = 0, anak = 0, dewasa = 0, lansia = 0;
-    let islam = 0, kristen = 0, hinduBudhaLain = 0;
-    let pns = 0, swasta = 0, wirausaha = 0, lainPekerjaan = 0;
-
-    const hitungUmur = (tglLahir: string) => {
-      if (!tglLahir) return 0;
-      const birth = new Date(tglLahir);
-      const now = new Date();
-      let age = now.getFullYear() - birth.getFullYear();
-      if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--;
-      return age;
-    };
-
-    const prosesIndividu = (p: any) => {
-      totalJiwa++;
-      const jk = (p.jenis_kelamin || "").toLowerCase();
-      if (jk.includes("laki") || jk === "l") laki++;
-      else if (jk.includes("perempuan") || jk === "p") perempuan++;
-
-      const umur = hitungUmur(p.tanggal_lahir);
-      if (umur <= 4) balita++; else if (umur <= 17) anak++; else if (umur <= 55) dewasa++; else lansia++;
-
-      const agm = (p.agama || "").toLowerCase();
-      if (agm.includes("islam")) islam++; else if (agm.includes("kristen") || agm.includes("katolik") || agm.includes("katholik")) kristen++; else if (agm) hinduBudhaLain++;
-
-      const pkj = (p.pekerjaan || "").toLowerCase();
-      if (pkj.includes("pns") || pkj.includes("tni") || pkj.includes("polri") || pkj.includes("negeri")) pns++;
-      else if (pkj.includes("karyawan") || pkj.includes("swasta") || pkj.includes("pegawai") || pkj.includes("buruh") || pkj.includes("guru") || pkj.includes("staff")) swasta++;
-      else if (pkj.includes("wirausaha") || pkj.includes("wiraswasta") || pkj.includes("dagang") || pkj.includes("usaha") || pkj.includes("freelance")) wirausaha++;
-      else lainPekerjaan++;
-    };
-
-    dataWarga.forEach(w => {
-      prosesIndividu(w);
-      if (w.anggota_keluarga) w.anggota_keluarga.forEach((ak: any) => prosesIndividu(ak));
-    });
-
-    const pct = (val: number, total: number) => total === 0 ? 0 : Math.round((val / total) * 100);
-
-    return {
-      jiwa: totalJiwa,
-      laki_c: laki, laki_p: pct(laki, totalJiwa), perempuan_c: perempuan, perempuan_p: pct(perempuan, totalJiwa),
-      balita_c: balita, balita_p: pct(balita, totalJiwa), anak_c: anak, anak_p: pct(anak, totalJiwa), dewasa_c: dewasa, dewasa_p: pct(dewasa, totalJiwa), lansia_c: lansia, lansia_p: pct(lansia, totalJiwa),
-      islam_c: islam, islam_p: pct(islam, totalJiwa), kristen_c: kristen, kristen_p: pct(kristen, totalJiwa), lainAgama_c: hinduBudhaLain, lainAgama_p: pct(hinduBudhaLain, totalJiwa),
-      swasta_c: swasta, swasta_p: pct(swasta, totalJiwa), wirausaha_c: wirausaha, wirausaha_p: pct(wirausaha, totalJiwa), pns_c: pns, pns_p: pct(pns, totalJiwa), lainKerja_c: lainPekerjaan, lainKerja_p: pct(lainPekerjaan, totalJiwa)
-    };
-  }, [dataWarga]);
-
-  // SKELETON LOADER (Mencegah Hydration Error)
-  if (!mounted) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <div key={i} className="bg-slate-100 animate-pulse h-36 rounded-xl border border-slate-200"></div>)}
-        </div>
-        <div className="bg-slate-100 animate-pulse h-36 rounded-xl border border-slate-200"></div>
-      </div>
-    );
-  }
-
+export default function DemografiClient({ rekap }: { rekap: RekapDemografi }) {
   return (
     <div className="space-y-4">
-      {/* Tiga pilar utama sejajar: Gender, Usia, Pekerjaan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KartuDemografi
           ikon="🚻"
           judul="Gender"
-          total={demoStat.jiwa}
+          total={rekap.jiwa}
           segmen={[
-            { label: "Laki-laki", nilai: demoStat.laki_c, persen: demoStat.laki_p, warna: "#3b82f6" },
-            { label: "Perempuan", nilai: demoStat.perempuan_c, persen: demoStat.perempuan_p, warna: "#ec4899" },
+            { label: "Laki-laki", nilai: rekap.laki_c, persen: rekap.laki_p, warna: "#3b82f6" },
+            { label: "Perempuan", nilai: rekap.perempuan_c, persen: rekap.perempuan_p, warna: "#ec4899" },
           ]}
         />
 
         <KartuDemografi
           ikon="🎂"
           judul="Kategori Usia"
-          total={demoStat.jiwa}
+          total={rekap.jiwaDenganUsia}
           segmen={[
-            { label: "Dewasa", nilai: demoStat.dewasa_c, persen: demoStat.dewasa_p, warna: "#10b981" },
-            { label: "Anak", nilai: demoStat.anak_c, persen: demoStat.anak_p, warna: "#2dd4bf" },
-            { label: "Balita", nilai: demoStat.balita_c, persen: demoStat.balita_p, warna: "#22d3ee" },
-            { label: "Lansia", nilai: demoStat.lansia_c, persen: demoStat.lansia_p, warna: "#94a3b8" },
+            { label: "Dewasa", nilai: rekap.dewasa_c, persen: rekap.dewasa_p, warna: "#10b981" },
+            { label: "Anak", nilai: rekap.anak_c, persen: rekap.anak_p, warna: "#2dd4bf" },
+            { label: "Balita", nilai: rekap.balita_c, persen: rekap.balita_p, warna: "#22d3ee" },
+            { label: "Lansia", nilai: rekap.lansia_c, persen: rekap.lansia_p, warna: "#94a3b8" },
           ]}
         />
 
         <KartuDemografi
           ikon="💼"
           judul="Pekerjaan"
-          total={demoStat.jiwa}
+          total={rekap.jiwa}
           segmen={[
-            { label: "Swasta", nilai: demoStat.swasta_c, persen: demoStat.swasta_p, warna: "#2563eb" },
-            { label: "Wirausaha", nilai: demoStat.wirausaha_c, persen: demoStat.wirausaha_p, warna: "#f97316" },
-            { label: "PNS/TNI", nilai: demoStat.pns_c, persen: demoStat.pns_p, warna: "#334155" },
-            { label: "Lainnya", nilai: demoStat.lainKerja_c, persen: demoStat.lainKerja_p, warna: "#cbd5e1" },
+            { label: "Swasta", nilai: rekap.swasta_c, persen: rekap.swasta_p, warna: "#2563eb" },
+            { label: "Wirausaha", nilai: rekap.wirausaha_c, persen: rekap.wirausaha_p, warna: "#f97316" },
+            { label: "PNS/TNI", nilai: rekap.pns_c, persen: rekap.pns_p, warna: "#334155" },
+            { label: "Lainnya", nilai: rekap.lainKerja_c, persen: rekap.lainKerja_p, warna: "#cbd5e1" },
           ]}
         />
       </div>
 
-      {/* Agama tetap ditampilkan penuh di bawah supaya tiga pilar di atas
-          benar-benar sejajar bertiga, tanpa membuang data yang sudah dihitung. */}
       <KartuDemografi
         ikon="🕌"
         judul="Agama"
-        total={demoStat.jiwa}
+        total={rekap.jiwa}
         segmen={[
-          { label: "Islam", nilai: demoStat.islam_c, persen: demoStat.islam_p, warna: "#059669" },
-          { label: "Kristen/Katolik", nilai: demoStat.kristen_c, persen: demoStat.kristen_p, warna: "#818cf8" },
-          { label: "Lainnya", nilai: demoStat.lainAgama_c, persen: demoStat.lainAgama_p, warna: "#fbbf24" },
+          { label: "Islam", nilai: rekap.islam_c, persen: rekap.islam_p, warna: "#059669" },
+          { label: "Kristen/Katolik", nilai: rekap.kristen_c, persen: rekap.kristen_p, warna: "#818cf8" },
+          { label: "Lainnya", nilai: rekap.lainAgama_c, persen: rekap.lainAgama_p, warna: "#fbbf24" },
         ]}
       />
     </div>

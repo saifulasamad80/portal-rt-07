@@ -58,6 +58,32 @@ async function hitungWargaSah(supabase: SupabaseClient, rtId: string | null): Pr
   return count || 0;
 }
 
+type BarisKurbanDasbor = { jenis_transaksi: string; nominal: number };
+
+async function ambilKurbanCakupan(
+  supabase: SupabaseClient,
+  idsWarga: string[] | null,
+): Promise<{ data: BarisKurbanDasbor[] | null; error: { message?: string } | null }> {
+  const dasar = () => supabase.from("transaksi_kurban").select("jenis_transaksi, nominal");
+  if (!idsWarga) {
+    const { data, error } = await dasar();
+    return { data: (data || []) as BarisKurbanDasbor[], error };
+  }
+  if (!idsWarga.length) {
+    const { data, error } = await dasar().in("warga_id", ["00000000-0000-0000-0000-000000000000"]);
+    return { data: (data || []) as BarisKurbanDasbor[], error };
+  }
+  const UKURAN_KELOMPOK = 80;
+  const gabungan: BarisKurbanDasbor[] = [];
+  for (let i = 0; i < idsWarga.length; i += UKURAN_KELOMPOK) {
+    const potong = idsWarga.slice(i, i + UKURAN_KELOMPOK);
+    const { data, error } = await dasar().in("warga_id", potong);
+    if (error) return { data: [], error };
+    gabungan.push(...((data || []) as BarisKurbanDasbor[]));
+  }
+  return { data: gabungan, error: null };
+}
+
 export default async function AdminDashboard() {
   const otentikasiHalaman = await otentikasiAdmin();
   if (!otentikasiHalaman.ok) return <AdminLogin />;
@@ -92,9 +118,8 @@ export default async function AdminDashboard() {
   // warga yang sudah dibatasi RT di query antrean/daftar sah di atas, lalu
   // terapkan allow-list tersebut ke transaksi. UUID sentinel memastikan RT
   // tanpa warga tidak jatuh ke query tanpa filter.
-  let queryKurban = supabaseAdmin
-    .from("transaksi_kurban")
-    .select("jenis_transaksi, nominal");
+  // .in() sekali tembak untuk ratusan UUID pecah jadi HTTP 400 (URL terlalu panjang).
+  let idsKurban: string[] | null = null;
   if (rtTerbatas) {
     const { data: wargaCakupan, error: errWargaCakupan } = await supabaseAdmin
       .from("warga")
@@ -103,13 +128,9 @@ export default async function AdminDashboard() {
       .limit(5000);
     if (errWargaCakupan) {
       console.error("Gagal menentukan cakupan transaksi kurban:", errWargaCakupan.message);
-      queryKurban = queryKurban.in("warga_id", ["00000000-0000-0000-0000-000000000000"]);
+      idsKurban = [];
     } else {
-      const idsWarga = (wargaCakupan || []).map((w) => String(w.id)).filter((id) => POLA_UUID.test(id));
-      queryKurban = queryKurban.in(
-        "warga_id",
-        idsWarga.length ? idsWarga : ["00000000-0000-0000-0000-000000000000"]
-      );
+      idsKurban = (wargaCakupan || []).map((w) => String(w.id)).filter((id) => POLA_UUID.test(id));
     }
   }
 
@@ -117,7 +138,7 @@ export default async function AdminDashboard() {
     queryAntrean.order("created_at", { ascending: true }),
     hitungWargaSah(supabaseAdmin, rtTerbatas),
     querySampah,
-    queryKurban,
+    ambilKurbanCakupan(supabaseAdmin, idsKurban),
   ]);
 
   if (wargaListRes.error) console.error("Gagal memuat antrean validasi:", wargaListRes.error.message);
