@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import { ambilEtalasePublik } from "@/lib/etalase-publik";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
 import { hitungJiwa, rekapDemografi, type RekamanJiwa } from "@/lib/demografi-publik";
 import { UUID_SENTINEL, adalahGalatTipeUuid, uuidTenantSah } from "@/lib/uuid-tenant";
@@ -209,9 +210,7 @@ export default async function LandingPage() {
     kurbanRes,
     balitaRes,
     lansiaRes,
-    galeriRes,
-    dokumenRes,
-    kontakRes,
+    etalaseRes,
     masterRes,
   ] = await Promise.all([
     supabase.from("pengumuman_rt").select("id, judul, deskripsi, link_dokumen, tanggal_publikasi").eq("rt_id", PUBLIC_RT_ID).order("tanggal_publikasi", { ascending: false }).limit(7),
@@ -223,9 +222,7 @@ export default async function LandingPage() {
     ambilKurbanRt(supabase, PUBLIC_RT_ID),
     ambilKunjunganPosyanduRt<BarisPosyanduBalita>(supabase, "kunjungan_balita", "tanggal_kunjungan, imunisasi", PUBLIC_RT_ID),
     ambilKunjunganPosyanduRt<BarisPosyanduLansia>(supabase, "kunjungan_lansia", "tanggal_kunjungan", PUBLIC_RT_ID),
-    supabase.from("galeri_kegiatan").select("id, judul, deskripsi, url_foto, kategori, tanggal_kegiatan").eq("rt_id", PUBLIC_RT_ID).eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_kegiatan", { ascending: false }).limit(8),
-    supabase.from("dokumen_publik_rt").select("id, judul, deskripsi, kategori, url_berkas, ukuran_berkas, tanggal_terbit").eq("rt_id", PUBLIC_RT_ID).eq("dipublikasikan", true).order("urutan", { ascending: true }).order("tanggal_terbit", { ascending: false }).limit(8),
-    supabase.from("kontak_darurat_rt").select("id, nama_layanan, nomor, keterangan, ikon, urutan").eq("rt_id", PUBLIC_RT_ID).eq("aktif", true).order("urutan", { ascending: true }),
+    ambilEtalasePublik(supabase, PUBLIC_RT_ID),
     supabase.from("master_rt").select("nama_rt, nama_rw, kelurahan").eq("id", PUBLIC_RT_ID).maybeSingle(),
   ]);
 
@@ -237,9 +234,10 @@ export default async function LandingPage() {
   const dataKurban = dataAtauKosong(kurbanRes, [] as BarisKurban[], "dana kurban");
   const dataBalita = dataAtauKosong(balitaRes, [] as BarisPosyanduBalita[], "posyandu balita");
   const dataLansia = dataAtauKosong(lansiaRes, [] as BarisPosyanduLansia[], "posyandu lansia");
-  const daftarFoto = dataAtauKosong(galeriRes, [] as FotoKegiatan[], "galeri");
-  const daftarDokumen = dataAtauKosong(dokumenRes, [] as DokumenPublik[], "dokumen publik");
-  const daftarKontak = dataAtauKosong(kontakRes, [] as KontakDarurat[], "kontak darurat");
+  if (etalaseRes.error) console.warn("Portal publik gagal memuat etalase:", etalaseRes.error);
+  const daftarFoto = etalaseRes.galeri as FotoKegiatan[];
+  const daftarDokumen = etalaseRes.dokumen as DokumenPublik[];
+  const daftarKontak = etalaseRes.kontak as KontakDarurat[];
   const masterRt = (masterRes.error ? null : masterRes.data) as MasterRt | null;
 
   let rekapVoting: Record<string, unknown> | null = null;

@@ -228,24 +228,59 @@ CREATE POLICY "Pengurus baca pengurus RT sendiri"
   FOR SELECT TO authenticated
   USING ((SELECT public.klaim_baca_tenant(rt_id)));
 
--- Etalase: baris tanpa tenant tidak boleh publik. Isolasi tenant tetap di aplikasi.
+-- Etalase: anon ditutup total; authenticated tetap tenant-aware.
 DROP POLICY IF EXISTS "Publik baca galeri terbit" ON public.galeri_kegiatan;
+DROP POLICY IF EXISTS "Anon tidak dapat membaca galeri" ON public.galeri_kegiatan;
+DROP POLICY IF EXISTS "Authenticated kelola galeri tenant" ON public.galeri_kegiatan;
 CREATE POLICY "Publik baca galeri terbit"
   ON public.galeri_kegiatan
-  FOR SELECT TO anon, authenticated
-  USING (dipublikasikan = true AND rt_id IS NOT NULL);
+  FOR SELECT TO anon
+  USING (false);
+CREATE POLICY "Authenticated kelola galeri tenant"
+  ON public.galeri_kegiatan
+  FOR ALL TO authenticated
+  USING ((SELECT public.klaim_baca_tenant(rt_id)))
+  WITH CHECK ((SELECT public.klaim_tulis_tenant(rt_id)));
 
 DROP POLICY IF EXISTS "Publik baca dokumen terbit" ON public.dokumen_publik_rt;
+DROP POLICY IF EXISTS "Anon tidak dapat membaca dokumen" ON public.dokumen_publik_rt;
+DROP POLICY IF EXISTS "Authenticated kelola dokumen tenant" ON public.dokumen_publik_rt;
 CREATE POLICY "Publik baca dokumen terbit"
   ON public.dokumen_publik_rt
-  FOR SELECT TO anon, authenticated
-  USING (dipublikasikan = true AND rt_id IS NOT NULL);
+  FOR SELECT TO anon
+  USING (false);
+CREATE POLICY "Authenticated kelola dokumen tenant"
+  ON public.dokumen_publik_rt
+  FOR ALL TO authenticated
+  USING ((SELECT public.klaim_baca_tenant(rt_id)))
+  WITH CHECK ((SELECT public.klaim_tulis_tenant(rt_id)));
 
 DROP POLICY IF EXISTS "Publik baca kontak darurat aktif" ON public.kontak_darurat_rt;
+DROP POLICY IF EXISTS "Anon tidak dapat membaca kontak" ON public.kontak_darurat_rt;
+DROP POLICY IF EXISTS "Authenticated kelola kontak tenant" ON public.kontak_darurat_rt;
 CREATE POLICY "Publik baca kontak darurat aktif"
   ON public.kontak_darurat_rt
-  FOR SELECT TO anon, authenticated
-  USING (aktif = true AND rt_id IS NOT NULL);
+  FOR SELECT TO anon
+  USING (false);
+CREATE POLICY "Authenticated kelola kontak tenant"
+  ON public.kontak_darurat_rt
+  FOR ALL TO authenticated
+  USING ((SELECT public.klaim_baca_tenant(rt_id)))
+  WITH CHECK ((SELECT public.klaim_tulis_tenant(rt_id)));
+
+REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE
+  ON TABLE
+    public.galeri_kegiatan,
+    public.dokumen_publik_rt,
+    public.kontak_darurat_rt
+  FROM anon;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE
+    public.galeri_kegiatan,
+    public.dokumen_publik_rt,
+    public.kontak_darurat_rt
+  TO authenticated;
 
 DROP POLICY IF EXISTS "Bebas baca laporan posyandu" ON public.laporan_posyandu;
 DROP POLICY IF EXISTS "Bebas tambah laporan posyandu" ON public.laporan_posyandu;

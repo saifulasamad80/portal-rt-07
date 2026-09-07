@@ -4,7 +4,8 @@
 -- sudah ada dan TIDAK diubah di sini.
 --
 -- Tulisan ke tabel ini hanya lewat service role (dasbor admin).
--- Anon/authenticated hanya boleh membaca baris yang dipublikasikan/aktif.
+-- Browser publik membaca lewat Next.js DAL. Anon tidak boleh mengakses tabel
+-- etalase secara langsung; authenticated dikelola migrasi tenant-aware.
 
 -- ---------------------------------------------------------------------------
 -- 1. Galeri Kegiatan
@@ -32,11 +33,11 @@ DROP POLICY IF EXISTS "Publik baca galeri terbit" ON public.galeri_kegiatan;
 CREATE POLICY "Publik baca galeri terbit"
   ON public.galeri_kegiatan
   FOR SELECT
-  TO anon, authenticated
-  USING (dipublikasikan = true);
+  TO anon
+  USING (false);
 
-GRANT SELECT ON TABLE public.galeri_kegiatan TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.galeri_kegiatan FROM anon, authenticated;
+REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.galeri_kegiatan FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.galeri_kegiatan TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. Dokumen publik warga (bukan berkas KTP/KK di bucket dokumen_warga)
@@ -65,11 +66,11 @@ DROP POLICY IF EXISTS "Publik baca dokumen terbit" ON public.dokumen_publik_rt;
 CREATE POLICY "Publik baca dokumen terbit"
   ON public.dokumen_publik_rt
   FOR SELECT
-  TO anon, authenticated
-  USING (dipublikasikan = true);
+  TO anon
+  USING (false);
 
-GRANT SELECT ON TABLE public.dokumen_publik_rt TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.dokumen_publik_rt FROM anon, authenticated;
+REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.dokumen_publik_rt FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.dokumen_publik_rt TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 3. Kontak darurat (Panic Button)
@@ -97,11 +98,11 @@ DROP POLICY IF EXISTS "Publik baca kontak darurat aktif" ON public.kontak_darura
 CREATE POLICY "Publik baca kontak darurat aktif"
   ON public.kontak_darurat_rt
   FOR SELECT
-  TO anon, authenticated
-  USING (aktif = true);
+  TO anon
+  USING (false);
 
-GRANT SELECT ON TABLE public.kontak_darurat_rt TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.kontak_darurat_rt FROM anon, authenticated;
+REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.kontak_darurat_rt FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.kontak_darurat_rt TO authenticated;
 
 -- Kontak resmi dan kontak lokal yang diberikan pengurus RT.
 INSERT INTO public.kontak_darurat_rt (nama_layanan, nomor, keterangan, ikon, urutan, aktif)
