@@ -149,11 +149,35 @@ export async function catatDanKirimSekali(
   jenis: string,
   kunciUnik: string,
   payload: PayloadNotifikasi,
-  sasaran: { semua?: boolean; wargaId?: string }
+  sasaran: { semua?: boolean; wargaId?: string; rtId?: string }
 ) {
   const supabase = klienAdmin();
+  let rtId = uuidTenantSah(sasaran.rtId);
+  if (!rtId && sasaran.wargaId) {
+    const { data: warga, error: errWarga } = await supabase
+      .from("warga")
+      .select("rt_id")
+      .eq("id", sasaran.wargaId)
+      .maybeSingle();
+    if (errWarga) {
+      console.error("Gagal membaca rt_id warga untuk riwayat notifikasi:", errWarga.message);
+      return { terkirim: 0, pesan: "rt_id penerima belum dapat diverifikasi." };
+    }
+    rtId = uuidTenantSah(warga?.rt_id);
+  }
+  if (!rtId) {
+    console.error("Riwayat notifikasi ditolak: rt_id wajib.");
+    return { terkirim: 0, pesan: "rt_id wajib untuk mencatat riwayat notifikasi." };
+  }
+
   const { error } = await supabase.from("notifikasi_riwayat").insert([
-    { jenis, kunci_unik: kunciUnik, judul: payload.title, isi: payload.body },
+    {
+      jenis,
+      kunci_unik: kunciUnik,
+      judul: payload.title,
+      isi: payload.body,
+      rt_id: rtId,
+    },
   ]);
   if (error) {
     if (error.code === "23505") return { terkirim: 0, dilewati: true };
