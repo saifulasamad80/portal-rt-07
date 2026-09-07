@@ -238,7 +238,7 @@ export default async function LandingPage() {
     supabase.from("pengumuman_rt").select("id, judul, deskripsi, link_dokumen, tanggal_publikasi").eq("rt_id", PUBLIC_RT_ID).order("tanggal_publikasi", { ascending: false }).limit(7),
     supabase.from("voting_rt").select("id, judul, deskripsi, opsi_1, opsi_2, status, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ambilKasRt(supabase, PUBLIC_RT_ID),
-    supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("rt_id", PUBLIC_RT_ID).eq("jenis_transaksi", "Setor"),
+    supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("rt_id", PUBLIC_RT_ID).ilike("jenis_transaksi", "%Setor%"),
     ambilDemografiSah(supabase, PUBLIC_RT_ID),
     supabase.from("laporan_jumantik").select("jumlah_rumah_diperiksa, ditemukan_jentik, warga_terjangkit_dbd, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ambilKurbanRt(supabase, PUBLIC_RT_ID),
