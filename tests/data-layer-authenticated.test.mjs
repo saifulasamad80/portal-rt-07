@@ -31,7 +31,6 @@ const IZIN_SERVICE_ROLE = new Set([
   "app/admin/lupa-sandi/page.tsx",
   "app/admin/reset-sandi/page.tsx",
   "app/api/cron/notifikasi/route.ts",
-  "app/page.tsx",
   "app/register/actions.ts",
 ]);
 
@@ -51,7 +50,15 @@ test("klien data tidak menandatangani PostgREST dengan JWT_SECRET cookie", async
   assert.doesNotMatch(sumber, /role:\s*sesi\.role/);
   assert.doesNotMatch(sumber, /function kunciJwtPostgrest/);
   assert.match(sumber, /export function getSupabaseAdminClientDariSesi/);
+  assert.match(sumber, /export function getSupabaseServerClient/);
   assert.match(sumber, /!POLA_UUID\.test\(id\) \|\| !POLA_UUID\.test\(rtId\)/);
+
+  const dariServer = sumber.indexOf("export function getSupabaseServerClient");
+  const dariAdmin = sumber.indexOf("export function getSupabaseAdminClient()");
+  assert.ok(dariServer >= 0 && dariAdmin > dariServer);
+  const badanAnon = sumber.slice(dariServer, dariAdmin);
+  assert.match(badanAnon, /NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  assert.doesNotMatch(badanAnon, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 
 test("migrasi RLS menutup jumantik publik dan memakai helper tenant", async () => {

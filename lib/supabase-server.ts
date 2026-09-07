@@ -90,6 +90,12 @@ export function getSupabaseAdminClientDariSesi(sesi: IdentitasSesiPrivileged): S
   return getSupabaseAdminClient();
 }
 
+export function getSupabaseServerClient(): SupabaseClient {
+  return createClient(wajibEnv("NEXT_PUBLIC_SUPABASE_URL"), wajibEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 export function getSupabaseAdminClient() {
   return createClient(wajibEnv("NEXT_PUBLIC_SUPABASE_URL"), wajibEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },

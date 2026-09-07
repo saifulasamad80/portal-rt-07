@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { ambilEtalasePublik } from "@/lib/etalase-publik";
-import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { uuidTenantSah } from "@/lib/uuid-tenant";
 
 export const revalidate = 60;
@@ -15,7 +14,7 @@ export async function GET() {
   }
 
   try {
-    const hasil = await ambilEtalasePublik(getSupabaseAdminClient(), tenant);
+    const hasil = await ambilEtalasePublik();
     if (hasil.error) {
       console.error("API etalase publik gagal memuat data:", hasil.error);
       return NextResponse.json(

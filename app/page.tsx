@@ -1,72 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getSupabaseAdminClient } from "@/lib/supabase-server";
-import { ambilEtalasePublik } from "@/lib/etalase-publik";
-import { skemaBelumSiap } from "@/lib/arsip-warga";
-import { hitungJiwa, rekapDemografi, type RekamanJiwa } from "@/lib/demografi-publik";
-import { UUID_SENTINEL, adalahGalatTipeUuid, uuidTenantSah } from "@/lib/uuid-tenant";
+import { hitungJiwa, rekapDemografi } from "@/lib/demografi-publik";
+import { ambilMuatanLandingPublik } from "@/lib/landing-publik";
 import DemografiClient from "./DemografiClient";
 import PengumumanClient from "./PengumumanClient";
 import KinerjaSampahClient from "./portal/KinerjaSampahClient";
-import PanicButtonClient, { type KontakDarurat } from "./PanicButtonClient";
-import GaleriKegiatanClient, { type FotoKegiatan } from "./GaleriKegiatanClient";
+import PanicButtonClient from "./PanicButtonClient";
+import GaleriKegiatanClient from "./GaleriKegiatanClient";
 
 export const revalidate = 60;
 
 const TARGET_JUMANTIK = 151;
-
-// Landing page bersifat publik, sehingga tenant harus dipilih dari
-// konfigurasi deployment. Tanpa nilai ini semua query tenant memakai UUID
-// sentinel dan menghasilkan nol baris (fail closed), bukan query global.
-const PUBLIC_RT_ID = (() => {
-  const nilai = process.env.PUBLIC_RT_ID?.trim() || "";
-  const sah = uuidTenantSah(nilai);
-  if (sah) return sah;
-  if (nilai) {
-    console.error("PUBLIC_RT_ID tidak berbentuk UUID yang sah; portal publik fail-closed ke tenant kosong.");
-  }
-  return UUID_SENTINEL;
-})();
-
-type BarisKas = {
-  tipe_transaksi: string;
-  nominal: number;
-  kategori?: string | null;
-  keterangan?: string | null;
-  tanggal_transaksi?: string | null;
-  created_at?: string | null;
-};
-
-type BarisKurban = {
-  jenis_transaksi: string;
-  nominal: number;
-  warga_id: string | null;
-};
-
-type BarisPosyanduBalita = {
-  tanggal_kunjungan: string;
-  imunisasi: string | null;
-};
-
-type BarisPosyanduLansia = {
-  tanggal_kunjungan: string;
-};
-
-type DokumenPublik = {
-  id: string;
-  judul: string;
-  deskripsi: string | null;
-  kategori: string | null;
-  url_berkas: string;
-  ukuran_berkas: string | null;
-  tanggal_terbit: string | null;
-};
-
-type MasterRt = {
-  nama_rt: string | null;
-  nama_rw: string | null;
-  kelurahan: string | null;
-};
 
 function formatRp(angka: number) {
   const utuh = Math.round(Number(angka) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -97,178 +41,22 @@ function dalamBulanIni(tanggal: string) {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-function dataAtauKosong<T>(
-  hasil: { data: unknown; error: { message?: string; code?: string } | null },
-  cadangan: T,
-  label: string,
-): T {
-  if (hasil.error) {
-    const pesan = hasil.error.message || hasil.error.code || "";
-    if (adalahGalatTipeUuid(pesan)) {
-      console.error(`Portal publik galat tipe UUID pada ${label}:`, pesan);
-      throw new Error(`Portal publik: filter UUID gagal pada ${label}`);
-    }
-    console.warn(`Portal publik gagal memuat ${label}:`, pesan);
-    return cadangan;
-  }
-  return (hasil.data ?? cadangan) as T;
-}
-
-async function ambilDemografiSah(supabase: ReturnType<typeof getSupabaseAdminClient>, rtId: string) {
-  const pilih =
-    "id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan, anggota_keluarga(id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan)";
-  // Induk dan nested anggota dikunci rt_id tenant yang sama. Baris tanpa tenant
-  // tidak lagi dihitung (kolom sudah NOT NULL).
-  const dasar = () =>
-    supabase
-      .from("warga")
-      .select(pilih)
-      .eq("status_verifikasi", "Disetujui")
-      .eq("rt_id", rtId)
-      .or(`rt_id.eq.${rtId}`, { foreignTable: "anggota_keluarga" });
-
-  let hasil = await dasar().neq("status_aktif", false);
-  if (hasil.error && skemaBelumSiap(hasil.error)) {
-    hasil = await dasar();
-  }
-  if (hasil.error) {
-    console.error("Portal publik gagal memuat demografi:", hasil.error.message || hasil.error.code);
-    return [] as RekamanJiwa[];
-  }
-  return (hasil.data || []) as RekamanJiwa[];
-}
-
-async function ambilKurbanRt(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
-  rtId: string,
-) {
-  const { data, error } = await supabase
-    .from("transaksi_kurban")
-    .select("jenis_transaksi, nominal, warga_id")
-    .eq("rt_id", rtId);
-  return { data: (data || []) as BarisKurban[], error };
-}
-
-async function ambilKasRt(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
-  rtId: string,
-) {
-  const UKURAN = 1000;
-  const semua: BarisKas[] = [];
-  let dari = 0;
-  while (dari < 20000) {
-    const { data, error } = await supabase
-      .from("kas_rt")
-      .select("tipe_transaksi, nominal, kategori, keterangan, tanggal_transaksi, created_at")
-      .eq("rt_id", rtId)
-      .order("created_at", { ascending: false })
-      .range(dari, dari + UKURAN - 1);
-    if (error) return { data: [], error };
-    const batch = (data || []) as BarisKas[];
-    semua.push(...batch);
-    if (batch.length < UKURAN) break;
-    dari += UKURAN;
-  }
-  return { data: semua, error: null };
-}
-
-async function ambilKunjunganPosyanduRt<T>(
-  supabase: ReturnType<typeof getSupabaseAdminClient>,
-  tabel: "kunjungan_balita" | "kunjungan_lansia",
-  kolom: string,
-  rtId: string,
-) {
-  const UKURAN = 1000;
-  const semua: T[] = [];
-  let dari = 0;
-  while (dari < 20000) {
-    const { data, error } = await supabase
-      .from(tabel)
-      .select(kolom)
-      .eq("rt_id", rtId)
-      .order("tanggal_kunjungan", { ascending: false })
-      .range(dari, dari + UKURAN - 1);
-    if (error) return { data: [] as T[], error };
-    const batch = (data || []) as T[];
-    semua.push(...batch);
-    if (batch.length < UKURAN) break;
-    dari += UKURAN;
-  }
-  return { data: semua, error: null };
-}
-
 export default async function LandingPage() {
-  const supabase = getSupabaseAdminClient();
-
-  const [
-    pengumumanRes,
-    votingTerbaruRes,
-    kasRes,
-    sampahRes,
+  const {
+    pengumumanReguler,
+    rekapVoting,
+    kasData,
+    sampahGlobal,
+    jumantik,
+    dataKurban,
+    dataBalita,
+    dataLansia,
+    daftarFoto,
+    daftarDokumen,
+    daftarKontak,
+    masterRt,
     dataDemografiReal,
-    jumantikRes,
-    kurbanRes,
-    balitaRes,
-    lansiaRes,
-    etalaseRes,
-    masterRes,
-  ] = await Promise.all([
-    supabase.from("pengumuman_rt").select("id, judul, deskripsi, link_dokumen, tanggal_publikasi").eq("rt_id", PUBLIC_RT_ID).order("tanggal_publikasi", { ascending: false }).limit(7),
-    supabase.from("voting_rt").select("id, judul, deskripsi, opsi_1, opsi_2, status, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    ambilKasRt(supabase, PUBLIC_RT_ID),
-    supabase.from("transaksi_sampah").select("berat_kg, nominal_warga, nominal_kas_rt, tanggal_transaksi").eq("rt_id", PUBLIC_RT_ID).ilike("jenis_transaksi", "%Setor%"),
-    ambilDemografiSah(supabase, PUBLIC_RT_ID),
-    supabase.from("laporan_jumantik").select("jumlah_rumah_diperiksa, ditemukan_jentik, warga_terjangkit_dbd, created_at").eq("rt_id", PUBLIC_RT_ID).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    ambilKurbanRt(supabase, PUBLIC_RT_ID),
-    ambilKunjunganPosyanduRt<BarisPosyanduBalita>(supabase, "kunjungan_balita", "tanggal_kunjungan, imunisasi", PUBLIC_RT_ID),
-    ambilKunjunganPosyanduRt<BarisPosyanduLansia>(supabase, "kunjungan_lansia", "tanggal_kunjungan", PUBLIC_RT_ID),
-    ambilEtalasePublik(supabase, PUBLIC_RT_ID),
-    supabase.from("master_rt").select("nama_rt, nama_rw, kelurahan").eq("id", PUBLIC_RT_ID).maybeSingle(),
-  ]);
-
-  const pengumumanReguler = dataAtauKosong(pengumumanRes, [], "pengumuman");
-  const votingTerbaru = votingTerbaruRes.error ? null : votingTerbaruRes.data;
-  const kasData = dataAtauKosong(kasRes, [] as BarisKas[], "kas");
-  const sampahGlobal = dataAtauKosong(sampahRes, [], "bank sampah");
-  const jumantik = jumantikRes.error ? null : jumantikRes.data;
-  const dataKurban = dataAtauKosong(kurbanRes, [] as BarisKurban[], "dana kurban");
-  const dataBalita = dataAtauKosong(balitaRes, [] as BarisPosyanduBalita[], "posyandu balita");
-  const dataLansia = dataAtauKosong(lansiaRes, [] as BarisPosyanduLansia[], "posyandu lansia");
-  if (etalaseRes.error) console.warn("Portal publik gagal memuat etalase:", etalaseRes.error);
-  const daftarFoto = etalaseRes.galeri as FotoKegiatan[];
-  const daftarDokumen = etalaseRes.dokumen as DokumenPublik[];
-  const daftarKontak = etalaseRes.kontak as KontakDarurat[];
-  const masterRt = (masterRes.error ? null : masterRes.data) as MasterRt | null;
-
-  let rekapVoting: Record<string, unknown> | null = null;
-  if (votingTerbaru) {
-    let tampilkan = false;
-    if (votingTerbaru.status === "Aktif") {
-      tampilkan = true;
-    } else if (votingTerbaru.status === "Ditutup") {
-      // Server component ini hanya membutuhkan epoch saat render. getTime()
-      // menghindari lint purity false-positive pada Date.now() tanpa mengubah
-      // perilaku perhitungan umur voting.
-      const selisihHari = Math.floor((new Date().getTime() - new Date(votingTerbaru.created_at).getTime()) / (1000 * 3600 * 24));
-      if (selisihHari <= 7) tampilkan = true;
-    }
-
-    if (tampilkan) {
-      const { data: suaraRekap } = await supabase.from("suara_voting").select("pilihan").eq("voting_id", votingTerbaru.id);
-      const dataSuara = suaraRekap || [];
-      const suaraOpsi1 = dataSuara.filter((s) => s.pilihan === votingTerbaru.opsi_1).length;
-      const suaraOpsi2 = dataSuara.filter((s) => s.pilihan === votingTerbaru.opsi_2).length;
-      const total = suaraOpsi1 + suaraOpsi2;
-      rekapVoting = {
-        ...votingTerbaru,
-        statistik: {
-          opsi_1_pct: total === 0 ? 0 : Math.round((suaraOpsi1 / total) * 100),
-          opsi_2_pct: total === 0 ? 0 : Math.round((suaraOpsi2 / total) * 100),
-          total,
-        },
-      };
-    }
-  }
+  } = await ambilMuatanLandingPublik();
 
   let pemasukan = 0;
   let pengeluaran = 0;
