@@ -158,14 +158,20 @@ test("kartu layanan portal tergembok tanpa tautan saat cap belum Disetujui", asy
 });
 
 test("modul sensus mandiri tidak memiliki kapabilitas penghapus warga", async () => {
-  const domain = await readFile(new URL("../lib/verifikasi-carik.ts", import.meta.url), "utf8");
+  const domainMurni = await readFile(new URL("../lib/verifikasi-carik.ts", import.meta.url), "utf8");
+  const domain = await readFile(new URL("../lib/verifikasi-carik-server.ts", import.meta.url), "utf8");
   const portal = await readFile(new URL("../app/portal/sensus/page.tsx", import.meta.url), "utf8");
+  const aksi = await readFile(new URL("../app/portal/sensus/actions.ts", import.meta.url), "utf8");
+  const client = await readFile(new URL("../app/portal/sensus/SensusClient.tsx", import.meta.url), "utf8");
   const migration = await readFile(new URL("../sensus-mandiri-atomic-migration.sql", import.meta.url), "utf8");
 
+  assert.doesNotMatch(domainMurni, /prosesHapusAtauArsipWarga|hapusDuplikatTerdeteksi|gabungkanKkDobelKeAnggota/);
   assert.doesNotMatch(domain, /prosesHapusAtauArsipWarga|hapusDuplikatTerdeteksi|gabungkanKkDobelKeAnggota/);
+  assert.doesNotMatch(domainMurni, /supabase-server|server-only|getSupabaseAdminClient/);
+  assert.doesNotMatch(client, /verifikasi-carik-server|supabase-server|server-only/);
   assert.doesNotMatch(portal, /cariDuplikatWarga|hapusDuplikatPilihan|hapusKarenaNikTidakSesuai/);
-  assert.match(portal, /simpanVerifikasiCarikMandiri/);
-  assert.match(portal, /laporkanNikTidakSesuaiMandiri/);
+  assert.match(aksi, /simpanVerifikasiCarikMandiri/);
+  assert.match(aksi, /laporkanNikTidakSesuaiMandiri/);
   assert.match(domain, /rpc\("simpan_sensus_mandiri"/);
   assert.match(domain, /rpc\("laporkan_nik_tidak_sesuai_mandiri"/);
   assert.match(migration, /FOR UPDATE/);
@@ -175,7 +181,7 @@ test("modul sensus mandiri tidak memiliki kapabilitas penghapus warga", async ()
   assert.doesNotMatch(migration, /ADD COLUMN IF NOT EXISTS public\.warga[\s\S]*status_aktif/);
   assert.doesNotMatch(migration, /prosesHapusAtauArsipWarga/);
 
-  const posisiPreflight = domain.search(/siapkanSinkronAnggota\(supabase, wargaId,[^)]*anggota\.data\)/);
+  const posisiPreflight = domain.search(/siapkanSinkronAnggota\(supabasePrivileged, wargaId,/);
   const posisiUpdateKepala = domain.indexOf('.from("warga")\n    .update(biodata.data)');
   assert.ok(posisiPreflight >= 0 && posisiPreflight < posisiUpdateKepala);
   assert.match(domain, /\.from\("warga"\)\.select\("id"\)\.in\("nik", kebijakan\.nikBaru\)/);

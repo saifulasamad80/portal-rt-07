@@ -1,15 +1,8 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
+import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiWargaAktif } from "@/lib/session-security";
+import { ambilStatusCarik } from "@/lib/verifikasi-carik-server";
 import SensusClient from "./SensusClient";
-import {
-  ambilStatusCarik,
-  laporkanNikTidakSesuaiMandiri,
-  simpanVerifikasiCarikMandiri,
-  type AnggotaInput,
-  type HasilCarik,
-} from "@/lib/verifikasi-carik";
 
 export default async function SensusPage() {
   const otentikasi = await otentikasiWargaAktif();
@@ -98,56 +91,9 @@ export default async function SensusPage() {
     })),
   };
 
-  async function aksiSimpanCarik(
-    biodata: Record<string, unknown>,
-    anggota: AnggotaInput[],
-    catatan: string
-  ): Promise<HasilCarik> {
-    "use server";
-    try {
-      const sesiAktif = await otentikasiWargaAktif();
-      if (!sesiAktif.ok) return { success: false, message: sesiAktif.message };
-
-      const klien = getSupabaseAdminClientDariSesi(sesiAktif.sesi);
-      return await simpanVerifikasiCarikMandiri(
-        klien,
-        sesiAktif.sesi,
-        biodata,
-        anggota,
-        catatan
-      );
-    } catch (err: unknown) {
-      console.error("Server Action sensus mandiri gagal:", err instanceof Error ? err.name : "unknown");
-      return { success: false, message: "Verifikasi belum dapat disimpan. Coba lagi nanti." };
-    }
-  }
-
-  async function aksiNikTidakSesuai(): Promise<HasilCarik> {
-    "use server";
-    try {
-      const sesiAktif = await otentikasiWargaAktif();
-      if (!sesiAktif.ok) return { success: false, message: sesiAktif.message };
-
-      const klien = getSupabaseAdminClientDariSesi(sesiAktif.sesi);
-      const hasil = await laporkanNikTidakSesuaiMandiri(klien, sesiAktif.sesi);
-
-      if (hasil.success) {
-        const store = await cookies();
-        store.delete("warga_session");
-      }
-
-      return hasil;
-    } catch (err: unknown) {
-      console.error("Server Action laporan NIK gagal:", err instanceof Error ? err.name : "unknown");
-      return { success: false, message: "Laporan belum dapat diproses. Coba lagi nanti." };
-    }
-  }
-
   return (
     <SensusClient
       warga={profilAman}
-      aksiSimpan={aksiSimpanCarik}
-      aksiNikTidakSesuai={aksiNikTidakSesuai}
       modeRevisi={statusCarik.data?.status_validasi === "Menunggu"}
     />
   );

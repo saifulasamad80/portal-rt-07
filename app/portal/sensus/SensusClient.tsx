@@ -12,8 +12,8 @@ import {
   PILIHAN_PENDAPATAN,
   PILIHAN_STATUS_TINGGAL,
   type AnggotaInput,
-  type HasilCarik,
 } from "@/lib/verifikasi-carik";
+import { aksiNikTidakSesuai, aksiSimpanCarik } from "./actions";
 
 const LANGKAH = [
   { id: "nik", judul: "Identitas NIK" },
@@ -184,13 +184,9 @@ function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaInput[]): Ang
 
 export default function SensusClient({
   warga,
-  aksiSimpan,
-  aksiNikTidakSesuai,
   modeRevisi = false,
 }: {
   warga: ProfilSensus;
-  aksiSimpan: (biodata: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
-  aksiNikTidakSesuai: () => Promise<HasilCarik>;
   modeRevisi?: boolean;
 }) {
   const router = useRouter();
@@ -320,7 +316,7 @@ export default function SensusClient({
     setLoading(true);
     setPesan(null);
     try {
-      const hasil = await aksiSimpan(biodata, anggota, catatan);
+      const hasil = await aksiSimpanCarik(biodata, anggota, catatan);
       if (hasil.success) {
         try {
           window.localStorage.removeItem(kunciDraft);

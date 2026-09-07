@@ -12,12 +12,14 @@ import {
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import WargaDetailClient from "./WargaDetailClient";
 import {
-  ambilStatusCarik,
-  cariDuplikatWarga,
-  simpanVerifikasiCarik,
   type AnggotaInput,
   type HasilCarik,
 } from "@/lib/verifikasi-carik";
+import {
+  ambilStatusCarik,
+  cariDuplikatWarga,
+  simpanVerifikasiCarik,
+} from "@/lib/verifikasi-carik-server";
 import {
   hapusDuplikatPilihan,
   hapusKarenaNikTidakSesuai,

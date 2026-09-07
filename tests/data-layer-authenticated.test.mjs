@@ -161,7 +161,7 @@ test("reset PIN tidak mengirim string kosong ke kolom uuid rt_id", async () => {
 });
 
 test("audit carik dan arsip wajib membawa rt_id", async () => {
-  const carik = await baca("lib/verifikasi-carik.ts");
+  const carik = await baca("lib/verifikasi-carik-server.ts");
   const arsip = await baca("lib/arsip-warga.ts");
   assert.match(carik, /tabel_target: "warga", detail, rt_id: rtId/);
   assert.match(arsip, /rt_id: rtId/);
