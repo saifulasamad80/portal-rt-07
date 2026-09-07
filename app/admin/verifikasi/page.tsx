@@ -62,11 +62,12 @@ export default async function VerifikasiWargaPage() {
   });
 
   let tautanRujukan = "/register";
-  if (rtTerbatas && POLA_UUID.test(rtTerbatas)) {
+  const rtSesi = otentikasiHalaman.sesi.rtId;
+  if (POLA_UUID.test(rtSesi)) {
     const { data: master } = await supabaseAdmin
       .from("master_rt")
       .select("kode_rujukan")
-      .eq("id", rtTerbatas)
+      .eq("id", rtSesi)
       .maybeSingle();
     const kode = String(master?.kode_rujukan || "").trim().toLowerCase();
     if (kode) tautanRujukan = `/register?rt=${kode}`;
