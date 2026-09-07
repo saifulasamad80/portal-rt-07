@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -174,7 +175,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
         body: tableData, theme: 'grid', headStyles: { fillColor: [30, 41, 59] }, styles: { fontSize: 8 }, columnStyles: { 0: { cellWidth: 10 }, 2: { font: "courier" } }
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      const finalY = posisiAkhirTabelPdf(doc);
       doc.setTextColor(220, 38, 38); doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5);
       doc.circle(250, finalY + 25, 16); doc.circle(250, finalY + 25, 15); doc.setFontSize(9);
       doc.text("SAH & TERVERIFIKASI", 250, finalY + 23, { align: "center" }); doc.text("PENGURUS RT 07", 250, finalY + 28, { align: "center" });

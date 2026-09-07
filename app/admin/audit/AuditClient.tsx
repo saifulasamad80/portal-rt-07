@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
 
 export default function AuditClient({ logs }: { logs: any[] }) {
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -61,7 +62,7 @@ export default function AuditClient({ logs }: { logs: any[] }) {
         }
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      const finalY = posisiAkhirTabelPdf(doc);
       doc.setTextColor(220, 38, 38); 
       doc.setDrawColor(220, 38, 38);
       doc.setLineWidth(0.5);

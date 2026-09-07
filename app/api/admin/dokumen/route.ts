@@ -36,18 +36,18 @@ export async function GET(request: Request) {
   // Path saja bukan otorisasi. Ikat kembali ke baris warga yang memiliki
   // dokumen dan, untuk admin RT, ke tenant RT yang sedang dikelola.
   const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-  let queryKtp = supabase
+  const queryKtp = supabase
     .from("warga")
     .select("id")
-    .eq("ktp_path", path);
-  if (otentikasi.sesi.role !== "webmaster") queryKtp = queryKtp.eq("rt_id", otentikasi.sesi.rtId);
+    .eq("ktp_path", path)
+    .eq("rt_id", otentikasi.sesi.rtId);
   let { data: pemilik, error: errPemilik } = await queryKtp.maybeSingle();
   if (!pemilik && !errPemilik) {
-    let queryKk = supabase
+    const queryKk = supabase
       .from("warga")
       .select("id")
-      .eq("kk_path", path);
-    if (otentikasi.sesi.role !== "webmaster") queryKk = queryKk.eq("rt_id", otentikasi.sesi.rtId);
+      .eq("kk_path", path)
+      .eq("rt_id", otentikasi.sesi.rtId);
     ({ data: pemilik, error: errPemilik } = await queryKk.maybeSingle());
   }
   if (errPemilik || !pemilik) {

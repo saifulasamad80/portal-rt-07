@@ -410,6 +410,14 @@ export function saringWargaTerotorisasi<T extends PenyaringWarga>(
   return query.eq("id", target.id).eq("nik", target.nik).eq("rt_id", rtIdSaring) as T;
 }
 
+/**
+ * DAL tenant: setiap kueri pengurus/webmaster wajib .eq('rt_id', sesi.rtId).
+ * Webmaster tidak boleh mengandalkan klaim_baca_tenant untuk dump lintas-RT.
+ */
+export function saringRtSesi<T extends PenyaringWarga>(query: T, rtId: string): T {
+  return query.eq("rt_id", rtId) as T;
+}
+
 export async function otorisasiWargaUntukAdmin(
   supabase: SupabaseClient,
   sesi: PengurusTerautentikasi,

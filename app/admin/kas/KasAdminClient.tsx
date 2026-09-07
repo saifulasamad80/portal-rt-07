@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { angkaPostgrest } from "@/lib/angka-postgrest";
+import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
 
 export default function KasAdminClient({ adminAktif, transaksiList, wargaList, aksiSimpan }: { adminAktif: any, transaksiList: any[], wargaList: any[], aksiSimpan: any }) {
   const router = useRouter();
@@ -95,7 +96,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
         startY: 40, head: [['Tanggal', 'Tipe', 'Kategori', 'Sumber Dana', 'Nominal']], body: tableData, theme: 'grid', headStyles: { fillColor: [30, 41, 59] }, styles: { fontSize: 8 },
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      const finalY = posisiAkhirTabelPdf(doc);
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text(`Total Pemasukan: Rp ${totalPemasukan.toLocaleString('id-ID')}`, 14, finalY + 10); doc.text(`Total Pengeluaran: Rp ${totalPengeluaran.toLocaleString('id-ID')}`, 14, finalY + 16); doc.text(`SALDO AKHIR: Rp ${saldoAkhir.toLocaleString('id-ID')}`, 14, finalY + 24);
       doc.setTextColor(220, 38, 38); doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5); doc.circle(160, finalY + 20, 16); doc.circle(160, finalY + 20, 15); doc.setFontSize(9);

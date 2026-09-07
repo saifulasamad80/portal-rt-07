@@ -14,13 +14,11 @@ export async function GET() {
     }
 
     const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-    let query = supabase
+    const query = supabase
       .from("warga")
       .select("id, nik, nama_lengkap, no_whatsapp, status_tinggal, created_at")
-      .eq("status_validasi", "Menunggu");
-    if (otentikasi.sesi.role !== "webmaster") {
-      query = query.eq("rt_id", otentikasi.sesi.rtId);
-    }
+      .eq("status_validasi", "Menunggu")
+      .eq("rt_id", otentikasi.sesi.rtId);
     const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error) throw error;

@@ -123,8 +123,8 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rt
       data: { id: string; status_aktif?: boolean | null }[] | null;
       error: ErrorSupabase;
     }>(
-      () => supabase.from("warga").select("id, status_aktif").in("id", wargaIds),
-      () => supabase.from("warga").select("id").in("id", wargaIds)
+      () => supabase.from("warga").select("id, status_aktif").eq("rt_id", rtBersih).in("id", wargaIds),
+      () => supabase.from("warga").select("id").eq("rt_id", rtBersih).in("id", wargaIds)
     );
 
     if (errWarga) {
@@ -152,8 +152,9 @@ export async function catatDanKirimSekali(
   sasaran: { semua?: boolean; wargaId?: string; rtId?: string }
 ) {
   const supabase = klienAdmin();
-  let rtId = uuidTenantSah(sasaran.rtId);
-  if (!rtId && sasaran.wargaId) {
+  const rtSasaran = uuidTenantSah(sasaran.rtId);
+  let rtId = rtSasaran;
+  if (sasaran.wargaId) {
     const { data: warga, error: errWarga } = await supabase
       .from("warga")
       .select("rt_id")
@@ -163,7 +164,16 @@ export async function catatDanKirimSekali(
       console.error("Gagal membaca rt_id warga untuk riwayat notifikasi:", errWarga.message);
       return { terkirim: 0, pesan: "rt_id penerima belum dapat diverifikasi." };
     }
-    rtId = uuidTenantSah(warga?.rt_id);
+    const rtWarga = uuidTenantSah(warga?.rt_id);
+    if (!rtWarga) {
+      console.error("Riwayat notifikasi ditolak: rt_id wajib.");
+      return { terkirim: 0, pesan: "rt_id wajib untuk mencatat riwayat notifikasi." };
+    }
+    if (rtSasaran && rtSasaran !== rtWarga) {
+      console.error("Riwayat notifikasi ditolak: rt_id sasaran tidak cocok dengan penerima.");
+      return { terkirim: 0, pesan: "rt_id sasaran tidak cocok dengan penerima." };
+    }
+    rtId = rtWarga;
   }
   if (!rtId) {
     console.error("Riwayat notifikasi ditolak: rt_id wajib.");
