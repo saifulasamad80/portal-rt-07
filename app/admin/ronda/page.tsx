@@ -23,11 +23,11 @@ export default async function AdminRondaPage() {
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasiHalaman.sesi);
 
   // FAKTA: Tarik Jadwal Ronda, JOIN dengan nama warga, urutkan dari tanggal terbaru
-  let queryJadwal = supabaseAdmin
+  const queryJadwal = supabaseAdmin
     .from("jadwal_ronda")
     .select("*, warga(nama_lengkap)")
+    .eq("rt_id", otentikasiHalaman.sesi.rtId)
     .order("tanggal_tugas", { ascending: false });
-  if (otentikasiHalaman.sesi.role !== "webmaster") queryJadwal = queryJadwal.eq("rt_id", otentikasiHalaman.sesi.rtId);
   const { data: jadwalRes, error: errJadwal } = await queryJadwal.limit(500);
 
   if (errJadwal) console.error("Gagal memuat jadwal ronda:", errJadwal.message);
@@ -137,13 +137,11 @@ export default async function AdminRondaPage() {
 
       const supabase = await buatKlienTerautentikasi(sesi);
 
-      let queryTarget = supabase.from("jadwal_ronda").select("id, rt_id").eq("id", idBersih);
-      if (sesi.role !== "webmaster") queryTarget = queryTarget.eq("rt_id", sesi.rtId);
+      const queryTarget = supabase.from("jadwal_ronda").select("id, rt_id").eq("id", idBersih).eq("rt_id", sesi.rtId);
       const { data: target } = await queryTarget.maybeSingle();
       if (!target) return { success: false, message: "Jadwal tidak berada dalam cakupan RT Anda." };
 
-      let queryHapus = supabase.from("jadwal_ronda").delete().eq("id", idBersih);
-      if (sesi.role !== "webmaster") queryHapus = queryHapus.eq("rt_id", sesi.rtId);
+      const queryHapus = supabase.from("jadwal_ronda").delete().eq("id", idBersih).eq("rt_id", sesi.rtId);
       const { data: terhapus, error } = await queryHapus.select("id").maybeSingle();
       if (error || !terhapus) return { success: false, message: "Jadwal sudah berubah atau gagal dibatalkan." };
 

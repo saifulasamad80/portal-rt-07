@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import SampahClient from "./SampahClient"; // Kita pisah Client Component-nya
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { otentikasiWargaAktif, wajibOtentikasiWarga, wargaUntukKlien } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
@@ -20,11 +21,15 @@ export default async function PortalSampahPage() {
     .order("tanggal_transaksi", { ascending: false })
     .limit(1000);
 
-  const riwayatKiloan = kiloanRes || [];
+  const riwayatKiloan = (kiloanRes || []).map((t) => ({
+    ...t,
+    nominal_warga: angkaPostgrest(t.nominal_warga),
+    berat_kg: angkaPostgrest(t.berat_kg),
+  }));
   const totalSetorWarga = riwayatKiloan.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.nominal_warga, 0);
   const totalTarikWarga = riwayatKiloan.filter(t => t.jenis_transaksi === "Tarik").reduce((sum, t) => sum + t.nominal_warga, 0);
   const saldoKiloan = totalSetorWarga - totalTarikWarga;
-  const totalBeratKiloan = riwayatKiloan.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + (t.berat_kg || 0), 0);
+  const totalBeratKiloan = riwayatKiloan.filter(t => t.jenis_transaksi === "Setor").reduce((sum, t) => sum + t.berat_kg, 0);
 
   // 2. Tarik Data Limbah Ekonomis (Rak Bin)
   // Perhatikan: Kita join ke tabel lapak_warga untuk narik nama Teknisi (Jika sudah di-assign RT)

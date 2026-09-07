@@ -13,6 +13,7 @@ export default async function AdminAuditPage() {
   const { data: logsRes } = await supabaseAdmin
     .from("audit_log")
     .select("id, created_at, aktor, aksi, tabel_target, detail, rt_id")
+    .eq("rt_id", otentikasi.sesi.rtId)
     .order("created_at", { ascending: false })
     .limit(100);
 

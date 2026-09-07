@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
@@ -20,7 +21,10 @@ export default async function TabunganKurbanWarga() {
     .order("tanggal_transaksi", { ascending: false })
     .limit(1000);
   
-  const riwayat = data || [];
+  const riwayat = (data || []).map((t) => ({
+    ...t,
+    nominal: angkaPostgrest(t.nominal),
+  }));
   
   // FAKTA: Filter dan kalkulasi disesuaikan dengan skema Kurban
   const totalSetor = riwayat.filter(t => t.jenis_transaksi === "Setoran (+)" || t.jenis_transaksi === "Setoran").reduce((sum, t) => sum + t.nominal, 0);

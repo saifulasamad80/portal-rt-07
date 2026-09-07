@@ -11,12 +11,8 @@ export default async function AdminInventarisPage() {
 
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
-  let queryMaster = supabaseAdmin.from("master_inventaris").select("*").order("nama_barang", { ascending: true }).limit(500);
-  let queryPinjam = supabaseAdmin.from("peminjaman_inventaris").select("*, warga(nama_lengkap)").order("tanggal_pinjam", { ascending: false }).limit(1000);
-  if (otentikasi.sesi.role !== "webmaster") {
-    queryMaster = queryMaster.eq("rt_id", otentikasi.sesi.rtId);
-    queryPinjam = queryPinjam.eq("rt_id", otentikasi.sesi.rtId);
-  }
+  const queryMaster = supabaseAdmin.from("master_inventaris").select("*").eq("rt_id", otentikasi.sesi.rtId).order("nama_barang", { ascending: true }).limit(500);
+  const queryPinjam = supabaseAdmin.from("peminjaman_inventaris").select("*, warga(nama_lengkap)").eq("rt_id", otentikasi.sesi.rtId).order("tanggal_pinjam", { ascending: false }).limit(1000);
   const [{ data: masterData }, { data: pinjamData }] = await Promise.all([queryMaster, queryPinjam]);
 
   async function tambahBarang(nama: string, deskripsi: string, total: number) {
@@ -40,8 +36,7 @@ export default async function AdminInventarisPage() {
     const statusBersih = String(statusBaru || "").trim();
     if (!POLA_UUID.test(idBersih) || !["Menunggu", "Disetujui", "Ditolak", "Dikembalikan"].includes(statusBersih)) return { success: false, message: "ID atau status peminjaman tidak valid." };
     const supabase = await buatKlienTerautentikasi(sesi);
-    let query = supabase.from("peminjaman_inventaris").update({ status: statusBersih }).eq("id", idBersih);
-    if (sesi.role !== "webmaster") query = query.eq("rt_id", sesi.rtId);
+    const query = supabase.from("peminjaman_inventaris").update({ status: statusBersih }).eq("id", idBersih).eq("rt_id", sesi.rtId);
     const { data: diperbarui, error } = await query.select("id").maybeSingle();
     if (error || !diperbarui) return { success: false, message: "Status peminjaman gagal diperbarui." };
     await supabase.from("audit_log").insert([{ aktor: sesi.nama, aksi: `Update Status Pinjam: ${statusBersih}`, tabel_target: "peminjaman_inventaris", detail: `ID Peminjaman: ${idBersih}`, rt_id: sesi.rtId }]);

@@ -70,21 +70,19 @@ export default async function AdminDashboard() {
 
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasiHalaman.sesi);
 
-  const rtTerbatas = otentikasiHalaman.sesi.role === "webmaster"
-    ? null
-    : otentikasiHalaman.sesi.rtId;
-  let queryAntrean = supabaseAdmin
+  const rtSesi = otentikasiHalaman.sesi.rtId;
+  const queryAntrean = supabaseAdmin
     .from("warga")
     .select(
       "id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, status_validasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)"
     )
-    .eq("status_validasi", "Menunggu");
-  if (rtTerbatas) queryAntrean = queryAntrean.eq("rt_id", rtTerbatas);
+    .eq("status_validasi", "Menunggu")
+    .eq("rt_id", rtSesi);
 
   const querySampah = supabaseAdmin
     .from("transaksi_sampah")
     .select("berat_kg, jenis_transaksi, nominal_warga, nominal_kas_rt")
-    .eq("rt_id", otentikasiHalaman.sesi.rtId);
+    .eq("rt_id", rtSesi);
 
   const queryKurban = supabaseAdmin
     .from("transaksi_kurban")
@@ -93,7 +91,7 @@ export default async function AdminDashboard() {
 
   const [wargaListRes, totalWargaAktif, sampahRes, kurbanRes] = await Promise.all([
     queryAntrean.order("created_at", { ascending: true }),
-    hitungWargaSah(supabaseAdmin, rtTerbatas),
+    hitungWargaSah(supabaseAdmin, rtSesi),
     querySampah,
     queryKurban,
   ]);
@@ -159,7 +157,7 @@ export default async function AdminDashboard() {
 
   const modeWebmaster = otentikasiHalaman.sesi.role === "webmaster";
   const judulDasbor = modeWebmaster
-    ? "Mode Webmaster: Antrean validasi global; KPI Bank Sampah/Kurban mengikuti RT sesi"
+    ? "Mode Webmaster: Antrean dan KPI mengikuti RT sesi"
     : "Pusat Komando";
 
   return (

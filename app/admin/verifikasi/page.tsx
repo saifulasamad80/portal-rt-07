@@ -11,11 +11,8 @@ export default async function VerifikasiWargaPage() {
   if (!otentikasiHalaman.ok) redirect("/admin");
 
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasiHalaman.sesi);
-  const rtTerbatas = otentikasiHalaman.sesi.role === "webmaster"
-    ? null
-    : otentikasiHalaman.sesi.rtId;
 
-  let queryAntrean = supabaseAdmin
+  const queryAntrean = supabaseAdmin
     .from("warga")
     .select(`
       id,
@@ -32,8 +29,8 @@ export default async function VerifikasiWargaPage() {
       rt_id,
       anggota_keluarga (id, nama_lengkap, hubungan_keluarga, rt_id)
     `)
-    .eq("status_validasi", "Menunggu");
-  if (rtTerbatas) queryAntrean = queryAntrean.eq("rt_id", rtTerbatas);
+    .eq("status_validasi", "Menunggu")
+    .eq("rt_id", otentikasiHalaman.sesi.rtId);
 
   const { data: antreanRes, error: errAntrean } = await queryAntrean.order("created_at", { ascending: true });
   if (errAntrean) console.error("Gagal memuat antrean verifikasi:", errAntrean.message);

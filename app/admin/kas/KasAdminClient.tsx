@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 
 export default function KasAdminClient({ adminAktif, transaksiList, wargaList, aksiSimpan }: { adminAktif: any, transaksiList: any[], wargaList: any[], aksiSimpan: any }) {
   const router = useRouter();
@@ -20,8 +21,8 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
   const [nominal, setNominal] = useState("");
   const [keterangan, setKeterangan] = useState("");
 
-  const totalPemasukan = transaksiList.filter(t => t.tipe_transaksi === "Pemasukan").reduce((sum, t) => sum + t.nominal, 0);
-  const totalPengeluaran = transaksiList.filter(t => t.tipe_transaksi === "Pengeluaran").reduce((sum, t) => sum + t.nominal, 0);
+  const totalPemasukan = transaksiList.filter(t => t.tipe_transaksi === "Pemasukan").reduce((sum, t) => sum + angkaPostgrest(t.nominal), 0);
+  const totalPengeluaran = transaksiList.filter(t => t.tipe_transaksi === "Pengeluaran").reduce((sum, t) => sum + angkaPostgrest(t.nominal), 0);
   const saldoAkhir = totalPemasukan - totalPengeluaran;
 
   const formatWA = (nomor: string) => {
@@ -87,7 +88,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
       doc.text(`Dicetak oleh: ${adminAktif.nama}`, 14, 27); doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 14, 32);
 
       const tableData = transaksiList.map(t => [
-        new Date(t.created_at).toLocaleDateString('id-ID'), t.tipe_transaksi, t.kategori, t.warga?.nama_lengkap || "-", `Rp ${t.nominal.toLocaleString('id-ID')}`
+        new Date(t.created_at).toLocaleDateString('id-ID'), t.tipe_transaksi, t.kategori, t.warga?.nama_lengkap || "-", `Rp ${angkaPostgrest(t.nominal).toLocaleString('id-ID')}`
       ]);
 
       autoTable(doc, {
@@ -214,7 +215,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
                           <div className="text-slate-500 text-xs">{t.keterangan || <span className="italic opacity-50">Tanpa keterangan tambahan</span>}</div>
                         </td>
                         <td className={`p-4 align-top text-right font-mono font-black text-sm md:text-base ${t.tipe_transaksi === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {t.tipe_transaksi === 'Pemasukan' ? '+' : '-'} Rp {t.nominal.toLocaleString('id-ID')}
+                          {t.tipe_transaksi === 'Pemasukan' ? '+' : '-'} Rp {angkaPostgrest(t.nominal).toLocaleString('id-ID')}
                         </td>
                       </tr>
                     ))

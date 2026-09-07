@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 
 export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList, sampahList, aksiSimpan }: { adminAktif: any; transaksiList: any[]; wargaList: any[]; sampahList: any[]; aksiSimpan: any; }) {
   const router = useRouter();
@@ -15,20 +16,23 @@ export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList
   const [tanggal, setTanggal] = useState(new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]);
 
   const totalTerkumpul = transaksiList.reduce((sum, t) => {
-    if (t.jenis_transaksi === "Setoran (+)") return sum + t.nominal;
-    if (t.jenis_transaksi === "Tarikan (-)") return sum - t.nominal;
+    const nominal = angkaPostgrest(t.nominal);
+    if (t.jenis_transaksi === "Setoran (+)") return sum + nominal;
+    if (t.jenis_transaksi === "Tarikan (-)") return sum - nominal;
     return sum;
   }, 0);
 
   const saldoKurbanTerpilih = wargaId ? transaksiList.filter(t => t.warga_id === wargaId).reduce((sum, t) => {
-    if (t.jenis_transaksi === "Setoran (+)") return sum + t.nominal;
-    if (t.jenis_transaksi === "Tarikan (-)") return sum - t.nominal;
+    const nominal = angkaPostgrest(t.nominal);
+    if (t.jenis_transaksi === "Setoran (+)") return sum + nominal;
+    if (t.jenis_transaksi === "Tarikan (-)") return sum - nominal;
     return sum;
   }, 0) : 0;
 
   const saldoSampahTerpilih = wargaId ? sampahList.filter((s: any) => s.warga_id === wargaId).reduce((sum: number, s: any) => {
-    if (s.jenis_transaksi === "Setor") return sum + s.nominal_warga;
-    if (s.jenis_transaksi === "Tarik") return sum - s.nominal_warga;
+    const nominal = angkaPostgrest(s.nominal_warga);
+    if (s.jenis_transaksi === "Setor") return sum + nominal;
+    if (s.jenis_transaksi === "Tarik") return sum - nominal;
     return sum;
   }, 0) : 0;
 
@@ -150,7 +154,7 @@ export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList
                           <div className="flex items-center gap-2 mb-1.5"><span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-sm shadow-sm inline-block ${t.jenis_transaksi === 'Setoran (+)' ? 'bg-pink-100 text-pink-700' : 'bg-rose-100 text-rose-700'}`}>{t.jenis_transaksi}</span><span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-1 rounded-sm font-bold uppercase tracking-wider">{t.sumber_dana}</span></div>
                           <div className="text-slate-600 text-xs mt-1">{t.keterangan}</div>
                         </td>
-                        <td className={`p-4 align-top text-right font-mono font-black text-base ${t.jenis_transaksi === 'Setoran (+)' ? 'text-pink-600' : 'text-rose-600'}`}>{t.jenis_transaksi === 'Setoran (+)' ? '+' : '-'} Rp {t.nominal.toLocaleString('id-ID')}</td>
+                        <td className={`p-4 align-top text-right font-mono font-black text-base ${t.jenis_transaksi === 'Setoran (+)' ? 'text-pink-600' : 'text-rose-600'}`}>{t.jenis_transaksi === 'Setoran (+)' ? '+' : '-'} Rp {angkaPostgrest(t.nominal).toLocaleString('id-ID')}</td>
                       </tr>
                     ))
                   )}

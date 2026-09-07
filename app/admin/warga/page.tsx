@@ -51,10 +51,7 @@ export default async function WargaAdminPage() {
       rt_id,
       anggota_keluarga (id, nik, nama_lengkap, hubungan_keluarga, rt_id)
     `);
-  queryWarga = queryWarga.eq("status_validasi", "Disetujui");
-  if (otentikasiHalaman.sesi.role !== "webmaster") {
-    queryWarga = queryWarga.eq("rt_id", otentikasiHalaman.sesi.rtId);
-  }
+  queryWarga = queryWarga.eq("status_validasi", "Disetujui").eq("rt_id", otentikasiHalaman.sesi.rtId);
   const { data: wargaRes, error: errWarga } = await queryWarga.order("created_at", { ascending: false });
 
   if (errWarga) console.error("Gagal memuat buku induk warga:", errWarga.message);

@@ -10,6 +10,7 @@ import {
   wajibOtentikasiAdmin,
 } from "@/lib/session-security";
 
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { POLA_UUID, UUID_SENTINEL } from "@/lib/uuid-tenant";
 const UKURAN_KELOMPOK = 80;
 
@@ -71,38 +72,30 @@ export default async function AdminSampahPage() {
   // Query/mutasi memakai klien terautentikasi agar RLS tenant merdeka.
   // Predikat rt_id di aplikasi tetap dipertahankan sebagai pertahanan berlapis.
 
-  let queryWarga = supabaseAdmin.from("warga").select("id, nama_lengkap, rt_id").eq("status_verifikasi", "Disetujui");
-  if (otentikasi.sesi.role !== "webmaster") queryWarga = queryWarga.eq("rt_id", otentikasi.sesi.rtId);
+  const queryWarga = supabaseAdmin
+    .from("warga")
+    .select("id, nama_lengkap, rt_id")
+    .eq("status_verifikasi", "Disetujui")
+    .eq("rt_id", otentikasi.sesi.rtId);
   const { data: wargaRes } = await queryWarga.order("nama_lengkap", { ascending: true }).limit(1000);
   const idWargaCakupan = (wargaRes || []).map((w) => String(w.id));
   const ids = idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL];
 
   // PostgREST menaruh .in() di query string. Ratusan UUID sekali tembak pecah
   // jadi HTTP 400 (URL terlalu panjang) — kg/saldo sampah jadi kosong.
-  const [{ data: transaksiRes }, { data: rakBinRes }] =
-    otentikasi.sesi.role === "webmaster"
-      ? await Promise.all([
-          supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500),
-          supabaseAdmin
-            .from("limbah_ekonomis")
-            .select("*, warga(nama_lengkap), lapak_warga(nama_usaha)")
-            .not("warga_id", "is", null)
-            .not("rt_id", "is", null)
-            .order("created_at", { ascending: false })
-            .limit(500),
-        ])
-      : await Promise.all([
-          ambilTransaksiSampahCakupan(supabaseAdmin, ids, otentikasi.sesi.rtId),
-          ambilRakBinCakupan(supabaseAdmin, ids, otentikasi.sesi.rtId),
-        ]);
+  // Webmaster memakai helper yang sama agar tidak dump lintas-RT.
+  const [{ data: transaksiRes }, { data: rakBinRes }] = await Promise.all([
+    ambilTransaksiSampahCakupan(supabaseAdmin, ids, otentikasi.sesi.rtId),
+    ambilRakBinCakupan(supabaseAdmin, ids, otentikasi.sesi.rtId),
+  ]);
 
   // 3. Tarik Daftar Teknisi / Jasa Profesional dari Tabel Lapak (Untuk Dropdown Penugasan)
-  let queryTeknisi = supabaseAdmin
+  const queryTeknisi = supabaseAdmin
     .from("lapak_warga")
     .select("id, nama_usaha, warga(nama_lengkap)")
     .eq("kategori", "Jasa & Servis") // Hanya ambil yang kategori Jasa
-    .eq("status", "Aktif");
-  if (otentikasi.sesi.role !== "webmaster") queryTeknisi = queryTeknisi.eq("rt_id", otentikasi.sesi.rtId);
+    .eq("status", "Aktif")
+    .eq("rt_id", otentikasi.sesi.rtId);
   const { data: teknisiRes } = await queryTeknisi.limit(200);
 
   // SERVER ACTION 1: SIMPAN SAMPAH KILOAN (Tetap sama)
@@ -138,8 +131,9 @@ export default async function AdminSampahPage() {
         const { data: riwayat } = await supabase.from("transaksi_sampah").select("jenis_transaksi, nominal_warga").eq("warga_id", idBersih).eq("rt_id", rtIdTarget);
         let saldoAktual = 0;
         riwayat?.forEach(r => {
-          if (r.jenis_transaksi === "Setor") saldoAktual += r.nominal_warga;
-          if (r.jenis_transaksi === "Tarik") saldoAktual -= r.nominal_warga;
+          const nominal = angkaPostgrest(r.nominal_warga);
+          if (r.jenis_transaksi === "Setor") saldoAktual += nominal;
+          if (r.jenis_transaksi === "Tarik") saldoAktual -= nominal;
         });
         
         if (nominalWargaBersih > saldoAktual) {

@@ -115,9 +115,7 @@ test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () 
   assert.equal(adalahTiketPerubahanKeluarga("Lampu mati"), false);
 
   assert.match(adminLapor, /aksiIzinkanRevisi/);
-  assert.match(adminLapor, /status_validasi: "Menunggu"/);
-  assert.match(adminLapor, /\.eq\("status_validasi", "Disetujui"\)/);
-  assert.match(adminLapor, /Izinkan Revisi Data Keluarga/);
+  assert.match(adminLapor, /rpc\("aksi_izinkan_revisi"/);
   assert.match(adminLapor, /hanya ditutup lewat Izinkan Revisi/);
   assert.doesNotMatch(adminLapor, /status_verifikasi/);
 
@@ -129,8 +127,14 @@ test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () 
   assert.match(aksiRevisi, /\.from\("warga"\)/);
   assert.match(aksiRevisi, /\.eq\("id", wargaId\)/);
   assert.match(aksiRevisi, /\.eq\("rt_id", rtIdTujuan\)/);
-  assert.match(aksiRevisi, /\.eq\("id", idBersih\)[\s\S]*\.eq\("rt_id", rtIdTujuan\)/);
+  assert.match(aksiRevisi, /p_laporan_id: idBersih/);
   assert.doesNotMatch(aksiRevisi, /role !== "webmaster"/);
+
+  const p3 = await readFile(new URL("../p3-sweep-execution.sql", import.meta.url), "utf8");
+  assert.match(p3, /CREATE OR REPLACE FUNCTION public\.aksi_izinkan_revisi/);
+  assert.match(p3, /status_validasi = 'Menunggu'/);
+  assert.match(p3, /status_validasi = 'Disetujui'/);
+  assert.match(p3, /Izinkan Revisi Data Keluarga/);
   assert.match(adminUi, /Izinkan Revisi/);
   assert.match(dasbor, /href="\/admin\/lapor"/);
   assert.doesNotMatch(dasbor, /Digembok/);

@@ -17,10 +17,10 @@ export default async function AdminLapakPage() {
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   // OPTIMASI: Pemasangan Limit(200) Mencegah Memory Leak (OOM)
-  let queryLapak = supabaseAdmin
+  const queryLapak = supabaseAdmin
     .from("lapak_warga")
     .select("*, warga(nama_lengkap)")
-  if (otentikasi.sesi.role !== "webmaster") queryLapak = queryLapak.eq("rt_id", otentikasi.sesi.rtId);
+    .eq("rt_id", otentikasi.sesi.rtId);
   const { data: lapakRes } = await queryLapak.order("created_at", { ascending: false }).limit(200);
 
   // REFACTOR: Server Action Diamankan
@@ -43,8 +43,7 @@ export default async function AdminLapakPage() {
     if (errTarget || !target || !adminBolehMengaksesRt(sesi, target.rt_id)) {
       return { success: false, message: "Lapak tidak berada dalam cakupan RT Anda." };
     }
-    let queryUpdate = supabase.from("lapak_warga").update({ status: statusBersih }).eq("id", idBersih);
-    if (sesi.role !== "webmaster") queryUpdate = queryUpdate.eq("rt_id", sesi.rtId);
+    const queryUpdate = supabase.from("lapak_warga").update({ status: statusBersih }).eq("id", idBersih).eq("rt_id", target.rt_id);
     const { data: diperbarui, error } = await queryUpdate.select("id").maybeSingle();
     if (error) return { success: false, message: "Status lapak gagal diperbarui." };
     if (!diperbarui) return { success: false, message: "Lapak berubah; muat ulang halaman." };

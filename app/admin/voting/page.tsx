@@ -15,12 +15,8 @@ export default async function AdminVotingPage() {
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   // FAKTA: Tarik semua topik sekaligus hitung suara dari tabel suara_voting
-  let queryTopik = supabaseAdmin.from("voting_rt").select("*").order("created_at", { ascending: false }).limit(500);
-  let querySuara = supabaseAdmin.from("suara_voting").select("voting_id, pilihan").limit(10000);
-  if (otentikasi.sesi.role !== "webmaster") {
-    queryTopik = queryTopik.eq("rt_id", otentikasi.sesi.rtId);
-    querySuara = querySuara.eq("rt_id", otentikasi.sesi.rtId);
-  }
+  const queryTopik = supabaseAdmin.from("voting_rt").select("*").eq("rt_id", otentikasi.sesi.rtId).order("created_at", { ascending: false }).limit(500);
+  const querySuara = supabaseAdmin.from("suara_voting").select("voting_id, pilihan").eq("rt_id", otentikasi.sesi.rtId).limit(10000);
   const [topikRes, suaraRes] = await Promise.all([queryTopik, querySuara]);
 
   const daftarTopik = topikRes.data || [];
@@ -67,8 +63,7 @@ export default async function AdminVotingPage() {
     const statusBersih = String(statusBaru || "").trim();
     if (!POLA_UUID.test(idBersih) || !["Aktif", "Ditutup"].includes(statusBersih)) return { success: false, message: "ID atau status voting tidak valid." };
     const supabase = await buatKlienTerautentikasi(sesi);
-    let query = supabase.from("voting_rt").update({ status: statusBersih }).eq("id", idBersih);
-    if (sesi.role !== "webmaster") query = query.eq("rt_id", sesi.rtId);
+    const query = supabase.from("voting_rt").update({ status: statusBersih }).eq("id", idBersih).eq("rt_id", sesi.rtId);
     const { data: diperbarui, error } = await query.select("id").maybeSingle();
     if (error || !diperbarui) return { success: false, message: "Status voting gagal diperbarui." };
     await supabase.from("audit_log").insert([{ aktor: sesi.nama, aksi: `Mengubah Status Voting`, tabel_target: "voting_rt", detail: `ID: ${idBersih} menjadi ${statusBersih}`, rt_id: sesi.rtId }]);

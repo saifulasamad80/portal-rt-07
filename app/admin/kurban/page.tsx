@@ -10,6 +10,7 @@ import {
   wajibOtentikasiAdmin,
 } from "@/lib/session-security";
 
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { POLA_UUID, UUID_SENTINEL } from "@/lib/uuid-tenant";
 
 const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,30 +68,23 @@ export default async function AdminKurbanPage() {
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
   // Baca daftar warga lebih dulu agar transaksi lintas-RT tidak ikut dikirim.
-  let queryWarga = supabaseAdmin.from("warga").select("id, nama_lengkap, rt_id").eq("status_verifikasi", "Disetujui");
-  if (otentikasi.sesi.role !== "webmaster") queryWarga = queryWarga.eq("rt_id", otentikasi.sesi.rtId);
+  const queryWarga = supabaseAdmin.from("warga").select("id, nama_lengkap, rt_id").eq("status_verifikasi", "Disetujui").eq("rt_id", otentikasi.sesi.rtId);
   const { data: wargaRes } = await queryWarga.order("nama_lengkap", { ascending: true }).limit(1000);
   const idWargaCakupan = (wargaRes || []).map((w) => String(w.id));
   // PostgREST menaruh .in() di query string. Ratusan UUID sekali tembak pecah
   // jadi HTTP 400 (URL terlalu panjang) — daftar/saldo kurban jadi kosong.
-  const [{ data: kurbanRes }, { data: sampahRes }] =
-    otentikasi.sesi.role === "webmaster"
-      ? await Promise.all([
-          supabaseAdmin.from("transaksi_kurban").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500),
-          supabaseAdmin.from("transaksi_sampah").select("warga_id, jenis_transaksi, nominal_warga").limit(5000),
-        ])
-      : await Promise.all([
-          ambilKurbanCakupan(
-            supabaseAdmin,
-            idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
-            otentikasi.sesi.rtId,
-          ),
-          ambilSampahCakupan(
-            supabaseAdmin,
-            idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
-            otentikasi.sesi.rtId,
-          ),
-        ]);
+  const [{ data: kurbanRes }, { data: sampahRes }] = await Promise.all([
+    ambilKurbanCakupan(
+      supabaseAdmin,
+      idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
+      otentikasi.sesi.rtId,
+    ),
+    ambilSampahCakupan(
+      supabaseAdmin,
+      idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
+      otentikasi.sesi.rtId,
+    ),
+  ]);
 
   async function simpanTransaksiKurban(wargaId: string, jenis: string, sumber: string, nominal: number, keterangan: string, tanggal: string) {
     "use server";
@@ -143,8 +137,9 @@ export default async function AdminKurbanPage() {
         const { data: riwayat } = await supabase.from("transaksi_kurban").select("jenis_transaksi, nominal").eq("warga_id", idBersih).eq("rt_id", targetWarga.rt_id);
         let saldoKurban = 0;
         riwayat?.forEach(r => {
-          if (r.jenis_transaksi === "Setoran (+)") saldoKurban += r.nominal;
-          if (r.jenis_transaksi === "Tarikan (-)") saldoKurban -= r.nominal;
+          const nominal = angkaPostgrest(r.nominal);
+          if (r.jenis_transaksi === "Setoran (+)") saldoKurban += nominal;
+          if (r.jenis_transaksi === "Tarikan (-)") saldoKurban -= nominal;
         });
         if (nominalBersih > saldoKurban) return { success: false, message: "SERVER BLOCKED: Saldo kurban tidak mencukupi!" };
       }

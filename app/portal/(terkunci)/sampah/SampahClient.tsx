@@ -13,6 +13,8 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
+import { angkaPostgrest } from "@/lib/angka-postgrest";
+
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan, riwayatRakBin, aksiLaporLimbah }: { wargaAktif: any, saldo: number, totalKg: number, riwayatKiloan: any[], riwayatRakBin: any[], aksiLaporLimbah: any }) {
@@ -48,7 +50,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
         const trxDate = new Date(trx.tanggal_transaksi);
         const labelBulan = trxDate.toLocaleDateString('id-ID', { month: 'short' }).toUpperCase();
         const targetNode = data.find(d => d.label === labelBulan);
-        if (targetNode) targetNode.setor += trx.nominal_warga;
+        if (targetNode) targetNode.setor += angkaPostgrest(trx.nominal_warga);
       }
     });
 
@@ -196,7 +198,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 shadow-inner ${trx.jenis_transaksi === 'Tarik' ? 'bg-rose-100 text-rose-500' : 'bg-emerald-100 text-emerald-500'}`}>{trx.jenis_transaksi === 'Tarik' ? '💸' : '⚖️'}</div>
                         <div><h4 className="font-bold text-slate-800 text-xs">{trx.keterangan || 'Setoran Umum'}</h4><p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-wider">{new Date(trx.tanggal_transaksi).toLocaleDateString('id-ID')} {trx.berat_kg ? `• ${trx.berat_kg} Kg` : ''}</p></div>
                       </div>
-                      <div className={`font-black text-sm tabular-nums ${trx.jenis_transaksi === 'Tarik' ? 'text-rose-600' : 'text-emerald-600'}`}>{trx.jenis_transaksi === 'Tarik' ? '-' : '+'}{formatRp(trx.nominal_warga)}</div>
+                      <div className={`font-black text-sm tabular-nums ${trx.jenis_transaksi === 'Tarik' ? 'text-rose-600' : 'text-emerald-600'}`}>{trx.jenis_transaksi === 'Tarik' ? '-' : '+'}{formatRp(angkaPostgrest(trx.nominal_warga))}</div>
                     </div>
                   ))
                 }

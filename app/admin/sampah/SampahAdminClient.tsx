@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 
 // REFACTOR MUTLAK: Tambahan prop rakBinList dan teknisiList
 export default function SampahAdminClient({ adminAktif, transaksiList, wargaList, rakBinList, teknisiList, aksiSimpan, aksiUpdateRakBin }: { adminAktif: any, transaksiList: any[], wargaList: any[], rakBinList: any[], teknisiList: any[], aksiSimpan: any, aksiUpdateRakBin: any }) {
@@ -27,16 +28,18 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
 
   // KALKULASI STATISTIK
   const totalSaldoWarga = transaksiList.reduce((sum, t) => {
-    if (t.jenis_transaksi === "Setor") return sum + t.nominal_warga;
-    if (t.jenis_transaksi === "Tarik") return sum - t.nominal_warga;
+    const nominal = angkaPostgrest(t.nominal_warga);
+    if (t.jenis_transaksi === "Setor") return sum + nominal;
+    if (t.jenis_transaksi === "Tarik") return sum - nominal;
     return sum;
   }, 0);
-  const totalKasRtMasuk = transaksiList.reduce((sum, t) => sum + (t.nominal_kas_rt || 0), 0);
-  const totalBerat = transaksiList.reduce((sum, t) => sum + (t.berat_kg || 0), 0);
+  const totalKasRtMasuk = transaksiList.reduce((sum, t) => sum + angkaPostgrest(t.nominal_kas_rt), 0);
+  const totalBerat = transaksiList.reduce((sum, t) => sum + angkaPostgrest(t.berat_kg), 0);
 
   const saldoUserTerpilih = wargaId ? transaksiList.filter(t => t.warga_id === wargaId).reduce((sum, t) => {
-    if (t.jenis_transaksi === "Setor") return sum + t.nominal_warga;
-    if (t.jenis_transaksi === "Tarik") return sum - t.nominal_warga;
+    const nominal = angkaPostgrest(t.nominal_warga);
+    if (t.jenis_transaksi === "Setor") return sum + nominal;
+    if (t.jenis_transaksi === "Tarik") return sum - nominal;
     return sum;
   }, 0) : 0;
 
@@ -253,10 +256,10 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
                             <div className="text-slate-600 text-xs">{t.keterangan}</div>
                           </td>
                           <td className={`p-4 align-top text-right font-mono font-black text-sm ${t.jenis_transaksi === 'Setor' ? 'text-amber-600' : 'text-rose-600'}`}>
-                            {t.jenis_transaksi === 'Setor' ? '+' : '-'} Rp {t.nominal_warga.toLocaleString('id-ID')}
+                            {t.jenis_transaksi === 'Setor' ? '+' : '-'} Rp {angkaPostgrest(t.nominal_warga).toLocaleString('id-ID')}
                           </td>
                           <td className="p-4 align-top text-right font-mono font-bold text-sm text-emerald-600">
-                            {t.nominal_kas_rt > 0 ? `+ Rp ${t.nominal_kas_rt.toLocaleString('id-ID')}` : '-'}
+                            {angkaPostgrest(t.nominal_kas_rt) > 0 ? `+ Rp ${angkaPostgrest(t.nominal_kas_rt).toLocaleString('id-ID')}` : '-'}
                           </td>
                         </tr>
                       ))

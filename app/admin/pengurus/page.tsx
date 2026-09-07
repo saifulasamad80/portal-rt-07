@@ -15,6 +15,7 @@ export default async function AdminPengurusPage() {
   const { data: pengurusRes } = await supabaseAdmin
     .from("pengurus_rt")
     .select("id, nama_lengkap, jabatan, email, created_at")
+    .eq("rt_id", otentikasi.sesi.rtId)
     .order("created_at", { ascending: true })
     .limit(100); 
 

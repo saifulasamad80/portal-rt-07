@@ -23,10 +23,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
   const [isLocked, setIsLocked] = useState(false);
   const [notifikasi, setNotifikasi] = useState<Notifikasi>(null);
 
-  const cakupanGlobal = modeWebmaster === true;
-  const judulTampil = String(judulDasbor || "").trim() || (cakupanGlobal
-    ? "Mode Webmaster: Menampilkan Data Global Seluruh RT"
-    : "Pusat Komando");
+  const judulTampil = String(judulDasbor || "").trim() || "Pusat Komando";
   const namaAdmin = String(adminAktif?.nama || "Pengurus");
   const sampahKg = Number(statistik?.sampahKg) || 0;
   const sampahRp = Number(statistik?.sampahRp) || 0;
@@ -147,10 +144,10 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
           </div>
         )}
 
-        {cakupanGlobal && (
+        {modeWebmaster && (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
             <p className="text-[13px] font-semibold text-amber-900 leading-relaxed">
-              Peringatan cakupan: angka di bawah adalah agregat seluruh RT, bukan metrik satu wilayah. Jangan dipakai sebagai analisis operasional RT lokal.
+              Mode webmaster: angka dan antrean di bawah mengikuti RT sesi, bukan agregat seluruh tenant.
             </p>
           </div>
         )}
@@ -163,7 +160,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <span className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-xs shrink-0">👥</span>
             </div>
             <div className="text-lg font-bold text-slate-900 tabular-nums tracking-tight">{jumlahWargaSah} KK</div>
-            <p className="text-[10px] text-slate-400 mt-1">{cakupanGlobal ? "Kepala keluarga terverifikasi · Seluruh RT" : "Kepala keluarga terverifikasi"}</p>
+            <p className="text-[10px] text-slate-400 mt-1">Kepala keluarga terverifikasi</p>
           </div>
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
             <div className="flex items-center justify-between mb-2">
@@ -171,7 +168,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <span className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xs shrink-0">♻️</span>
             </div>
             <div className="text-lg font-bold text-emerald-700 tabular-nums tracking-tight">{sampahKg.toFixed(1)} Kg</div>
-            <p className="text-[10px] text-slate-400 mt-1">{cakupanGlobal ? "Total anorganik tersetor · Seluruh RT" : "Total anorganik tersetor"}</p>
+            <p className="text-[10px] text-slate-400 mt-1">Total anorganik tersetor</p>
           </div>
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
             <div className="flex items-center justify-between mb-2">
@@ -179,7 +176,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <span className="w-6 h-6 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-xs shrink-0">💸</span>
             </div>
             <div className="text-lg font-bold text-amber-600 tabular-nums tracking-tight">Rp {(sampahRp / 1000).toFixed(0)}k</div>
-            <p className="text-[10px] text-slate-400 mt-1">{cakupanGlobal ? "Dana tersimpan warga · Seluruh RT" : "Dana tersimpan warga"}</p>
+            <p className="text-[10px] text-slate-400 mt-1">Dana tersimpan warga</p>
           </div>
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
             <div className="flex items-center justify-between mb-2">
@@ -187,7 +184,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <span className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-xs shrink-0">🐄</span>
             </div>
             <div className="text-lg font-bold text-rose-600 tabular-nums tracking-tight">Rp {(kurbanRp / 1000000).toFixed(1)} Jt</div>
-            <p className="text-[10px] text-slate-400 mt-1">{cakupanGlobal ? "Tabungan Idul Adha · Seluruh RT" : "Tabungan Idul Adha"}</p>
+            <p className="text-[10px] text-slate-400 mt-1">Tabungan Idul Adha</p>
           </div>
         </section>
 

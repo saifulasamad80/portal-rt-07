@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import LaporAdminClient from "./LaporAdminClient";
 import {
   adalahTiketPerubahanKeluarga,
-  PESAN_TANGGAPAN_IZINKAN_REVISI,
   STATUS_TIKET_TERBUKA,
   tiketKeluargaMasihTerbuka,
 } from "@/lib/kebijakan-sensus";
@@ -19,11 +18,11 @@ async function bacaTiketTerbuka(
   sesi: SesiPengurusSaring,
   laporanId: string
 ) {
-  let queryTarget = supabase
+  const queryTarget = supabase
     .from("laporan_warga")
     .select("id, judul_laporan, status, rt_id, warga_id")
-    .eq("id", laporanId);
-  if (sesi.role !== "webmaster") queryTarget = queryTarget.eq("rt_id", sesi.rtId);
+    .eq("id", laporanId)
+    .eq("rt_id", sesi.rtId);
   const { data, error } = await queryTarget.maybeSingle();
   if (error || !data) return { ok: false as const, message: "Laporan tidak berada dalam cakupan RT Anda." };
   return { ok: true as const, tiket: data };
@@ -47,12 +46,12 @@ export default async function AdminLaporPage() {
 
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
-  let queryLaporan = supabaseAdmin
+  const queryLaporan = supabaseAdmin
     .from("laporan_warga")
     .select("id, warga_id, judul_laporan, deskripsi, status, tanggapan_rt, created_at, warga(nama_lengkap)")
+    .eq("rt_id", otentikasi.sesi.rtId)
     .order("created_at", { ascending: false })
     .limit(1000);
-  if (otentikasi.sesi.role !== "webmaster") queryLaporan = queryLaporan.eq("rt_id", otentikasi.sesi.rtId);
   const { data: laporanRes, error: errLaporan } = await queryLaporan;
   if (errLaporan) console.error("Gagal memuat antrean laporan:", errLaporan.message);
 
@@ -77,14 +76,14 @@ export default async function AdminLaporPage() {
         return { success: false, message: "Tiket data keluarga hanya ditutup lewat Izinkan Revisi." };
       }
 
-      let queryUpdate = supabase
+      const queryUpdate = supabase
         .from("laporan_warga")
         .update({
           status: statusBersih,
           tanggapan_rt: tanggapanBersih,
         })
-        .eq("id", idBersih);
-      if (otentikasiAksi.sesi.role !== "webmaster") queryUpdate = queryUpdate.eq("rt_id", otentikasiAksi.sesi.rtId);
+        .eq("id", idBersih)
+        .eq("rt_id", otentikasiAksi.sesi.rtId);
       const { data: diperbarui, error } = await queryUpdate.select("id").maybeSingle();
 
       if (error || !diperbarui) return { success: false, message: "Laporan berubah atau gagal diperbarui." };
@@ -142,62 +141,29 @@ export default async function AdminLaporPage() {
         return { success: false, message: "Pemilik tiket tidak berada dalam cakupan RT tiket." };
       }
 
-      const { data: capDibuka, error: errCap } = await supabase
-        .from("sensus_kesejahteraan")
-        .update({ status_validasi: "Menunggu" })
-        .eq("warga_id", wargaId)
-        .eq("rt_id", rtIdTujuan)
-        .eq("status_validasi", "Disetujui")
-        .select("id")
-        .maybeSingle();
-
-      if (errCap) {
-        console.error("Pembukaan cap Carik gagal:", errCap.message);
-        return { success: false, message: "Cap verifikasi belum dapat dibuka. Coba lagi nanti." };
+      const { data: hasilRpc, error: errRpc } = await supabase.rpc("aksi_izinkan_revisi", {
+        p_laporan_id: idBersih,
+        p_aktor: otentikasiAksi.sesi.nama,
+      });
+      if (errRpc) {
+        console.error("Izinkan revisi RPC gagal:", errRpc.code || "database_error");
+        const pesan = String(errRpc.message || "");
+        if (pesan.includes("Tiket ini sudah ditutup")) return { success: false, message: "Tiket ini sudah ditutup." };
+        if (pesan.includes("Izinkan Revisi hanya")) return { success: false, message: "Izinkan Revisi hanya untuk tiket data keluarga." };
+        if (pesan.includes("cakupan")) return { success: false, message: "Laporan tidak berada dalam cakupan RT Anda." };
+        if (pesan.includes("Cap verifikasi")) return { success: false, message: "Cap verifikasi keluarga tidak dapat dibuka. Muat ulang halaman." };
+        return { success: false, message: "Revisi belum dapat diizinkan. Coba lagi nanti." };
       }
 
-      if (!capDibuka) {
-        const { data: capAda, error: errCek } = await supabase
-          .from("sensus_kesejahteraan")
-          .select("id, status_validasi")
-          .eq("warga_id", wargaId)
-          .eq("rt_id", rtIdTujuan)
-          .maybeSingle();
-        if (errCek) {
-          console.error("Pemeriksaan cap Carik gagal:", errCek.message);
-          return { success: false, message: "Status verifikasi belum dapat diperiksa. Coba lagi nanti." };
-        }
-        if (capAda?.status_validasi !== "Menunggu") {
-          return { success: false, message: "Cap verifikasi keluarga tidak dapat dibuka. Muat ulang halaman." };
-        }
+      const ok = Boolean(hasilRpc && typeof hasilRpc === "object" && (hasilRpc as { ok?: unknown }).ok === true);
+      const pesanRpc = hasilRpc && typeof hasilRpc === "object"
+        ? String((hasilRpc as { message?: unknown }).message || "")
+        : "";
+      if (!ok) {
+        return { success: false, message: pesanRpc || "Revisi belum dapat diizinkan. Coba lagi nanti." };
       }
 
-      const { data: tiketDitutup, error: errTutup } = await supabase
-        .from("laporan_warga")
-        .update({
-          status: "Selesai",
-          tanggapan_rt: PESAN_TANGGAPAN_IZINKAN_REVISI,
-        })
-        .eq("id", idBersih)
-        .eq("rt_id", rtIdTujuan)
-        .in("status", [...STATUS_TIKET_TERBUKA])
-        .select("id")
-        .maybeSingle();
-
-      if (errTutup || !tiketDitutup) {
-        console.error("Penutupan tiket revisi gagal:", errTutup?.message);
-        return { success: false, message: "Cap sudah dibuka, tetapi tiket belum tertutup. Ulangi Izinkan Revisi." };
-      }
-
-      await supabase.from("audit_log").insert([{
-        aktor: otentikasiAksi.sesi.nama,
-        aksi: "Izinkan Revisi Data Keluarga",
-        tabel_target: "sensus_kesejahteraan",
-        detail: `Membuka cap Carik untuk tiket ${idBersih} tanpa mengubah status akun.`,
-        rt_id: target.tiket.rt_id,
-      }]);
-
-      return { success: true, message: "Revisi diizinkan. Warga dapat mengoreksi data di form Carik." };
+      return { success: true, message: pesanRpc || "Revisi diizinkan. Warga dapat mengoreksi data di form Carik." };
     } catch (err: unknown) {
       console.error("Izinkan revisi gagal:", err instanceof Error ? err.name : "unknown");
       return { success: false, message: "Revisi belum dapat diizinkan. Coba lagi nanti." };
@@ -226,15 +192,15 @@ export default async function AdminLaporPage() {
         return { success: false, message: "Tiket ini sudah ditutup." };
       }
 
-      let queryTolak = supabase
+      const queryTolak = supabase
         .from("laporan_warga")
         .update({
           status: "Ditolak",
           tanggapan_rt: alasanBersih,
         })
         .eq("id", idBersih)
+        .eq("rt_id", otentikasiAksi.sesi.rtId)
         .in("status", [...STATUS_TIKET_TERBUKA]);
-      if (otentikasiAksi.sesi.role !== "webmaster") queryTolak = queryTolak.eq("rt_id", otentikasiAksi.sesi.rtId);
       const { data: ditolak, error } = await queryTolak.select("id").maybeSingle();
       if (error || !ditolak) return { success: false, message: "Tiket berubah atau gagal ditolak." };
 

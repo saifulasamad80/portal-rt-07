@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
@@ -17,8 +18,11 @@ export default async function KeuanganWarga() {
     .order("created_at", { ascending: false })
     .limit(1000);
 
-  const riwayat = riwayatPribadi || [];
-  const totalPartisipasi = riwayat.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0);
+  const riwayat = (riwayatPribadi || []).map((t) => ({
+    ...t,
+    nominal: angkaPostgrest(t.nominal),
+  }));
+  const totalPartisipasi = riwayat.reduce((sum, t) => sum + t.nominal, 0);
 
   // -------------------------------------------------------------------------
   // INJEKSI MUTLAK: MESIN KALKULASI TUNGGAKAN IURAN (SISI WARGA)
