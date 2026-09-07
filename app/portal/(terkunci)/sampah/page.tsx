@@ -16,6 +16,7 @@ export default async function PortalSampahPage() {
     .from("transaksi_sampah")
     .select("berat_kg, jenis_transaksi, nominal_warga, tanggal_transaksi, keterangan")
     .eq("warga_id", wargaAktif.id)
+    .eq("rt_id", wargaAktif.rtId)
     .order("tanggal_transaksi", { ascending: false })
     .limit(1000);
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
 import { hitungJiwa, rekapDemografi, type RekamanJiwa } from "@/lib/demografi-publik";
+import { UUID_SENTINEL, adalahGalatTipeUuid, uuidTenantSah } from "@/lib/uuid-tenant";
 import DemografiClient from "./DemografiClient";
 import PengumumanClient from "./PengumumanClient";
 import KinerjaSampahClient from "./portal/KinerjaSampahClient";
@@ -12,20 +13,14 @@ import GaleriKegiatanClient, { type FotoKegiatan } from "./GaleriKegiatanClient"
 export const revalidate = 60;
 
 const TARGET_JUMANTIK = 151;
-const UUID_SENTINEL = "00000000-0000-0000-0000-000000000000";
-// Pola kanonik proyek (sama seperti lib/session-security): 8-4-4-4-12 hex.
-// Jangan pakai RFC 4122 versi/varian — id tenant RT 07 berbentuk
-// 00000000-0000-0000-0000-000000000007, yang ditolak regex versi 1-5.
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Landing page bersifat publik, sehingga tenant harus dipilih dari
 // konfigurasi deployment. Tanpa nilai ini semua query tenant memakai UUID
 // sentinel dan menghasilkan nol baris (fail closed), bukan query global.
 const PUBLIC_RT_ID = (() => {
   const nilai = process.env.PUBLIC_RT_ID?.trim() || "";
-  if (POLA_UUID.test(nilai) && nilai.toLowerCase() !== UUID_SENTINEL) {
-    return nilai;
-  }
+  const sah = uuidTenantSah(nilai);
+  if (sah) return sah;
   if (nilai) {
     console.error("PUBLIC_RT_ID tidak berbentuk UUID yang sah; portal publik fail-closed ke tenant kosong.");
   }
@@ -107,7 +102,12 @@ function dataAtauKosong<T>(
   label: string,
 ): T {
   if (hasil.error) {
-    console.warn(`Portal publik gagal memuat ${label}:`, hasil.error.message || hasil.error.code);
+    const pesan = hasil.error.message || hasil.error.code || "";
+    if (adalahGalatTipeUuid(pesan)) {
+      console.error(`Portal publik galat tipe UUID pada ${label}:`, pesan);
+      throw new Error(`Portal publik: filter UUID gagal pada ${label}`);
+    }
+    console.warn(`Portal publik gagal memuat ${label}:`, pesan);
     return cadangan;
   }
   return (hasil.data ?? cadangan) as T;
@@ -116,15 +116,15 @@ function dataAtauKosong<T>(
 async function ambilDemografiSah(supabase: ReturnType<typeof getSupabaseAdminClient>, rtId: string) {
   const pilih =
     "id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan, anggota_keluarga(id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan)";
-  // Induk sudah dikunci rt_id. Nested C2 menolak rt_id tenant lain, tetapi
-  // anggota lama dengan rt_id NULL tetap dihitung sebagai jiwa KK ini.
+  // Induk dan nested anggota dikunci rt_id tenant yang sama. Baris tanpa tenant
+  // tidak lagi dihitung (kolom sudah NOT NULL).
   const dasar = () =>
     supabase
       .from("warga")
       .select(pilih)
       .eq("status_verifikasi", "Disetujui")
       .eq("rt_id", rtId)
-      .or(`rt_id.eq.${rtId},rt_id.is.null`, { foreignTable: "anggota_keluarga" });
+      .or(`rt_id.eq.${rtId}`, { foreignTable: "anggota_keluarga" });
 
   let hasil = await dasar().neq("status_aktif", false);
   if (hasil.error && skemaBelumSiap(hasil.error)) {
@@ -141,32 +141,11 @@ async function ambilKurbanRt(
   supabase: ReturnType<typeof getSupabaseAdminClient>,
   rtId: string,
 ) {
-  // transaksi_kurban legacy tidak memiliki rt_id. Resolve allow-list warga
-  // terlebih dahulu agar service-role tidak pernah membaca ledger tenant lain.
-  const { data: warga, error: errorWarga } = await supabase
-    .from("warga")
-    .select("id")
-    .eq("rt_id", rtId)
-    .limit(5000);
-  if (errorWarga) return { data: [], error: errorWarga };
-
-  const ids = (warga || []).map((baris) => String(baris.id)).filter((id) => POLA_UUID.test(id));
-  if (!ids.length) return { data: [], error: null };
-
-  // PostgREST menaruh .in() di query string. 680 UUID sekali tembak pecah
-  // jadi HTTP 400 (URL terlalu panjang) — kartu Dana Kurban jadi Rp 0.
-  const UKURAN_KELOMPOK = 80;
-  const gabungan: BarisKurban[] = [];
-  for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
-    const potong = ids.slice(i, i + UKURAN_KELOMPOK);
-    const { data, error } = await supabase
-      .from("transaksi_kurban")
-      .select("jenis_transaksi, nominal, warga_id")
-      .in("warga_id", potong);
-    if (error) return { data: [], error };
-    gabungan.push(...((data || []) as BarisKurban[]));
-  }
-  return { data: gabungan, error: null };
+  const { data, error } = await supabase
+    .from("transaksi_kurban")
+    .select("jenis_transaksi, nominal, warga_id")
+    .eq("rt_id", rtId);
+  return { data: (data || []) as BarisKurban[], error };
 }
 
 async function ambilKasRt(

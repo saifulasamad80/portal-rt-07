@@ -16,7 +16,7 @@ export default async function SensusPage() {
   if (!otentikasi.ok) redirect("/login");
 
   const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-  const statusCarik = await ambilStatusCarik(supabase, otentikasi.sesi.id);
+  const statusCarik = await ambilStatusCarik(supabase, otentikasi.sesi.id, otentikasi.sesi.rtId);
   if (!statusCarik.ok) redirect("/login");
   if (statusCarik.data?.status_validasi === "Disetujui") {
     redirect("/portal/keluarga");

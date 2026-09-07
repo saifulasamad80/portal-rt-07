@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import VotingClient from "./VotingClient";
 import { wargaUntukKlien, otentikasiWargaAktif, wajibOtentikasiWarga } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
-
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function PortalVotingPage() {
   const otentikasi = await otentikasiWargaAktif();

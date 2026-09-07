@@ -2,8 +2,7 @@ import "server-only";
 
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const UUID_NOL = "00000000-0000-0000-0000-000000000000";
+import { uuidTenantSah } from "@/lib/uuid-tenant";
 const POLA_KODE_RUJUKAN = /^[a-z0-9][a-z0-9-]{1,31}$/;
 
 export const PESAN_RT_REGISTRASI =
@@ -28,7 +27,7 @@ type BarisMasterRt = {
 };
 
 function uuidSah(nilai: string): boolean {
-  return POLA_UUID.test(nilai) && nilai.toLowerCase() !== UUID_NOL;
+  return Boolean(uuidTenantSah(nilai));
 }
 
 function bentukWilayah(baris: BarisMasterRt | null): HasilWilayahRegistrasi {

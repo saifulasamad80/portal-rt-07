@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { prosesHapusAtauArsipWarga } from "@/lib/arsip-warga";
 import { adalahArsipPemilu, type HasilCarik } from "@/lib/verifikasi-carik";
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 export type SumberDuplikat = "warga" | "anggota_keluarga";
 
 function teks(nilai: unknown) {

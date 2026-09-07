@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import SampahAdminClient from "./SampahAdminClient";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import {
@@ -9,8 +10,56 @@ import {
   wajibOtentikasiAdmin,
 } from "@/lib/session-security";
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const UUID_SENTINEL = "00000000-0000-0000-0000-000000000000";
+import { POLA_UUID, UUID_SENTINEL } from "@/lib/uuid-tenant";
+const UKURAN_KELOMPOK = 80;
+
+type BarisTransaksiSampahAdmin = {
+  tanggal_transaksi?: string | null;
+  [kunci: string]: unknown;
+};
+
+type BarisRakBinAdmin = {
+  created_at?: string | null;
+  [kunci: string]: unknown;
+};
+
+async function ambilTransaksiSampahCakupan(supabase: SupabaseClient, ids: string[], rtId: string) {
+  const gabungan: BarisTransaksiSampahAdmin[] = [];
+  for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
+    const potong = ids.slice(i, i + UKURAN_KELOMPOK);
+    const { data, error } = await supabase
+      .from("transaksi_sampah")
+      .select("*, warga(nama_lengkap)")
+      .in("warga_id", potong)
+      .eq("rt_id", rtId);
+    if (error) return { data: [] as BarisTransaksiSampahAdmin[], error };
+    gabungan.push(...((data || []) as BarisTransaksiSampahAdmin[]));
+  }
+  gabungan.sort((a, b) =>
+    String(b.tanggal_transaksi || "").localeCompare(String(a.tanggal_transaksi || "")),
+  );
+  return { data: gabungan, error: null };
+}
+
+async function ambilRakBinCakupan(supabase: SupabaseClient, ids: string[], rtId: string) {
+  const gabungan: BarisRakBinAdmin[] = [];
+  for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
+    const potong = ids.slice(i, i + UKURAN_KELOMPOK);
+    const { data, error } = await supabase
+      .from("limbah_ekonomis")
+      .select("*, warga(nama_lengkap), lapak_warga(nama_usaha)")
+      .not("warga_id", "is", null)
+      .not("rt_id", "is", null)
+      .in("warga_id", potong)
+      .eq("rt_id", rtId);
+    if (error) return { data: [] as BarisRakBinAdmin[], error };
+    gabungan.push(...((data || []) as BarisRakBinAdmin[]));
+  }
+  gabungan.sort((a, b) =>
+    String(b.created_at || "").localeCompare(String(a.created_at || "")),
+  );
+  return { data: gabungan, error: null };
+}
 
 export default async function AdminSampahPage() {
   const otentikasi = await otentikasiAdminAktif();
@@ -28,26 +77,24 @@ export default async function AdminSampahPage() {
   const idWargaCakupan = (wargaRes || []).map((w) => String(w.id));
   const ids = idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL];
 
-  // 1. Tarik Data Sampah Kiloan
-  let queryTransaksi = supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500);
-  if (otentikasi.sesi.role !== "webmaster") {
-    // Filter ganda: foreign-key owner dan tenant denormalisasi harus sama.
-    // Baris legacy tanpa rt_id sengaja tidak ditampilkan sampai dimigrasikan.
-    queryTransaksi = queryTransaksi.in("warga_id", ids).eq("rt_id", otentikasi.sesi.rtId);
-  }
-  const { data: transaksiRes } = await queryTransaksi;
-
-  // 2. Tarik Data Rak Bin
-  let queryRak = supabaseAdmin
-    .from("limbah_ekonomis")
-    .select("*, warga(nama_lengkap), lapak_warga(nama_usaha)")
-    // Jangan kirim baris yatim ke browser. Baris seperti ini juga tidak boleh
-    // pernah menjadi target mutasi admin.
-    .not("warga_id", "is", null)
-    .not("rt_id", "is", null)
-    .order("created_at", { ascending: false });
-  if (otentikasi.sesi.role !== "webmaster") queryRak = queryRak.in("warga_id", ids).eq("rt_id", otentikasi.sesi.rtId);
-  const { data: rakBinRes } = await queryRak.limit(500);
+  // PostgREST menaruh .in() di query string. Ratusan UUID sekali tembak pecah
+  // jadi HTTP 400 (URL terlalu panjang) — kg/saldo sampah jadi kosong.
+  const [{ data: transaksiRes }, { data: rakBinRes }] =
+    otentikasi.sesi.role === "webmaster"
+      ? await Promise.all([
+          supabaseAdmin.from("transaksi_sampah").select("*, warga(nama_lengkap)").order("tanggal_transaksi", { ascending: false }).limit(500),
+          supabaseAdmin
+            .from("limbah_ekonomis")
+            .select("*, warga(nama_lengkap), lapak_warga(nama_usaha)")
+            .not("warga_id", "is", null)
+            .not("rt_id", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(500),
+        ])
+      : await Promise.all([
+          ambilTransaksiSampahCakupan(supabaseAdmin, ids, otentikasi.sesi.rtId),
+          ambilRakBinCakupan(supabaseAdmin, ids, otentikasi.sesi.rtId),
+        ]);
 
   // 3. Tarik Daftar Teknisi / Jasa Profesional dari Tabel Lapak (Untuk Dropdown Penugasan)
   let queryTeknisi = supabaseAdmin

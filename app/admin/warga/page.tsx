@@ -14,10 +14,10 @@ import {
   wilayahMutasiWarga,
 } from "@/lib/session-security";
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 const STATUS_TINGGAL_SAH = ["Warga Tetap", "Warga Kontrak", "Kontrak", "Kos", "Pendatang"] as const;
 const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BATAS_BARIS_IMPORT = 1000;
 
 function validasiIdWarga(id: unknown): { ok: true; id: string } | { ok: false; message: string } {
@@ -263,7 +263,6 @@ export default async function WargaAdminPage() {
           pin: hashedPin,
           percobaan_gagal: 0,
           terkunci_sampai: null,
-          ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
         }),
         target.sesi,
         wilayah.rtIdSaring

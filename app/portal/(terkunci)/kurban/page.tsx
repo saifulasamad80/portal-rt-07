@@ -16,6 +16,7 @@ export default async function TabunganKurbanWarga() {
     .from("transaksi_kurban")
     .select("id, jenis_transaksi, nominal, keterangan, sumber_dana, tanggal_transaksi, created_at")
     .eq("warga_id", wargaAktif.id)
+    .eq("rt_id", wargaAktif.rtId)
     .order("tanggal_transaksi", { ascending: false })
     .limit(1000);
   

@@ -4,8 +4,7 @@ import VerifikasiWargaClient, { type WargaAntrean } from "./VerifikasiWargaClien
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiAdminAktif as otentikasiAdmin } from "@/lib/session-security";
-
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function VerifikasiWargaPage() {
   const otentikasiHalaman = await otentikasiAdmin();

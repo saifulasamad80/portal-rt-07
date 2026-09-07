@@ -9,16 +9,12 @@ import {
   wajibOtentikasiAdmin,
   wajibWebmaster,
 } from "@/lib/session-security";
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { uuidTenantSah } from "@/lib/uuid-tenant";
 
 // Tabel kunjungan_* adalah tabel legacy yang hanya boleh dibuka setelah
 // operator memetakan seluruh baris ke satu tenant. Jangan pernah menerima
 // rt_id dari payload warga/admin; target berasal dari konfigurasi server.
-const UUID_NOL = "00000000-0000-0000-0000-000000000000";
-const LEGACY_POSYANDU_RT_ID = (() => {
-  const nilai = process.env.LEGACY_POSYANDU_RT_ID?.trim() || "";
-  return POLA_UUID.test(nilai) && nilai.toLowerCase() !== UUID_NOL ? nilai : null;
-})();
+const LEGACY_POSYANDU_RT_ID = uuidTenantSah(process.env.LEGACY_POSYANDU_RT_ID);
 
 function klienPrivileged(sesi: { id: string; rtId: string }) {
   return getSupabaseAdminClientDariSesi(sesi);
@@ -210,7 +206,7 @@ export default async function AdminIbuIbuPage() {
         .maybeSingle();
       if (errAnggota || !anggota) return { success: false, message: "Anggota arisan tidak berada dalam cakupan RT Anda." };
       const { error } = await db.from("arisan_transaksi").insert([
-        { arisan_id: arisanId, jenis, nominal, catatan: String(input.catatan || "").trim().slice(0, 1000) || null },
+        { arisan_id: arisanId, rt_id: sesi.rtId, jenis, nominal, catatan: String(input.catatan || "").trim().slice(0, 1000) || null },
       ]);
       if (error) return { success: false, message: error.message };
 
@@ -252,10 +248,12 @@ export default async function AdminIbuIbuPage() {
           .from("arisan_transaksi")
           .select("arisan_id")
           .eq("id", idBersih)
+          .eq("rt_id", sesi.rtId)
           .maybeSingle();
         if (errTransaksi || !transaksi) return { success: false, message: "Catatan tidak ditemukan." };
         const { data: induk } = await db.from("arisan_ibu").select("id").eq("id", transaksi.arisan_id).eq("rt_id", sesi.rtId).maybeSingle();
         if (!induk) return { success: false, message: "Akses lintas RT ditolak." };
+        query = query.eq("rt_id", sesi.rtId);
       }
       const { data: terhapus, error } = await query.select("id").maybeSingle();
       if (error) return { success: false, message: error.message };

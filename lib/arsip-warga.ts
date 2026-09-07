@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { uuidTenantSah } from "@/lib/uuid-tenant";
 
 export type HasilHapusWarga = {
   success: boolean;
@@ -444,13 +445,18 @@ async function catatAudit(
   detail: string,
   rtId: string | null
 ) {
+  const rtSah = uuidTenantSah(rtId);
+  if (!rtSah) {
+    console.error("Audit log ditahan: rt_id tenant tidak sah.");
+    return;
+  }
   const { error } = await supabase.from("audit_log").insert([
     {
       aktor: aktor || "pengurus",
       aksi,
       tabel_target: "warga",
       detail,
-      rt_id: rtId,
+      rt_id: rtSah,
     },
   ]);
   if (error) console.error("Audit log gagal dicatat:", error.message);

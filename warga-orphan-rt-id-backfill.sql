@@ -1,39 +1,12 @@
--- Baris warisan tanpa tenant membuat reset PIN/ubah status meledak:
--- PostgREST mengirim rt_id = '' yang ditolak Postgres (uuid).
--- Hanya dijalankan jika master_rt berisi tepat satu wilayah.
-
-BEGIN;
+-- DITARIK. Jangan jalankan skrip ini.
+-- Backfill LIMIT 1 FROM master_rt menstempel tenant acak jika ada >1 wilayah.
+-- Kontrak tenant yang sah: tenant-rt-id-kontrak-wajib.sql
+-- (backfill dari induk warga, stempel unik hanya jika tepat 1 master_rt
+-- DAN seluruh warga.rt_id sama).
 
 DO $$
-DECLARE
-  v_rt_id uuid;
-  v_jumlah integer;
 BEGIN
-  SELECT COUNT(*) INTO v_jumlah FROM public.master_rt;
-  IF v_jumlah <> 1 THEN
-    RAISE EXCEPTION 'Backfill ditolak: master_rt berisi % wilayah, wajib tepat 1', v_jumlah;
-  END IF;
-
-  SELECT id INTO v_rt_id FROM public.master_rt LIMIT 1;
-  IF v_rt_id IS NULL THEN
-    RAISE EXCEPTION 'Backfill ditolak: master_rt kosong';
-  END IF;
-
-  UPDATE public.warga
-     SET rt_id = v_rt_id
-   WHERE rt_id IS NULL;
-
-  UPDATE public.anggota_keluarga a
-     SET rt_id = w.rt_id
-    FROM public.warga w
-   WHERE a.warga_id = w.id
-     AND a.rt_id IS NULL
-     AND w.rt_id IS NOT NULL;
-
-  UPDATE public.anggota_keluarga
-     SET rt_id = v_rt_id
-   WHERE rt_id IS NULL;
+  RAISE EXCEPTION
+    'warga-orphan-rt-id-backfill.sql sudah ditarik. Jalankan tenant-rt-id-kontrak-wajib.sql.';
 END;
 $$;
-
-COMMIT;

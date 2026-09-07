@@ -10,9 +10,9 @@ import {
   wajibOtentikasiAdmin,
 } from "@/lib/session-security";
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID, UUID_SENTINEL } from "@/lib/uuid-tenant";
+
 const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
-const UUID_SENTINEL = "00000000-0000-0000-0000-000000000000";
 const UKURAN_KELOMPOK = 80;
 
 type BarisKurbanAdmin = {
@@ -26,14 +26,15 @@ type BarisSampahAdmin = {
   nominal_warga: number;
 };
 
-async function ambilKurbanCakupan(supabase: SupabaseClient, ids: string[]) {
+async function ambilKurbanCakupan(supabase: SupabaseClient, ids: string[], rtId: string) {
   const gabungan: BarisKurbanAdmin[] = [];
   for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
     const potong = ids.slice(i, i + UKURAN_KELOMPOK);
     const { data, error } = await supabase
       .from("transaksi_kurban")
       .select("*, warga(nama_lengkap)")
-      .in("warga_id", potong);
+      .in("warga_id", potong)
+      .eq("rt_id", rtId);
     if (error) return { data: [] as BarisKurbanAdmin[], error };
     gabungan.push(...((data || []) as BarisKurbanAdmin[]));
   }
@@ -43,14 +44,15 @@ async function ambilKurbanCakupan(supabase: SupabaseClient, ids: string[]) {
   return { data: gabungan, error: null };
 }
 
-async function ambilSampahCakupan(supabase: SupabaseClient, ids: string[]) {
+async function ambilSampahCakupan(supabase: SupabaseClient, ids: string[], rtId: string) {
   const gabungan: BarisSampahAdmin[] = [];
   for (let i = 0; i < ids.length; i += UKURAN_KELOMPOK) {
     const potong = ids.slice(i, i + UKURAN_KELOMPOK);
     const { data, error } = await supabase
       .from("transaksi_sampah")
       .select("warga_id, jenis_transaksi, nominal_warga")
-      .in("warga_id", potong);
+      .in("warga_id", potong)
+      .eq("rt_id", rtId);
     if (error) return { data: [] as BarisSampahAdmin[], error };
     gabungan.push(...((data || []) as BarisSampahAdmin[]));
   }
@@ -81,10 +83,12 @@ export default async function AdminKurbanPage() {
           ambilKurbanCakupan(
             supabaseAdmin,
             idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
+            otentikasi.sesi.rtId,
           ),
           ambilSampahCakupan(
             supabaseAdmin,
             idWargaCakupan.length ? idWargaCakupan : [UUID_SENTINEL],
+            otentikasi.sesi.rtId,
           ),
         ]);
 
@@ -136,7 +140,7 @@ export default async function AdminKurbanPage() {
       // TRANSAKSI NORMAL (Penarikan Kurban / Setoran Tunai & Transfer)
       // ---------------------------------------------------------------------
       if (jenisBersih === "Tarikan (-)") {
-        const { data: riwayat } = await supabase.from("transaksi_kurban").select("jenis_transaksi, nominal").eq("warga_id", idBersih);
+        const { data: riwayat } = await supabase.from("transaksi_kurban").select("jenis_transaksi, nominal").eq("warga_id", idBersih).eq("rt_id", targetWarga.rt_id);
         let saldoKurban = 0;
         riwayat?.forEach(r => {
           if (r.jenis_transaksi === "Setoran (+)") saldoKurban += r.nominal;
@@ -146,7 +150,7 @@ export default async function AdminKurbanPage() {
       }
 
       const { error } = await supabase.from("transaksi_kurban").insert([{
-        warga_id: idBersih, jenis_transaksi: jenisBersih, sumber_dana: sumberNormal, nominal: nominalBersih, keterangan: String(keterangan || "").trim().slice(0, 1000), tanggal_transaksi: tanggalBersih
+        warga_id: idBersih, rt_id: targetWarga.rt_id, jenis_transaksi: jenisBersih, sumber_dana: sumberNormal, nominal: nominalBersih, keterangan: String(keterangan || "").trim().slice(0, 1000), tanggal_transaksi: tanggalBersih
       }]);
 
       if (error) {

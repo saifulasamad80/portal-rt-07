@@ -22,8 +22,7 @@ import {
   hapusDuplikatPilihan,
   hapusKarenaNikTidakSesuai,
 } from "@/lib/verifikasi-carik-admin";
-
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idWarga } = await params;
@@ -105,7 +104,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
   }));
 
   const [statusCarik, duplikat] = await Promise.all([
-    ambilStatusCarik(supabase, idWarga),
+    ambilStatusCarik(supabase, idWarga, String(wargaRes.rt_id)),
     cariDuplikatWarga(supabase, {
       id: wargaRes.id,
       nik: wargaRes.nik,

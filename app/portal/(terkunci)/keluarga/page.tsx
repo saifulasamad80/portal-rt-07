@@ -109,6 +109,7 @@ export default async function HalamanKeluarga() {
       .from("sensus_kesejahteraan")
       .select("id, status_validasi")
       .eq("warga_id", otentikasi.sesi.id)
+      .eq("rt_id", otentikasi.sesi.rtId)
       .maybeSingle(),
   ]);
 
@@ -165,6 +166,7 @@ export default async function HalamanKeluarga() {
         .from("sensus_kesejahteraan")
         .select("id")
         .eq("warga_id", sesiAktif.sesi.id)
+        .eq("rt_id", sesiAktif.sesi.rtId)
         .eq("status_validasi", "Disetujui")
         .maybeSingle();
       if (errCarik || !carik) {

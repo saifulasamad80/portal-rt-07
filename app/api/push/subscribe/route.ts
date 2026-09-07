@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     const supabase = await buatKlienTerautentikasi(sesi);
     const baris = {
       warga_id: sesi.id,
+      rt_id: sesi.rtId,
       endpoint,
       p256dh,
       auth,
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
         .update({ p256dh, auth, user_agent: baris.user_agent })
         .eq("endpoint", endpoint)
         .eq("warga_id", sesi.id)
+        .eq("rt_id", sesi.rtId)
         .select("id")
         .maybeSingle();
       if (errPerbarui) throw errPerbarui;
@@ -102,7 +104,7 @@ export async function DELETE(request: Request) {
       }
     }
     const supabase = await buatKlienTerautentikasi(sesi);
-    let query = supabase.from("push_langganan").delete().eq("warga_id", sesi.id);
+    let query = supabase.from("push_langganan").delete().eq("warga_id", sesi.id).eq("rt_id", sesi.rtId);
     if (endpoint) query = query.eq("endpoint", endpoint);
     const { error } = await query;
     if (error) throw error;

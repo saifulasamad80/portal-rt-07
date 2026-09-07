@@ -9,7 +9,7 @@ import {
 import { adminBolehMengaksesRt, otentikasiAdminAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 type HasilAksiLapor = { success: boolean; message?: string };
 type SesiPengurusSaring = { role: string; rtId: string };
@@ -146,6 +146,7 @@ export default async function AdminLaporPage() {
         .from("sensus_kesejahteraan")
         .update({ status_validasi: "Menunggu" })
         .eq("warga_id", wargaId)
+        .eq("rt_id", rtIdTujuan)
         .eq("status_validasi", "Disetujui")
         .select("id")
         .maybeSingle();
@@ -160,6 +161,7 @@ export default async function AdminLaporPage() {
           .from("sensus_kesejahteraan")
           .select("id, status_validasi")
           .eq("warga_id", wargaId)
+          .eq("rt_id", rtIdTujuan)
           .maybeSingle();
         if (errCek) {
           console.error("Pemeriksaan cap Carik gagal:", errCek.message);

@@ -6,8 +6,7 @@ import {
   otentikasiAdminAktif,
   wajibOtentikasiAdmin,
 } from "@/lib/session-security";
-
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function AdminVotingPage() {
   const otentikasi = await otentikasiAdminAktif();

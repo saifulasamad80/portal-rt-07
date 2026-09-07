@@ -3,7 +3,7 @@ import PengurusAdminClient from "./PengurusAdminClient";
 import bcrypt from "bcryptjs";
 import { otentikasiAdminAktif, wajibWebmaster } from "@/lib/session-security";
 import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function AdminPengurusPage() {
   const otentikasi = await otentikasiAdminAktif();

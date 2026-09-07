@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { kueriFallbackStatusAktif, skemaBelumSiap, type ErrorSupabase } from "@/lib/arsip-warga";
+import { uuidTenantSah } from "@/lib/uuid-tenant";
 
 export type PayloadNotifikasi = {
   title: string;
@@ -59,7 +60,20 @@ async function kirimKeLangganan(langganan: { endpoint: string; p256dh: string; a
 export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNotifikasi) {
   if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
   const supabase = klienAdmin();
-  const { data, error } = await supabase.from("push_langganan").select("endpoint, p256dh, auth").eq("warga_id", wargaId);
+  const { data: warga, error: errWarga } = await supabase
+    .from("warga")
+    .select("id, rt_id")
+    .eq("id", wargaId)
+    .maybeSingle();
+  const rtId = uuidTenantSah(warga?.rt_id);
+  if (errWarga || !rtId) {
+    return { terkirim: 0, pesan: "Wilayah penerima push belum valid." };
+  }
+  const { data, error } = await supabase
+    .from("push_langganan")
+    .select("endpoint, p256dh, auth")
+    .eq("warga_id", wargaId)
+    .eq("rt_id", rtId);
   if (error) {
     return { terkirim: 0, pesan: skemaBelumSiap(error) ? PESAN_PUSH_BELUM_SIAP : error.message };
   }
@@ -72,8 +86,8 @@ export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNo
 }
 
 export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rtId: string) {
-  const rtBersih = String(rtId || "").trim();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rtBersih)) {
+  const rtBersih = uuidTenantSah(rtId);
+  if (!rtBersih) {
     return { terkirim: 0, pesan: "Siaran push ditolak: wilayah RT sesi tidak valid." };
   }
   if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
@@ -93,6 +107,7 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rt
   const { data, error } = await supabase
     .from("push_langganan")
     .select("endpoint, p256dh, auth, warga_id")
+    .eq("rt_id", rtBersih)
     .in("warga_id", idWargaRt);
   if (error) {
     return { terkirim: 0, pesan: skemaBelumSiap(error) ? PESAN_PUSH_BELUM_SIAP : error.message };

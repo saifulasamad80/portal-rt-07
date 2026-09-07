@@ -3,7 +3,7 @@ import LapakClient from "./LapakClient";
 import { v4 as uuidv4 } from "uuid";
 import { otentikasiWargaAktif, wajibOtentikasiWarga, wargaUntukKlien } from "@/lib/session-security";
 import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 const KATEGORI_LAPAK = ["Makanan & Minuman", "Jasa & Servis", "Pakaian & Fashion", "Lainnya"] as const;
 const MIME_FOTO: Record<string, string> = {
   "image/jpeg": "jpg",

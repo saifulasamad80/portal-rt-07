@@ -15,6 +15,7 @@ export default async function LayoutLayananTerkunci({ children }: { children: Re
     .from("sensus_kesejahteraan")
     .select("id, status_validasi")
     .eq("warga_id", otentikasi.sesi.id)
+    .eq("rt_id", otentikasi.sesi.rtId)
     .eq("status_validasi", "Disetujui")
     .maybeSingle();
 

@@ -11,7 +11,7 @@ export const SESSION_ISSUER = "aplikasi-rt";
 export const SESSION_AUDIENCE_WARGA = "portal-warga";
 export const SESSION_AUDIENCE_ADMIN = "portal-admin";
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID, uuidTenantSah } from "@/lib/uuid-tenant";
 const PANJANG_MINIMUM_SECRET = 32;
 
 type JenisSesi = "warga" | "admin";
@@ -252,9 +252,9 @@ export async function otentikasiWargaAktif(): Promise<HasilAutentikasi<WargaTera
     return { ok: false, message: "Sesi warga sudah dicabut. Silakan masuk kembali." };
   }
 
-  const rtId = String(warga.rt_id || "");
+  const rtId = uuidTenantSah(warga.rt_id);
   const nik = String(warga.nik || "");
-  if (!POLA_UUID.test(rtId) || !/^\d{16}$/.test(nik)) {
+  if (!rtId || !/^\d{16}$/.test(nik)) {
     return { ok: false, message: "Identitas atau wilayah akun warga belum valid. Hubungi pengurus RT." };
   }
 
@@ -334,8 +334,8 @@ export async function otentikasiAdminAktif(): Promise<HasilAutentikasi<PengurusT
     return { ok: false, message: "Sesi pengurus sudah dicabut. Silakan masuk kembali." };
   }
 
-  const rtId = String(pengurus.rt_id || "");
-  if (!POLA_UUID.test(rtId)) {
+  const rtId = uuidTenantSah(pengurus.rt_id);
+  if (!rtId) {
     return { ok: false, message: "Wilayah akun pengurus belum valid." };
   }
 
@@ -377,43 +377,37 @@ export function adminBolehMengaksesRt(sesi: PengurusTerautentikasi, rtIdTarget: 
 }
 
 export type WilayahMutasiWarga =
-  | { ok: true; rtIdSaring: string | null; rtIdTulis: string }
+  | { ok: true; rtIdSaring: string; rtIdTulis: string }
   | { ok: false; message: string };
 
 /**
- * Filter `.eq("rt_id", "")` ditolak Postgres (uuid). Baris warisan tanpa
- * tenant disaring dengan IS NULL, lalu diikat ke wilayah pengurus yang sah
- * agar reset PIN / ubah status tidak meledak dan akun bisa masuk portal.
+ * Warga wajib sudah bertenant. Baris rt_id NULL/invalid ditolak, bukan
+ * diikat diam-diam ke sesi pengurus.
  */
 export function wilayahMutasiWarga(
   sesi: PengurusTerautentikasi,
   rtIdWarga: unknown
 ): WilayahMutasiWarga {
-  const milik = String(rtIdWarga || "").trim();
-  if (POLA_UUID.test(milik)) {
-    if (!adminBolehMengaksesRt(sesi, milik)) {
-      return { ok: false, message: "Akses lintas RT ditolak." };
-    }
-    return { ok: true, rtIdSaring: milik, rtIdTulis: milik };
+  const milik = uuidTenantSah(rtIdWarga);
+  if (!milik) {
+    return { ok: false, message: "Wilayah akun warga belum valid. Hubungi webmaster untuk pemetaan tenant." };
   }
-  if (!POLA_UUID.test(sesi.rtId)) {
-    return { ok: false, message: "Wilayah akun pengurus belum valid." };
+  if (!adminBolehMengaksesRt(sesi, milik)) {
+    return { ok: false, message: "Akses lintas RT ditolak." };
   }
-  return { ok: true, rtIdSaring: null, rtIdTulis: sesi.rtId };
+  return { ok: true, rtIdSaring: milik, rtIdTulis: milik };
 }
 
 type PenyaringWarga = {
   eq: (kolom: string, nilai: string) => PenyaringWarga;
-  is: (kolom: string, nilai: null) => PenyaringWarga;
 };
 
 export function saringWargaTerotorisasi<T extends PenyaringWarga>(
   query: T,
   target: { id: string; nik: string },
-  rtIdSaring: string | null
+  rtIdSaring: string
 ): T {
-  const dasar = query.eq("id", target.id).eq("nik", target.nik) as T;
-  return (rtIdSaring ? dasar.eq("rt_id", rtIdSaring) : dasar.is("rt_id", null)) as T;
+  return query.eq("id", target.id).eq("nik", target.nik).eq("rt_id", rtIdSaring) as T;
 }
 
 export async function otorisasiWargaUntukAdmin(

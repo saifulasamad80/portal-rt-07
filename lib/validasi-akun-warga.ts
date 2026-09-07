@@ -41,7 +41,6 @@ export async function prosesValidasiAkunWarga(
   const { data: diperbarui, error } = await saringWargaTerotorisasi(
     supabase.from("warga").update({
       status_verifikasi: statusBersih,
-      ...(wilayah.rtIdSaring ? {} : { rt_id: wilayah.rtIdTulis }),
     }),
     target.sesi,
     wilayah.rtIdSaring

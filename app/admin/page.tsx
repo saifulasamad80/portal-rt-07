@@ -8,8 +8,7 @@ import { skemaBelumSiap } from "@/lib/arsip-warga";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiAdminAktif as otentikasiAdmin } from "@/lib/session-security";
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
-
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 /**
  * Menghitung jumlah KK yang sah.
@@ -58,32 +57,6 @@ async function hitungWargaSah(supabase: SupabaseClient, rtId: string | null): Pr
   return count || 0;
 }
 
-type BarisKurbanDasbor = { jenis_transaksi: string; nominal: number };
-
-async function ambilKurbanCakupan(
-  supabase: SupabaseClient,
-  idsWarga: string[] | null,
-): Promise<{ data: BarisKurbanDasbor[] | null; error: { message?: string } | null }> {
-  const dasar = () => supabase.from("transaksi_kurban").select("jenis_transaksi, nominal");
-  if (!idsWarga) {
-    const { data, error } = await dasar();
-    return { data: (data || []) as BarisKurbanDasbor[], error };
-  }
-  if (!idsWarga.length) {
-    const { data, error } = await dasar().in("warga_id", ["00000000-0000-0000-0000-000000000000"]);
-    return { data: (data || []) as BarisKurbanDasbor[], error };
-  }
-  const UKURAN_KELOMPOK = 80;
-  const gabungan: BarisKurbanDasbor[] = [];
-  for (let i = 0; i < idsWarga.length; i += UKURAN_KELOMPOK) {
-    const potong = idsWarga.slice(i, i + UKURAN_KELOMPOK);
-    const { data, error } = await dasar().in("warga_id", potong);
-    if (error) return { data: [], error };
-    gabungan.push(...((data || []) as BarisKurbanDasbor[]));
-  }
-  return { data: gabungan, error: null };
-}
-
 export default async function AdminDashboard() {
   const otentikasiHalaman = await otentikasiAdmin();
   if (!otentikasiHalaman.ok) return <AdminLogin />;
@@ -108,37 +81,21 @@ export default async function AdminDashboard() {
     .eq("status_validasi", "Menunggu");
   if (rtTerbatas) queryAntrean = queryAntrean.eq("rt_id", rtTerbatas);
 
-  let querySampah = supabaseAdmin
+  const querySampah = supabaseAdmin
     .from("transaksi_sampah")
-    .select("berat_kg, jenis_transaksi, nominal_warga, nominal_kas_rt");
-  if (rtTerbatas) querySampah = querySampah.eq("rt_id", rtTerbatas);
+    .select("berat_kg, jenis_transaksi, nominal_warga, nominal_kas_rt")
+    .eq("rt_id", otentikasiHalaman.sesi.rtId);
 
-  // transaksi_kurban hanya menyimpan warga_id (bukan rt_id). Jangan biarkan
-  // kartu saldo di dasbor RT menghitung transaksi seluruh tenant. Ambil daftar
-  // warga yang sudah dibatasi RT di query antrean/daftar sah di atas, lalu
-  // terapkan allow-list tersebut ke transaksi. UUID sentinel memastikan RT
-  // tanpa warga tidak jatuh ke query tanpa filter.
-  // .in() sekali tembak untuk ratusan UUID pecah jadi HTTP 400 (URL terlalu panjang).
-  let idsKurban: string[] | null = null;
-  if (rtTerbatas) {
-    const { data: wargaCakupan, error: errWargaCakupan } = await supabaseAdmin
-      .from("warga")
-      .select("id")
-      .eq("rt_id", rtTerbatas)
-      .limit(5000);
-    if (errWargaCakupan) {
-      console.error("Gagal menentukan cakupan transaksi kurban:", errWargaCakupan.message);
-      idsKurban = [];
-    } else {
-      idsKurban = (wargaCakupan || []).map((w) => String(w.id)).filter((id) => POLA_UUID.test(id));
-    }
-  }
+  const queryKurban = supabaseAdmin
+    .from("transaksi_kurban")
+    .select("jenis_transaksi, nominal")
+    .eq("rt_id", otentikasiHalaman.sesi.rtId);
 
   const [wargaListRes, totalWargaAktif, sampahRes, kurbanRes] = await Promise.all([
     queryAntrean.order("created_at", { ascending: true }),
     hitungWargaSah(supabaseAdmin, rtTerbatas),
     querySampah,
-    ambilKurbanCakupan(supabaseAdmin, idsKurban),
+    queryKurban,
   ]);
 
   if (wargaListRes.error) console.error("Gagal memuat antrean validasi:", wargaListRes.error.message);
@@ -202,7 +159,7 @@ export default async function AdminDashboard() {
 
   const modeWebmaster = otentikasiHalaman.sesi.role === "webmaster";
   const judulDasbor = modeWebmaster
-    ? "Mode Webmaster: Menampilkan Data Global Seluruh RT"
+    ? "Mode Webmaster: Antrean validasi global; KPI Bank Sampah/Kurban mengikuti RT sesi"
     : "Pusat Komando";
 
   return (

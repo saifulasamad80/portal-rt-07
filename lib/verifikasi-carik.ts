@@ -5,6 +5,7 @@ import {
   periksaKepemilikanAnggota,
   type IdentitasAnggotaTersimpan,
 } from "@/lib/kebijakan-sensus";
+import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export const PILIHAN_STATUS_TINGGAL = [
   "Warga Tetap",
@@ -55,7 +56,6 @@ export const BIDANG_WAJIB_CARIK = [
   "daya_listrik",
 ] as const;
 
-const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TANGGAL_ARSIP = "1900-01-01";
 const NAMA_ARSIP = "arsip pemilih";
 
@@ -555,12 +555,14 @@ async function tandaiSensus(
   supabase: SupabaseClient,
   wargaId: string,
   catatan: string,
-  status: string
+  status: string,
+  rtId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { data: sudahAda, error: errCek } = await supabase
     .from("sensus_kesejahteraan")
     .select("id")
     .eq("warga_id", wargaId)
+    .eq("rt_id", rtId)
     .maybeSingle();
 
   if (errCek) {
@@ -602,6 +604,7 @@ async function tandaiSensus(
       .update(statusPayload)
       .eq("id", sudahAda.id)
       .eq("warga_id", wargaId)
+      .eq("rt_id", rtId)
       .select("id")
       .maybeSingle();
     if (error) {
@@ -614,7 +617,7 @@ async function tandaiSensus(
 
   const { error } = await supabase
     .from("sensus_kesejahteraan")
-    .insert([{ warga_id: wargaId, ...payloadAwal }]);
+    .insert([{ warga_id: wargaId, rt_id: rtId, ...payloadAwal }]);
   if (error) {
     console.error("Gagal mencatat verifikasi carik:", error.code || "database_error");
     return { ok: false, message: "Verifikasi carik belum dapat dicatat. Coba lagi nanti." };
@@ -703,7 +706,7 @@ async function simpanVerifikasiCarikInternal(
     const catatanCap =
       teks(catatan).slice(0, 1000) ||
       "Data Carik diverifikasi oleh pengurus RT";
-    const cap = await tandaiSensus(supabase, wargaId, catatanCap, "Disetujui");
+    const cap = await tandaiSensus(supabase, wargaId, catatanCap, "Disetujui", rtId);
     if (!cap.ok) return { success: false, message: cap.message };
   }
 
@@ -848,11 +851,12 @@ export async function laporkanNikTidakSesuaiMandiri(
   };
 }
 
-export async function ambilStatusCarik(supabase: SupabaseClient, wargaId: string) {
+export async function ambilStatusCarik(supabase: SupabaseClient, wargaId: string, rtId: string) {
   const { data, error } = await supabase
     .from("sensus_kesejahteraan")
     .select("id, catatan_tambahan, status_validasi, created_at")
     .eq("warga_id", wargaId)
+    .eq("rt_id", rtId)
     .maybeSingle();
 
   if (error) {
