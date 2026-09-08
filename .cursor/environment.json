@@ -8,7 +8,7 @@
     {
       "name": "next-dev",
       "command": "pnpm run dev",
-      "description": "Next.js 16 (Turbopack) dev server on http://localhost:3000. Supabase and session values are read from environment variables (Cloud Agent Secrets): NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, JWT_SECRET, PUBLIC_RT_ID, REGISTRATION_RT_ID. Without them the dev server still boots; public pages render a graceful zero-state and warga/admin login is disabled. Run production checks with `pnpm run build` (requires the Supabase env vars) and security suites with `pnpm run test:security:*`."
+      "description": "Next.js 16 (Turbopack) dev server on http://localhost:3000. Supabase and session values are read from environment variables (Cloud Agent Secrets): NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, JWT_SECRET, PUBLIC_RT_ID, REGISTRATION_RT_ID. The dev server boots without them, but the landing page (/) requires NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY and returns HTTP 500 if they are unset (getSupabaseServerClient throws on the missing env var); once they are set, per-section fetch failures degrade to a zero-state. /login renders without any secrets. `pnpm run build` also requires the Supabase env vars. Run security suites with `pnpm run test:security:*`."
     }
   ]
 }
