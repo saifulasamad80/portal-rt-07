@@ -5,6 +5,7 @@ import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiAdminAktif as otentikasiAdmin } from "@/lib/session-security";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { anggotaSamaWilayah } from "@/lib/normalisasi-warga";
 
 export default async function VerifikasiWargaPage() {
   const otentikasiHalaman = await otentikasiAdmin();
@@ -39,7 +40,7 @@ export default async function VerifikasiWargaPage() {
     const rtIdWarga = String(warga.rt_id || "");
     const anggotaMentah = Array.isArray(warga.anggota_keluarga) ? warga.anggota_keluarga : [];
     const anggotaKeluarga = anggotaMentah
-      .filter((anggota: { rt_id?: unknown }) => String(anggota?.rt_id || "") === rtIdWarga)
+      .filter((anggota: { rt_id?: unknown }) => anggotaSamaWilayah(anggota?.rt_id, rtIdWarga))
       .map((anggota: Record<string, unknown>) => ({
         id: anggota.id == null ? undefined : String(anggota.id),
         nama_lengkap: anggota.nama_lengkap == null ? null : String(anggota.nama_lengkap),

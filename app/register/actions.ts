@@ -5,6 +5,17 @@ import { v4 as uuidv4 } from "uuid";
 import { JUDUL_TIKET_PENDAFTARAN } from "@/lib/kebijakan-sensus";
 import { pastikanRtRegistrasiAda } from "@/lib/registrasi-tenant";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import {
+  PILIHAN_AGAMA,
+  PILIHAN_DAYA_LISTRIK,
+  PILIHAN_HUBUNGAN,
+  PILIHAN_JENIS_KELAMIN,
+  PILIHAN_PENDAPATAN,
+  PILIHAN_STATUS_TINGGAL,
+  normalisasiAgama,
+  normalisasiJenisKelamin,
+  normalisasiStatusTinggal,
+} from "@/lib/verifikasi-carik";
 
 /**
  * Public registration is intentionally backed by the service-role client: a
@@ -20,23 +31,12 @@ const MAKS_TOTAL_BYTE_DOKUMEN = 2 * 1024 * 1024;
 const MAKS_DATA_URL = 720 * 1024;
 const FITUR_KTP_AKTIF = false;
 
-const STATUS_TINGGAL_SAH = [
-  "Warga Tetap",
-  "Penyewa Kos",
-  "Penyewa Kontrakan",
-] as const;
-const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
-const AGAMA_SAH = ["Islam", "Kristen/Katolik", "Hindu", "Budha", "Konghucu"] as const;
-const HUBUNGAN_SAH = ["Istri", "Suami", "Anak", "Lainnya"] as const;
-const PENDAPATAN_SAH = ["< 1 Juta", "1 - 3 Juta", "3 - 5 Juta", "5 - 10 Juta", "> 10 Juta"] as const;
-const LISTRIK_SAH = [
-  "450 VA (Subsidi)",
-  "900 VA (Subsidi)",
-  "900 VA (Non-Subsidi)",
-  "1300 VA",
-  "2200 VA",
-  "> 2200 VA",
-] as const;
+const STATUS_TINGGAL_SAH = PILIHAN_STATUS_TINGGAL;
+const JENIS_KELAMIN_SAH = PILIHAN_JENIS_KELAMIN;
+const AGAMA_SAH = PILIHAN_AGAMA;
+const HUBUNGAN_SAH = PILIHAN_HUBUNGAN;
+const PENDAPATAN_SAH = PILIHAN_PENDAPATAN;
+const LISTRIK_SAH = PILIHAN_DAYA_LISTRIK;
 const PIN_LEMAH = new Set(["123456", "111111", "000000", "654321", "121212", "123123"]);
 
 const PESAN_VALIDASI = "Data pendaftaran tidak valid. Periksa kembali isian formulir.";
@@ -217,12 +217,20 @@ function normalisasiKepala(value: unknown): KepalaTernormalisasi {
     nama_lengkap: teks(source, "nama_lengkap", 150),
     no_whatsapp: teks(source, "no_whatsapp", 15),
     pin: teks(source, "pin", 6),
-    status_tinggal: pilih(source, "status_tinggal", STATUS_TINGGAL_SAH),
+    status_tinggal: pilih(
+      { status_tinggal: normalisasiStatusTinggal(source.status_tinggal) },
+      "status_tinggal",
+      STATUS_TINGGAL_SAH
+    ),
     detail_alamat: teks(source, "detail_alamat", 300),
     tanggal_lahir: tanggal(source, "tanggal_lahir"),
     tempat_lahir: teks(source, "tempat_lahir", 100),
-    jenis_kelamin: pilih(source, "jenis_kelamin", JENIS_KELAMIN_SAH),
-    agama: pilih(source, "agama", AGAMA_SAH),
+    jenis_kelamin: pilih(
+      { jenis_kelamin: normalisasiJenisKelamin(source.jenis_kelamin) },
+      "jenis_kelamin",
+      JENIS_KELAMIN_SAH
+    ),
+    agama: pilih({ agama: normalisasiAgama(source.agama) }, "agama", AGAMA_SAH),
     pekerjaan: teks(source, "pekerjaan", 100),
     pendapatan_bulanan: pilih(source, "pendapatan_bulanan", PENDAPATAN_SAH),
     daya_listrik: pilih(source, "daya_listrik", LISTRIK_SAH),
@@ -256,8 +264,12 @@ function normalisasiAnggota(value: unknown): AnggotaTernormalisasi[] {
       hubungan_detail: detail,
       tanggal_lahir: tanggal(source, "tanggal_lahir"),
       tempat_lahir: teks(source, "tempat_lahir", 100),
-      jenis_kelamin: pilih(source, "jenis_kelamin", JENIS_KELAMIN_SAH),
-      agama: pilih(source, "agama", AGAMA_SAH),
+      jenis_kelamin: pilih(
+        { jenis_kelamin: normalisasiJenisKelamin(source.jenis_kelamin) },
+        "jenis_kelamin",
+        JENIS_KELAMIN_SAH
+      ),
+      agama: pilih({ agama: normalisasiAgama(source.agama) }, "agama", AGAMA_SAH),
       pekerjaan: teks(source, "pekerjaan", 100),
       ktp: dokumen(source.ktp_path),
     };

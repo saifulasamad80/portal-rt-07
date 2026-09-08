@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { ambilStatusCarik } from "@/lib/verifikasi-carik-server";
+import { anggotaSamaWilayah } from "@/lib/normalisasi-warga";
 import SensusClient from "./SensusClient";
 
 export default async function SensusPage() {
@@ -53,15 +54,16 @@ export default async function SensusPage() {
   if (errProfil) console.error("Profil sensus mandiri gagal dimuat:", errProfil.message);
   if (errProfil || !profilWarga) redirect("/login");
 
-  // RLS sudah membatasi anggota ke rumah tangga sendiri. Baris warisan
-  // lintas tenant atau tanpa rt_id tetap ditahan di sini; RPC atomik
-  // mensyaratkan pengurus untuk memperbaikinya.
-  const anggotaTerbaca = Array.isArray(profilWarga.anggota_keluarga)
+  // Nested anggota sudah terikat warga_id rumah tangga ini.
+  // rt_id kosong = stempel warisan; UUID asing disembunyikan, bukan mengunci sesi.
+  const anggotaMentah = Array.isArray(profilWarga.anggota_keluarga)
     ? profilWarga.anggota_keluarga
     : [];
-  if (anggotaTerbaca.some((anggota: { rt_id?: unknown }) => String(anggota.rt_id || "") !== otentikasi.sesi.rtId)) {
-    console.error("Profil sensus memiliki anggota lintas tenant atau tanpa rt_id:", otentikasi.sesi.id);
-    redirect("/login");
+  const anggotaTerbaca = anggotaMentah.filter((anggota: { rt_id?: unknown }) =>
+    anggotaSamaWilayah(anggota.rt_id, otentikasi.sesi.rtId)
+  );
+  if (anggotaTerbaca.length !== anggotaMentah.length) {
+    console.error("Profil sensus memiliki anggota lintas tenant; baris itu disembunyikan:", otentikasi.sesi.id);
   }
   const profilAman = {
     ...profilWarga,

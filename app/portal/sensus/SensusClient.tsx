@@ -11,6 +11,9 @@ import {
   PILIHAN_JENIS_KELAMIN,
   PILIHAN_PENDAPATAN,
   PILIHAN_STATUS_TINGGAL,
+  normalisasiAgama,
+  normalisasiJenisKelamin,
+  normalisasiStatusTinggal,
   type AnggotaInput,
 } from "@/lib/verifikasi-carik";
 import { aksiNikTidakSesuai, aksiSimpanCarik } from "./actions";
@@ -89,13 +92,6 @@ function pesanKesalahan(error: unknown, cadangan: string) {
   return error instanceof Error && error.message ? error.message : cadangan;
 }
 
-function normalisasiGender(nilai: unknown) {
-  const n = String(nilai || "").toLowerCase();
-  if (n.startsWith("l")) return "Laki-laki";
-  if (n.startsWith("p")) return "Perempuan";
-  return "";
-}
-
 function opsiDenganNilaiLama(daftar: readonly string[], nilaiLama: string) {
   if (!nilaiLama || daftar.includes(nilaiLama)) return [...daftar];
   return [nilaiLama, ...daftar];
@@ -124,8 +120,8 @@ function dariWarga(warga: ProfilSensus): AnggotaInput[] {
     hubungan_detail: ak.hubungan_detail || "",
     tanggal_lahir: String(ak.tanggal_lahir || "").slice(0, 10),
     tempat_lahir: ak.tempat_lahir || "",
-    jenis_kelamin: normalisasiGender(ak.jenis_kelamin) || ak.jenis_kelamin || "",
-    agama: ak.agama || "",
+    jenis_kelamin: normalisasiJenisKelamin(ak.jenis_kelamin) || ak.jenis_kelamin || "",
+    agama: normalisasiAgama(ak.agama) || ak.agama || "",
     pekerjaan: ak.pekerjaan || "",
   }));
 }
@@ -135,11 +131,11 @@ function buatBiodataAwal(warga: ProfilSensus): BiodataSensus {
     nama_lengkap: warga?.nama_lengkap || "",
     tempat_lahir: warga?.tempat_lahir || "",
     tanggal_lahir: String(warga?.tanggal_lahir || "").slice(0, 10),
-    jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
-    agama: warga?.agama || "",
+    jenis_kelamin: normalisasiJenisKelamin(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
+    agama: normalisasiAgama(warga?.agama) || warga?.agama || "",
     pekerjaan: warga?.pekerjaan || "",
     no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
-    status_tinggal: warga?.status_tinggal || "",
+    status_tinggal: normalisasiStatusTinggal(warga?.status_tinggal) || warga?.status_tinggal || "",
     detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
     pendapatan_bulanan: warga?.pendapatan_bulanan || "",
     daya_listrik: warga?.daya_listrik || "",
@@ -153,11 +149,11 @@ function normalisasiBiodataDraft(mentah: unknown, fallback: BiodataSensus): Biod
     nama_lengkap: String(data.nama_lengkap ?? fallback.nama_lengkap),
     tempat_lahir: String(data.tempat_lahir ?? fallback.tempat_lahir),
     tanggal_lahir: String(data.tanggal_lahir ?? fallback.tanggal_lahir).slice(0, 10),
-    jenis_kelamin: String(data.jenis_kelamin ?? fallback.jenis_kelamin),
-    agama: String(data.agama ?? fallback.agama),
+    jenis_kelamin: normalisasiJenisKelamin(data.jenis_kelamin ?? fallback.jenis_kelamin) || String(data.jenis_kelamin ?? fallback.jenis_kelamin),
+    agama: normalisasiAgama(data.agama ?? fallback.agama) || String(data.agama ?? fallback.agama),
     pekerjaan: String(data.pekerjaan ?? fallback.pekerjaan),
     no_whatsapp: String(data.no_whatsapp ?? fallback.no_whatsapp),
-    status_tinggal: String(data.status_tinggal ?? fallback.status_tinggal),
+    status_tinggal: normalisasiStatusTinggal(data.status_tinggal ?? fallback.status_tinggal) || String(data.status_tinggal ?? fallback.status_tinggal),
     detail_alamat: String(data.detail_alamat ?? fallback.detail_alamat),
     pendapatan_bulanan: String(data.pendapatan_bulanan ?? fallback.pendapatan_bulanan),
     daya_listrik: String(data.daya_listrik ?? fallback.daya_listrik),
@@ -176,8 +172,8 @@ function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaInput[]): Ang
       hubungan_detail: String(item.hubungan_detail ?? ""),
       tanggal_lahir: String(item.tanggal_lahir ?? ""),
       tempat_lahir: String(item.tempat_lahir ?? ""),
-      jenis_kelamin: String(item.jenis_kelamin ?? ""),
-      agama: String(item.agama ?? ""),
+      jenis_kelamin: normalisasiJenisKelamin(item.jenis_kelamin) || String(item.jenis_kelamin ?? ""),
+      agama: normalisasiAgama(item.agama) || String(item.agama ?? ""),
       pekerjaan: String(item.pekerjaan ?? ""),
     }));
 }
@@ -499,7 +495,7 @@ export default function SensusClient({
                 <label className={kelasLabel}>Status tinggal</label>
                 <select className={kelasInput} value={biodata.status_tinggal} onChange={(e) => ubahBiodata("status_tinggal", e.target.value)}>
                   <option value="">Pilih</option>
-                  {PILIHAN_STATUS_TINGGAL.map((n) => (
+                  {opsiDenganNilaiLama(PILIHAN_STATUS_TINGGAL, biodata.status_tinggal).map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>

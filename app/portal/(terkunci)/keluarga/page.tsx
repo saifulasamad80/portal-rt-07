@@ -8,6 +8,7 @@ import {
 } from "@/lib/kebijakan-sensus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
+import { anggotaSamaWilayah } from "@/lib/normalisasi-warga";
 import PermohonanKeluargaClient from "./PermohonanKeluargaClient";
 
 type AnggotaTerbaca = {
@@ -118,12 +119,14 @@ export default async function HalamanKeluarga() {
   if (errProfil) console.error("Profil keluarga gagal dimuat:", errProfil.message);
   if (errProfil || !profilWarga) redirect("/login");
 
-  const anggotaTerbaca = Array.isArray(profilWarga.anggota_keluarga)
+  const anggotaMentah = Array.isArray(profilWarga.anggota_keluarga)
     ? (profilWarga.anggota_keluarga as AnggotaTerbaca[])
     : [];
-  if (anggotaTerbaca.some((anggota) => String(anggota.rt_id || "") !== otentikasi.sesi.rtId)) {
-    console.error("Profil keluarga memiliki anggota lintas tenant atau tanpa rt_id:", otentikasi.sesi.id);
-    redirect("/login");
+  const anggotaTerbaca = anggotaMentah.filter((anggota) =>
+    anggotaSamaWilayah(anggota.rt_id, otentikasi.sesi.rtId)
+  );
+  if (anggotaTerbaca.length !== anggotaMentah.length) {
+    console.error("Profil keluarga memiliki anggota lintas tenant; baris itu disembunyikan:", otentikasi.sesi.id);
   }
 
   const anggotaTampil = anggotaTerbaca.map((anggota) => ({

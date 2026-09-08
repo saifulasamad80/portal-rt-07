@@ -7,6 +7,7 @@ import {
 } from "@/lib/notifikasi-push";
 import { kueriFallbackStatusAktif, type ErrorSupabase } from "@/lib/arsip-warga";
 import { uuidTenantSah } from "@/lib/uuid-tenant";
+import { anggotaSamaWilayah } from "@/lib/normalisasi-warga";
 
 type BarisWargaUltah = {
   id: string;
@@ -92,7 +93,7 @@ async function prosesUlangTahunPerRt(
       namaUltah.push(warga.nama_lengkap);
     }
     (warga.anggota_keluarga || []).forEach((ak) => {
-      if (uuidTenantSah(ak.rt_id) !== rtId) return;
+      if (!anggotaSamaWilayah(ak.rt_id, rtId)) return;
       if (isUlangTahunHariIni(ak.tanggal_lahir, bulan, hari)) namaUltah.push(ak.nama_lengkap);
     });
     if (namaUltah.length === 0) continue;

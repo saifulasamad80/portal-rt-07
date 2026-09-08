@@ -6,6 +6,7 @@ import { skemaBelumSiap } from "@/lib/arsip-warga";
 import { type RekamanJiwa } from "@/lib/demografi-publik";
 import { klienDanTenantPublik } from "@/lib/tenant-publik";
 import { adalahGalatTipeUuid } from "@/lib/uuid-tenant";
+import { anggotaSamaWilayah } from "@/lib/normalisasi-warga";
 
 export type BarisKasPublik = {
   tipe_transaksi: string;
@@ -142,8 +143,7 @@ async function ambilDemografiSah(supabase: SupabaseClient, tenant: string) {
       .from("warga")
       .select(pilih)
       .eq("status_verifikasi", "Disetujui")
-      .eq("rt_id", tenant)
-      .or(`rt_id.eq.${tenant}`, { foreignTable: "anggota_keluarga" });
+      .eq("rt_id", tenant);
 
   let hasil = await dasar().neq("status_aktif", false);
   if (hasil.error && skemaBelumSiap(hasil.error)) {
@@ -153,7 +153,12 @@ async function ambilDemografiSah(supabase: SupabaseClient, tenant: string) {
     console.error("Portal publik gagal memuat demografi:", hasil.error.message || hasil.error.code);
     return [] as RekamanJiwa[];
   }
-  return (hasil.data || []) as RekamanJiwa[];
+  return ((hasil.data || []) as RekamanJiwa[]).map((kk) => ({
+    ...kk,
+    anggota_keluarga: (kk.anggota_keluarga || []).filter((anggota) =>
+      anggotaSamaWilayah(anggota.rt_id, tenant)
+    ),
+  }));
 }
 
 async function ambilKurbanRt(supabase: SupabaseClient, tenant: string) {
