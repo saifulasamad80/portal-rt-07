@@ -186,7 +186,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
 
   const downloadTemplateCSV = () => {
     const headers = "nik,nama_lengkap,no_whatsapp,status_tinggal,detail_alamat,tanggal_lahir,tempat_lahir,jenis_kelamin,pekerjaan\n";
-    const sample = "3171000000000001,Budi Santoso,081234567890,Warga Tetap,Blok A No 1,1985-08-15,Jakarta,Laki-laki,Karyawan Swasta\n";
+    const sample = "3171000000000001,Budi Santoso,081234567890,Warga Tetap,Blok A No 1,1985-08-15,Jakarta,Laki-laki,Karyawan Swasta\n3171000000000002,Siti Aminah,081298765432,Penyewa Kontrakan,Gang Pelita No 10,1990-01-20,Bekasi,Perempuan,Ibu Rumah Tangga\n";
     const blob = new Blob([headers + sample], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");

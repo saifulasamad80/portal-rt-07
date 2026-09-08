@@ -12,6 +12,9 @@ import {
   PILIHAN_JENIS_KELAMIN,
   PILIHAN_PENDAPATAN,
   PILIHAN_STATUS_TINGGAL,
+  normalisasiAgama,
+  normalisasiJenisKelamin,
+  normalisasiStatusTinggal,
   type AnggotaInput,
   type DuplikatWarga,
   type HasilCarik,
@@ -65,13 +68,6 @@ function pesanKesalahan(error: unknown) {
     : "Jaringan atau server tidak merespons.";
 }
 
-function normalisasiGender(nilai: unknown) {
-  const n = String(nilai || "").toLowerCase();
-  if (n.startsWith("l")) return "Laki-laki";
-  if (n.startsWith("p")) return "Perempuan";
-  return "";
-}
-
 function opsiDenganNilaiLama(daftar: readonly string[], nilaiLama: string) {
   if (!nilaiLama || daftar.includes(nilaiLama)) return [...daftar];
   return [nilaiLama, ...daftar];
@@ -97,8 +93,8 @@ function dariAnggota(warga: ProfilWargaDetail): AnggotaInput[] {
     hubungan_detail: ak.hubungan_detail || "",
     tanggal_lahir: String(ak.tanggal_lahir || "").slice(0, 10),
     tempat_lahir: ak.tempat_lahir || "",
-    jenis_kelamin: normalisasiGender(ak.jenis_kelamin) || ak.jenis_kelamin || "",
-    agama: ak.agama || "",
+    jenis_kelamin: normalisasiJenisKelamin(ak.jenis_kelamin) || ak.jenis_kelamin || "",
+    agama: normalisasiAgama(ak.agama) || ak.agama || "",
     pekerjaan: ak.pekerjaan || "",
   }));
 }
@@ -132,11 +128,11 @@ export default function WargaDetailClient({
     nama_lengkap: warga?.nama_lengkap || "",
     tempat_lahir: warga?.tempat_lahir || "",
     tanggal_lahir: String(warga?.tanggal_lahir || "").slice(0, 10),
-    jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
-    agama: warga?.agama || "",
+    jenis_kelamin: normalisasiJenisKelamin(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
+    agama: normalisasiAgama(warga?.agama) || warga?.agama || "",
     pekerjaan: warga?.pekerjaan || "",
     no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
-    status_tinggal: warga?.status_tinggal || "",
+    status_tinggal: normalisasiStatusTinggal(warga?.status_tinggal) || warga?.status_tinggal || "",
     detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
     pendapatan_bulanan: warga?.pendapatan_bulanan || "",
     daya_listrik: warga?.daya_listrik || "",
@@ -433,7 +429,7 @@ export default function WargaDetailClient({
                   <label className={kelasLabel}>Status tinggal</label>
                   <select className={kelasInput} value={formData.status_tinggal} onChange={(e) => ubahForm("status_tinggal", e.target.value)}>
                     <option value="">Pilih</option>
-                    {PILIHAN_STATUS_TINGGAL.map((n) => <option key={n} value={n}>{n}</option>)}
+                    {opsiDenganNilaiLama(PILIHAN_STATUS_TINGGAL, formData.status_tinggal).map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
                 <div className="md:col-span-2">

@@ -25,6 +25,7 @@ import {
   hapusKarenaNikTidakSesuai,
 } from "@/lib/verifikasi-carik-admin";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { anggotaSamaWilayah } from "@/lib/normalisasi-warga";
 
 export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idWarga } = await params;
@@ -88,8 +89,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     ? wargaRes.anggota_keluarga
     : []
   ).filter((anggota: { rt_id?: unknown }) => {
-    const rtIdAnggota = String(anggota?.rt_id || "");
-    if (POLA_UUID.test(rtIdAnggota) && rtIdAnggota === rtIdWarga) return true;
+    if (anggotaSamaWilayah(anggota?.rt_id, rtIdWarga)) return true;
     console.error("Relasi anggota lintas RT disembunyikan dari detail warga:", wargaRes.id);
     return false;
   }).map((anggota: Record<string, unknown>) => ({

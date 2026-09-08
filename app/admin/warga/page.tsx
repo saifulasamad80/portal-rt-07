@@ -15,9 +15,8 @@ import {
 } from "@/lib/session-security";
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { anggotaSamaWilayah, siapkanBarisImporWarga } from "@/lib/normalisasi-warga";
 
-const STATUS_TINGGAL_SAH = ["Warga Tetap", "Warga Kontrak", "Kontrak", "Kos", "Pendatang"] as const;
-const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
 const BATAS_BARIS_IMPORT = 1000;
 
 function validasiIdWarga(id: unknown): { ok: true; id: string } | { ok: false; message: string } {
@@ -63,8 +62,7 @@ export default async function WargaAdminPage() {
     const anggotaMentah = Array.isArray(warga.anggota_keluarga) ? warga.anggota_keluarga : [];
     const anggotaKeluarga = anggotaMentah
       .filter((anggota: { rt_id?: unknown }) => {
-        const rtIdAnggota = String(anggota?.rt_id || "");
-        if (rtIdAnggota === rtIdWarga) return true;
+        if (anggotaSamaWilayah(anggota?.rt_id, rtIdWarga)) return true;
         console.error("Relasi anggota lintas RT disembunyikan dari daftar warga:", warga.id);
         return false;
       })
@@ -162,46 +160,28 @@ export default async function WargaAdminPage() {
       }
 
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
+      const privileged = getSupabaseAdminClientDariSesi(otentikasi.sesi);
       const defaultPinHash = await bcrypt.hash("123456", 10);
       let berhasil = 0;
       let gagal = 0;
 
       for (const baris of dataWarga) {
         const w = baris && typeof baris === "object" ? baris as Record<string, unknown> : {};
-        const nik = String(w?.nik ?? "").replace(/\D/g, "").trim();
-        const namaLengkap = String(w?.nama_lengkap ?? "").trim();
-
-        // Sanitasi Zero-Trust: NIK wajib 16 digit dan nama tidak boleh kosong,
-        // agar baris CSV yang rusak tidak mengotori buku induk.
-        if (nik.length !== 16 || !namaLengkap) {
+        const siap = siapkanBarisImporWarga(w);
+        if (!siap.ok) {
           gagal++;
           continue;
         }
 
-        const statusTinggal = String(w?.status_tinggal ?? "").trim();
-        const jenisKelamin = String(w?.jenis_kelamin ?? "").trim();
-        const tanggalLahir = String(w?.tanggal_lahir ?? "").trim();
-
         const payload = {
-          nik,
-          nama_lengkap: namaLengkap.slice(0, 150),
-          no_whatsapp: String(w?.no_whatsapp ?? "").replace(/[^\d+]/g, "").trim(),
-          status_tinggal: STATUS_TINGGAL_SAH.includes(statusTinggal as (typeof STATUS_TINGGAL_SAH)[number])
-            ? statusTinggal
-            : "Warga Tetap",
-          detail_alamat: String(w?.detail_alamat ?? "").trim().slice(0, 300),
-          tanggal_lahir: /^\d{4}-\d{2}-\d{2}$/.test(tanggalLahir) ? tanggalLahir : null,
-          tempat_lahir: String(w?.tempat_lahir ?? "").trim().slice(0, 100),
-          jenis_kelamin: JENIS_KELAMIN_SAH.includes(jenisKelamin as (typeof JENIS_KELAMIN_SAH)[number])
-            ? jenisKelamin
-            : "Laki-laki",
-          pekerjaan: String(w?.pekerjaan ?? "").trim().slice(0, 100),
+          ...siap.data,
           status_verifikasi: "Disetujui",
+          status_aktif: true,
           pin: defaultPinHash,
           rt_id: rtId,
         };
 
-        const { error } = await supabase.from("warga").insert([payload]);
+        const { error } = await privileged.from("warga").insert([payload]);
         if (error) {
           gagal++;
         } else {

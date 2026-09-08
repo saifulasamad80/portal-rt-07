@@ -7,22 +7,26 @@ import {
   PESAN_TINJAUAN_PENGURUS,
 } from "@/lib/kebijakan-sensus";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import {
+  PILIHAN_AGAMA,
+  PILIHAN_JENIS_KELAMIN,
+  PILIHAN_STATUS_TINGGAL,
+  normalisasiAgama,
+  normalisasiJenisKelamin,
+  normalisasiStatusTinggal,
+} from "./normalisasi-warga";
 
-export const PILIHAN_STATUS_TINGGAL = [
-  "Warga Tetap",
-  "Penyewa Kos",
-  "Penyewa Kontrakan",
-] as const;
-
-export const PILIHAN_AGAMA = [
-  "Islam",
-  "Kristen/Katolik",
-  "Hindu",
-  "Budha",
-  "Konghucu",
-] as const;
-
-export const PILIHAN_JENIS_KELAMIN = ["Laki-laki", "Perempuan"] as const;
+export {
+  PILIHAN_AGAMA,
+  PILIHAN_JENIS_KELAMIN,
+  PILIHAN_STATUS_TINGGAL,
+  anggotaSamaWilayah,
+  normalisasiAgama,
+  normalisasiJenisKelamin,
+  normalisasiStatusTinggal,
+  siapkanBarisImporWarga,
+} from "./normalisasi-warga";
+export type { BarisImporWarga } from "./normalisasi-warga";
 
 export const PILIHAN_PENDAPATAN = [
   "< 1 Juta",
@@ -164,13 +168,6 @@ function dalamDaftar<T extends string>(nilai: string, daftar: readonly T[]) {
   return (daftar as readonly string[]).includes(nilai);
 }
 
-function normalisasiJenisKelamin(nilai: string) {
-  const n = nilai.toLowerCase();
-  if (n.startsWith("l")) return "Laki-laki";
-  if (n.startsWith("p")) return "Perempuan";
-  return nilai;
-}
-
 export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; data: BiodataInput } | { ok: false; message: string } {
   // NIK sengaja dibuang di sini: kolom itu gembok identitas dan tidak boleh
   // ikut payload UPDATE, baik dari warga maupun pengurus.
@@ -183,11 +180,11 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
     nama_lengkap: teks(sisa.nama_lengkap).slice(0, 150),
     tempat_lahir: teks(sisa.tempat_lahir).slice(0, 100),
     tanggal_lahir: normalisasiTanggal(sisa.tanggal_lahir),
-    jenis_kelamin: normalisasiJenisKelamin(teks(sisa.jenis_kelamin)),
-    agama: teks(sisa.agama),
+    jenis_kelamin: normalisasiJenisKelamin(sisa.jenis_kelamin),
+    agama: normalisasiAgama(sisa.agama) || teks(sisa.agama),
     pekerjaan: teks(sisa.pekerjaan).slice(0, 100),
     no_whatsapp: teks(sisa.no_whatsapp).replace(/[^\d+]/g, ""),
-    status_tinggal: teks(sisa.status_tinggal),
+    status_tinggal: normalisasiStatusTinggal(sisa.status_tinggal) || teks(sisa.status_tinggal),
     detail_alamat: teks(sisa.detail_alamat).slice(0, 300),
     pendapatan_bulanan: teks(sisa.pendapatan_bulanan),
     daya_listrik: teks(sisa.daya_listrik),
@@ -265,11 +262,12 @@ export function sanitasiAnggota(
     }
     if (!teks(a.tempat_lahir)) return { ok: false, message: `Tempat lahir ${label} wajib diisi.` };
     if (!normalisasiTanggal(a.tanggal_lahir)) return { ok: false, message: `Tanggal lahir ${label} wajib diisi.` };
-    const gender = normalisasiJenisKelamin(teks(a.jenis_kelamin));
+    const gender = normalisasiJenisKelamin(a.jenis_kelamin);
     if (!dalamDaftar(gender, PILIHAN_JENIS_KELAMIN)) {
       return { ok: false, message: `Jenis kelamin ${label} wajib dipilih.` };
     }
-    if (!teks(a.agama)) {
+    const agama = normalisasiAgama(a.agama) || teks(a.agama);
+    if (!dalamDaftar(agama, PILIHAN_AGAMA)) {
       return { ok: false, message: `Agama ${label} wajib dipilih.` };
     }
     if (!teks(a.pekerjaan)) return { ok: false, message: `Pekerjaan ${label} wajib diisi.` };
@@ -287,7 +285,7 @@ export function sanitasiAnggota(
       tanggal_lahir: normalisasiTanggal(a.tanggal_lahir),
       tempat_lahir: teks(a.tempat_lahir).slice(0, 100),
       jenis_kelamin: gender,
-      agama: teks(a.agama),
+      agama,
       pekerjaan: teks(a.pekerjaan).slice(0, 100),
     });
   }
