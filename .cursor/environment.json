@@ -1,0 +1,16 @@
+{
+  "name": "Portal Warga RT — Next.js + Supabase lokal",
+  "install": "pnpm install --frozen-lockfile && bash scripts/dev/local-supabase.sh setup",
+  "start": "bash scripts/dev/local-supabase.sh up",
+  "terminals": [
+    {
+      "name": "next-dev",
+      "command": "pnpm dev",
+      "description": "Next.js dev server (Turbopack) di http://localhost:3000. Membaca .env.local yang dibuat oleh scripts/dev/local-supabase.sh."
+    }
+  ],
+  "ports": [
+    { "name": "next", "port": 3000 },
+    { "name": "supabase-rest", "port": 54321 }
+  ]
+}
