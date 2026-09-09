@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Data penduduk (NIK / No. KK). Jangan commit, jangan tempel di chat.
+data-privat/
+Data_lawas*.csv
+
 # vercel
 .vercel
 

@@ -11,7 +11,8 @@
     "test:security:sensus": "node --no-warnings tests/sensus-security.test.mjs",
     "test:security:sesi": "node --no-warnings tests/session-version.test.mjs",
     "test:security:data-layer": "node --no-warnings tests/data-layer-authenticated.test.mjs",
-    "test:security:etalase": "node --no-warnings --test tests/etalase-public-security.test.mjs"
+    "test:security:etalase": "node --no-warnings --test tests/etalase-public-security.test.mjs",
+    "rapikan-keluarga:dry": "node scripts/rapikan-keluarga-csv.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
