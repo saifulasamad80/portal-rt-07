@@ -29,7 +29,8 @@ export default async function VerifikasiWargaPage() {
       rt_id,
       anggota_keluarga (id, nama_lengkap, hubungan_keluarga, rt_id)
     `)
-    .eq("status_validasi", "Menunggu")
+    .in("status_validasi", ["Menunggu", "Ditolak"])
+    .neq("status_aktif", false)
     .eq("rt_id", otentikasiHalaman.sesi.rtId);
 
   const { data: antreanRes, error: errAntrean } = await queryAntrean.order("created_at", { ascending: true });

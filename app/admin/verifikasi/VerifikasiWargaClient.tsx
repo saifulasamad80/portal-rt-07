@@ -91,7 +91,7 @@ export default function VerifikasiWargaClient({
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Verifikasi Pendaftaran</h1>
             <p className="text-slate-400 text-sm">
-              Hanya warga berstatus Menunggu. Setelah Disetujui, baris pindah ke Buku Induk.
+              Hanya akun aktif yang belum Disetujui (Menunggu atau Ditolak). Setelah Disetujui, baris pindah ke Buku Induk.
             </p>
           </div>
           <div className="text-5xl hidden md:block grayscale brightness-200">🪪</div>
@@ -116,7 +116,7 @@ export default function VerifikasiWargaClient({
 
         <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-4 md:px-5 py-3.5 border-b border-slate-100">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Antrean Menunggu</h2>
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Antrean verifikasi pendaftaran</h2>
             <span className="text-[10px] font-semibold text-slate-400 tabular-nums">{daftar.length} pendaftar</span>
           </div>
           <div className="overflow-x-auto">
@@ -145,7 +145,11 @@ export default function VerifikasiWargaClient({
                       <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="px-4 py-3">
                           <div className="font-semibold text-[13px] text-slate-800">{nama}</div>
-                          <span className="mt-1 inline-block bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                          <span className={`mt-1 inline-block px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border ${
+                            (w.status_validasi || w.status_verifikasi) === "Ditolak"
+                              ? "bg-rose-50 text-rose-800 border-rose-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                          }`}>
                             {w.status_validasi || w.status_verifikasi || "Menunggu"}
                           </span>
                         </td>

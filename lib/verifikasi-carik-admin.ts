@@ -70,9 +70,14 @@ export async function hapusKarenaNikTidakSesuai(
       ? " Indeks pemilih e-voting tetap disimpan, tetapi akun portal ini tidak bisa dipakai lagi."
       : "";
 
+  const pesanHapus =
+    hasil.mode === "hapus_permanen"
+      ? "Data lama dipindah ke kotak sampah karena NIK tidak sesuai. Pengurus bisa memulihkannya dari menu Kotak Sampah bila ini kekeliruan."
+      : `Data lama dihapus/diarsipkan karena NIK tidak sesuai.${tambahanArsip}`;
+
   return {
     success: true,
-    message: `Data lama dihapus karena NIK tidak sesuai.${tambahanArsip} Silakan daftar ulang dengan NIK yang tertera di KTP.`,
+    message: `${pesanHapus} Silakan daftar ulang dengan NIK yang tertera di KTP.`,
     arah: "/register?alasan=nik-tidak-sesuai",
   };
 }

@@ -17,7 +17,8 @@ export async function GET() {
     const query = supabase
       .from("warga")
       .select("id, nik, nama_lengkap, no_whatsapp, status_tinggal, created_at")
-      .eq("status_validasi", "Menunggu")
+      .in("status_validasi", ["Menunggu", "Ditolak"])
+      .neq("status_aktif", false)
       .eq("rt_id", otentikasi.sesi.rtId);
     const { data, error } = await query.order("created_at", { ascending: false });
 

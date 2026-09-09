@@ -76,7 +76,8 @@ export default async function AdminDashboard() {
     .select(
       "id, nik, nama_lengkap, no_whatsapp, status_tinggal, detail_alamat, status_verifikasi, status_validasi, created_at, ktp_path, kk_path, anggota_keluarga(nama_lengkap, hubungan_keluarga)"
     )
-    .eq("status_validasi", "Menunggu")
+    .in("status_validasi", ["Menunggu", "Ditolak"])
+    .neq("status_aktif", false)
     .eq("rt_id", rtSesi);
 
   const querySampah = supabaseAdmin

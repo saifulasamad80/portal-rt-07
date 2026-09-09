@@ -201,6 +201,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Buku Induk Warga</h2>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Hanya warga yang sudah Disetujui</p>
             </Link>
+            <Link href="/admin/kotak-sampah" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-amber-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🗑️</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-amber-700 transition-colors">Kotak Sampah</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Pulihkan warga yang terhapus</p>
+            </Link>
             <Link href="/admin/verifikasi" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-amber-300 transition-all duration-200 block h-full">
               <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🪪</div>
               <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-amber-700 transition-colors">Verifikasi Pendaftaran</h2>

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidTenantSah } from "@/lib/uuid-tenant";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import { tandaiAktorHapus } from "@/lib/kotak-sampah";
 
 export type HasilHapusWarga = {
   success: boolean;
@@ -572,18 +573,26 @@ export async function prosesHapusAtauArsipWarga(
     // Baris warga sudah pasti terhapus di titik ini. Pencatatan audit log
     // hanyalah pelengkap—kegagalannya tidak boleh mengubah status akhir
     // menjadi gagal atau memicu percobaan arsip pada baris yang sudah hilang.
+    await tandaiAktorHapus(
+      supabasePrivileged,
+      wargaId,
+      target.rt_id || "",
+      aktor || "pengurus",
+      "hapus_warga"
+    );
+
     await catatAudit(
       supabasePrivileged,
       aktor,
       "Hapus Warga",
-      `Menghapus data warga yang tidak terikat pemilu: ${namaTarget}`,
+      `Memindahkan ${namaTarget} ke kotak sampah (tidak terikat pemilu).`,
       target.rt_id
     );
 
     return {
       success: true,
       mode: "hapus_permanen",
-      message: `${namaTarget} berhasil dihapus.`,
+      message: `${namaTarget} dipindah ke kotak sampah. Pengurus bisa memulihkannya dari menu Kotak Sampah.`,
     };
   } catch (err: unknown) {
     // Jaring pengaman terakhir: exception tak terduga (bukan objek error
