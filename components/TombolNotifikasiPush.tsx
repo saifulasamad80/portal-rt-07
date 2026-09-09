@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { adalahPerangkatIos, pushPerambanDidukung, sudahModeAplikasi } from "@/lib/pasang-pwa";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -12,29 +13,28 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 type SasaranNotifikasi = "warga" | "pengurus";
+type StatusTombol = "idle" | "aktif" | "menunggu" | "tidak-didukung" | "perlu-pasang";
 
 export default function TombolNotifikasiPush({
   sasaran = "warga",
 }: {
   sasaran?: SasaranNotifikasi;
 }) {
-  const [status, setStatus] = useState<"idle" | "aktif" | "menunggu" | "tidak-didukung">("idle");
+  const [status, setStatus] = useState<StatusTombol>("idle");
   const [pesan, setPesan] = useState("");
   const urlLangganan = sasaran === "pengurus" ? "/api/admin/push/subscribe" : "/api/push/subscribe";
   const urlTes = sasaran === "pengurus" ? "/api/admin/push/tes" : "/api/push/tes";
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setStatus("tidak-didukung");
+    if (typeof window === "undefined") return;
+    if (!pushPerambanDidukung()) {
+      setStatus(adalahPerangkatIos() && !sudahModeAplikasi() ? "perlu-pasang" : "tidak-didukung");
       return;
     }
     let batal = false;
     navigator.serviceWorker.ready.then(async (reg) => {
       const existing = await reg.pushManager.getSubscription();
       if (!existing || batal) return;
-      // Langganan di peramban belum tentu ada di server (baris terhapus,
-      // atau perangkat ini baru dipakai pengurus). Sinkron ulang diam-diam;
-      // bila server menolak, tombol tetap bisa diklik.
       const simpan = await fetch(urlLangganan, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,12 +48,25 @@ export default function TombolNotifikasiPush({
     };
   }, [urlLangganan]);
 
+  const jelaskanPasang = () => {
+    setPesan(
+      adalahPerangkatIos()
+        ? "Pasang dulu ke Layar Utama (Bagikan → Tambah ke Layar Utama), buka dari ikon itu, lalu ketuk tombol ini lagi."
+        : "Pasang Portal Warga dari menu peramban, lalu izinkan notifikasi dari dalam aplikasi."
+    );
+  };
+
   const aktifkan = async () => {
+    if (status === "perlu-pasang" || status === "tidak-didukung") {
+      jelaskanPasang();
+      return;
+    }
     setStatus("menunggu");
     setPesan("");
     try {
       if (typeof Notification === "undefined") {
         setStatus("tidak-didukung");
+        setPesan("Peramban ini tidak menyediakan izin notifikasi.");
         return;
       }
       const izin = await Notification.requestPermission();
@@ -95,7 +108,15 @@ export default function TombolNotifikasiPush({
     }
   };
 
-  if (status === "tidak-didukung") return null;
+  const label = status === "aktif"
+    ? "Notifikasi aktif"
+    : status === "menunggu"
+      ? "Mengaktifkan..."
+      : status === "perlu-pasang"
+        ? "Pasang dulu, lalu notifikasi"
+        : status === "tidak-didukung"
+          ? "Notifikasi tidak didukung"
+          : "Aktifkan notifikasi HP";
 
   return (
     <div className="relative flex flex-col items-stretch md:items-end">
@@ -106,18 +127,18 @@ export default function TombolNotifikasiPush({
         className={`text-xs font-bold px-4 py-2.5 rounded-lg transition-all active:scale-95 ${
           status === "aktif"
             ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/40"
-            : "bg-white text-slate-900 hover:bg-blue-50"
+            : status === "tidak-didukung" || status === "perlu-pasang"
+              ? "bg-white/10 text-white border border-white/20"
+              : "bg-white text-slate-900 hover:bg-blue-50"
         }`}
       >
-        {status === "aktif" ? "Notifikasi aktif" : status === "menunggu" ? "Mengaktifkan..." : "Aktifkan notifikasi HP"}
+        {label}
       </button>
 
-      {/* Tooltip mengambang: dipasang absolute supaya munculnya pesan tidak
-          menambah tinggi elemen dan ikut menggeser tata letak header. */}
       {pesan ? (
         <div
           role="status"
-          className="absolute top-full right-0 mt-2 z-50 w-max max-w-[220px] bg-slate-800 text-white text-[10px] font-medium leading-relaxed px-3 py-1.5 rounded-md shadow-lg ring-1 ring-white/10"
+          className="absolute top-full right-0 mt-2 z-50 w-max max-w-[240px] bg-slate-800 text-white text-[10px] font-medium leading-relaxed px-3 py-1.5 rounded-md shadow-lg ring-1 ring-white/10"
         >
           <span className="absolute -top-1 right-5 w-2 h-2 rotate-45 bg-slate-800"></span>
           <span className="relative">{pesan}</span>

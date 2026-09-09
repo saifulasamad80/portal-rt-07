@@ -1,7 +1,12 @@
-const CACHE_NAME = "portal-rt-v5";
+const CACHE_NAME = "portal-rt-v6";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
+});
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+  event.respondWith(fetch(event.request));
 });
 
 self.addEventListener("activate", (event) => {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import AjakanPasangAplikasi from "@/components/AjakanPasangAplikasi";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,20 +14,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// INJEKSI MUTLAK: Deklarasi PWA Manifest & Open Graph (Preview WhatsApp) digabung!
 export const metadata: Metadata = {
-  metadataBase: new URL("https://wargaku-six.vercel.app"), // INJEKSI MUTLAK: Hilangkan Warning Build
+  metadataBase: new URL("https://wargaku-six.vercel.app"),
   title: "Portal Warga",
   description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
-  manifest: "/manifest.json", // KUNCI MUTLAK PWA TETAP AMAN
+  applicationName: "Portal Warga",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Portal Warga",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
     title: "Portal Warga",
     description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
-    url: "https://wargaku-six.vercel.app", 
+    url: "https://wargaku-six.vercel.app",
     siteName: "Portal Warga",
     images: [
       {
-        url: "/og-image.jpeg", // UBAH KE .png JIKA FORMAT GAMBAR LU PNG
+        url: "/og-image.jpeg",
         width: 1200,
         height: 630,
         alt: "Preview Portal Warga",
@@ -37,12 +50,11 @@ export const metadata: Metadata = {
   },
 };
 
-// REFACTOR MUTLAK: Kunci Tema Terang (Anti-Dark Mode Inversion)
 export const viewport: Viewport = {
   themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
-  colorScheme: "light", // MENCEGAH HP ME-REVERSE WARNA SECARA PAKSA!
+  colorScheme: "light",
 };
 
 export default function RootLayout({
@@ -52,7 +64,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="id" 
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
@@ -75,6 +87,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <main className="flex-1 flex flex-col w-full">{children}</main>
+        <AjakanPasangAplikasi />
       </body>
     </html>
   );
