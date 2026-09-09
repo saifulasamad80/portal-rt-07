@@ -22,11 +22,18 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
   // bernilai null, dan memanggil .toLowerCase() di atasnya akan mematikan
   // seluruh halaman.
   const kunciCari = search.trim().toLowerCase();
+  const cocokTeks = (nama: unknown, nik: unknown) => {
+    const namaBersih = String(nama || "").toLowerCase();
+    const nikBersih = String(nik || "");
+    return namaBersih.includes(kunciCari) || nikBersih.includes(kunciCari);
+  };
   const filteredWarga = daftarAman.filter((w) => {
     if (!kunciCari) return true;
-    const nama = String(w?.nama_lengkap || "").toLowerCase();
-    const nik = String(w?.nik || "");
-    return nama.includes(kunciCari) || nik.includes(kunciCari);
+    if (cocokTeks(w?.nama_lengkap, w?.nik)) return true;
+    const anggota = Array.isArray(w?.anggota_keluarga) ? w.anggota_keluarga : [];
+    return anggota.some((ak: { nama_lengkap?: unknown; nik?: unknown }) =>
+      cocokTeks(ak?.nama_lengkap, ak?.nik)
+    );
   });
 
   const formatWA = (nomor: string) => {
@@ -282,7 +289,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
             </div>
 
             <div className="w-full xl:w-auto flex flex-col sm:flex-row flex-wrap gap-2">
-              <input type="text" placeholder="🔍 Cari Nama atau NIK..." className="flex-1 sm:flex-none sm:w-64 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <input type="text" placeholder="🔍 Cari nama atau NIK (KK & anggota)" className="flex-1 sm:flex-none sm:w-64 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50" value={search} onChange={(e) => setSearch(e.target.value)} />
               <button onClick={downloadTemplateCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">📥 Template CSV</button>
               <label className={`cursor-pointer px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 ${isUploading ? 'bg-slate-300 text-slate-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
                 <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
