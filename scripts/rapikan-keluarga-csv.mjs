@@ -7,8 +7,10 @@
  *
  *   node --env-file=.env.local scripts/rapikan-keluarga-csv.mjs
  *   node --env-file=.env.local scripts/rapikan-keluarga-csv.mjs --apply --konfirmasi=RAPIKAN-KELUARGA
+ *   node --env-file=.env.local scripts/rapikan-keluarga-csv.mjs --hanya-nik=16DIGIT --buat-kk-hilang
  */
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -348,9 +350,269 @@ function isiJikaBerubah(payload, kolom, lama, baru) {
 
 function parseArgumen(argv) {
   const apply = argv.includes("--apply");
+  const buatKkHilang = argv.includes("--buat-kk-hilang");
+  const daftarKkHilang = argv.includes("--daftar-kk-hilang");
+  const daftarBelumAda = argv.includes("--daftar-belum-ada");
   const konfirmasi = argv.find((a) => a.startsWith("--konfirmasi="))?.slice("--konfirmasi=".length) || "";
   const csvArg = argv.find((a) => a.startsWith("--csv="))?.slice("--csv=".length) || "";
-  return { apply, konfirmasi, csvArg };
+  const hanyaNik = nikBersih(argv.find((a) => a.startsWith("--hanya-nik="))?.slice("--hanya-nik=".length) || "");
+  const hanyaNama = teks(argv.find((a) => a.startsWith("--hanya-nama="))?.slice("--hanya-nama=".length) || "");
+  return { apply, konfirmasi, csvArg, buatKkHilang, daftarKkHilang, daftarBelumAda, hanyaNik, hanyaNama };
+}
+
+function saringSatuKartu(barisCsv, hanyaNik, hanyaNama) {
+  if (!hanyaNik && !hanyaNama) return barisCsv;
+  let target = null;
+  if (hanyaNik) {
+    if (hanyaNik.length !== 16) gagal("--hanya-nik harus 16 digit.");
+    target = barisCsv.find((b) => nikBersih(b.nik) === hanyaNik);
+    if (!target) gagal("NIK tidak ada di CSV.");
+  } else {
+    const kunci = normalisasiNama(hanyaNama);
+    const kandidat = barisCsv.filter((b) => normalisasiNama(b.nama) === kunci);
+    if (!kandidat.length) gagal(`Nama tidak ada di CSV: ${hanyaNama}`);
+    if (kandidat.length > 1) gagal(`Nama ${hanyaNama} muncul lebih dari sekali di CSV.`);
+    target = kandidat[0];
+  }
+  const noKk = noKkBersih(target.no_kk);
+  if (!noKk) gagal("Baris itu tidak punya No. KK sah; kartu tidak bisa dirakit.");
+  return barisCsv.filter((b) => noKkBersih(b.no_kk) === noKk);
+}
+
+function rtIdMayoritas(wargaDb) {
+  const hitung = new Map();
+  for (const w of wargaDb) {
+    if (!w?.rt_id || w.status_aktif === false) continue;
+    hitung.set(w.rt_id, (hitung.get(w.rt_id) || 0) + 1);
+  }
+  let terbaik = "";
+  let n = 0;
+  for (const [id, jumlah] of hitung) {
+    if (jumlah > n) {
+      terbaik = id;
+      n = jumlah;
+    }
+  }
+  return terbaik;
+}
+
+function perkirakanAlamat(alamatKtp, noRmh, alamatSaudara, wargaDb) {
+  const no = normalisasiNoRmh(noRmh);
+  const saudara = teks(alamatSaudara);
+  if (/Pelita Town House No\./i.test(saudara)) return saudara;
+  const unitHuruf = /^[A-Za-z]\d+[A-Za-z]?$/.test(no);
+  const adaTownHouse = (wargaDb || []).some((w) =>
+    /Pelita Town House No\. [A-Za-z]\d+/i.test(teks(w.detail_alamat))
+  );
+  if (unitHuruf && adaTownHouse) return `Pelita Town House No. ${no}`;
+  return saudara || gabungAlamatKtp(alamatKtp, noRmh);
+}
+
+function waDariDumpLawas(nik) {
+  const dump = path.join(AKAR, "warga_rows.csv");
+  if (!fs.existsSync(dump)) return "";
+  const tabel = parseCsv(fs.readFileSync(dump, "utf8"));
+  if (tabel.length < 2) return "";
+  const header = tabel[0].map(kunciHeader);
+  const iNik = header.indexOf("nik");
+  const iWa = header.indexOf("no_whatsapp");
+  if (iNik < 0 || iWa < 0) return "";
+  for (const sel of tabel.slice(1)) {
+    if (nikBersih(sel[iNik]) === nik) {
+      const wa = teks(sel[iWa]).replace(/\D/g, "");
+      return wa.length >= 10 ? wa : "";
+    }
+  }
+  return "";
+}
+
+async function buatKkYangHilang(supabase, barisCsv, wargaDb) {
+  const wargaByNik = new Map();
+  for (const w of wargaDb) {
+    const nik = nikBersih(w.nik);
+    if (nik.length === 16) wargaByNik.set(nik, w);
+  }
+  const kelompok = new Map();
+  for (const baris of barisCsv) {
+    const noKk = noKkBersih(baris.no_kk);
+    const nik = nikBersih(baris.nik);
+    if (!noKk || nik.length !== 16) continue;
+    if (!kelompok.has(noKk)) kelompok.set(noKk, []);
+    kelompok.get(noKk).push({ ...baris, nik, noKk });
+  }
+
+  const rencanaBuat = [];
+  for (const anggotaKk of kelompok.values()) {
+    const daftarKk = anggotaKk.filter((a) => normalisasiHubungan(a.hub_kk).peran === "kk");
+    if (daftarKk.length !== 1) continue;
+    const kepalaCsv = daftarKk[0];
+    if (wargaByNik.has(kepalaCsv.nik)) continue;
+
+    const saudaraDb = anggotaKk
+      .map((a) => wargaByNik.get(a.nik))
+      .filter((w) => w && w.status_aktif !== false);
+    const rtId = saudaraDb[0]?.rt_id || rtIdMayoritas(wargaDb);
+    if (!rtId) {
+      rencanaBuat.push({
+        nama: teks(kepalaCsv.nama),
+        baris: kepalaCsv.nomorBaris,
+        alasan: "rt_id_tidak_ketemu",
+      });
+      continue;
+    }
+    const alamatBaru = perkirakanAlamat(
+      kepalaCsv.alamat_ktp,
+      kepalaCsv.no_rmh,
+      saudaraDb[0]?.detail_alamat,
+      wargaDb
+    );
+    const statusBaru = normalisasiStatusWarga(kepalaCsv.status_warga) || "Penduduk Tetap";
+    rencanaBuat.push({
+      nama: teks(kepalaCsv.nama).slice(0, 100),
+      baris: kepalaCsv.nomorBaris,
+      rtId,
+      payload: {
+        nik: kepalaCsv.nik,
+        nama_lengkap: teks(kepalaCsv.nama).slice(0, 100),
+        no_whatsapp: waDariDumpLawas(kepalaCsv.nik),
+        pin: await bcrypt.hash("123456", 10),
+        status_tinggal: statusBaru,
+        detail_alamat: (alamatBaru || "-").slice(0, 255),
+        tanggal_lahir: normalisasiTanggal(kepalaCsv.tgl_lahir) || null,
+        tempat_lahir: teks(kepalaCsv.tempat_lahir).slice(0, 100) || null,
+        jenis_kelamin: normalisasiKelamin(kepalaCsv.jenis_kelamin) || null,
+        agama: normalisasiAgama(kepalaCsv.agama) || null,
+        pekerjaan: teks(kepalaCsv.pekerjaan).slice(0, 100) || null,
+        pendidikan: normalisasiPendidikan(kepalaCsv.pendidikan) || null,
+        no_kk: kepalaCsv.noKk,
+        hubungan_kk: "KK",
+        status_verifikasi: "Disetujui",
+        rt_id: rtId,
+        status_aktif: true,
+      },
+    });
+  }
+  return rencanaBuat;
+}
+
+function daftarKepalaBelumAda(barisCsv, wargaDb, anggotaDb) {
+  const wargaByNik = new Map();
+  for (const w of wargaDb) {
+    const nik = nikBersih(w.nik);
+    if (nik.length === 16) wargaByNik.set(nik, w);
+  }
+  const anggotaByNik = new Map();
+  for (const a of anggotaDb) {
+    const nik = nikBersih(a.nik);
+    if (nik.length === 16) anggotaByNik.set(nik, a);
+  }
+  const kelompok = new Map();
+  for (const baris of barisCsv) {
+    const noKk = noKkBersih(baris.no_kk);
+    const nik = nikBersih(baris.nik);
+    if (!noKk || nik.length !== 16) continue;
+    if (!kelompok.has(noKk)) kelompok.set(noKk, []);
+    kelompok.get(noKk).push({ ...baris, nik, noKk, hub: normalisasiHubungan(baris.hub_kk) });
+  }
+  const hasil = [];
+  for (const anggotaKk of kelompok.values()) {
+    const daftarKk = anggotaKk.filter((a) => a.hub.peran === "kk");
+    if (daftarKk.length !== 1) continue;
+    const kepala = daftarKk[0];
+    const diWarga = wargaByNik.get(kepala.nik);
+    if (diWarga && diWarga.status_aktif !== false) continue;
+    const saudara = anggotaKk
+      .filter((a) => a.nik !== kepala.nik)
+      .map((a) => {
+        const w = wargaByNik.get(a.nik);
+        const ag = anggotaByNik.get(a.nik);
+        return {
+          nama: teks(a.nama),
+          hub: a.hub.hubungan || teks(a.hub_kk),
+          diWarga: Boolean(w),
+          wargaAktif: w ? w.status_aktif !== false : false,
+          diAnggota: Boolean(ag),
+        };
+      });
+    hasil.push({
+      nama: teks(kepala.nama),
+      baris: kepala.nomorBaris,
+      jiwa: anggotaKk.length,
+      noRmh: teks(kepala.no_rmh),
+      alamat: teks(kepala.alamat_ktp),
+      status: !diWarga ? "tidak_ada_di_database" : "akun_nonaktif",
+      saudara,
+    });
+  }
+  return hasil;
+}
+
+function daftarJiwaBelumAda(barisCsv, wargaDb, anggotaDb) {
+  const wargaByNik = new Map();
+  const wargaByNama = new Map();
+  for (const w of wargaDb) {
+    const nik = nikBersih(w.nik);
+    if (nik.length === 16) wargaByNik.set(nik, w);
+    const nama = normalisasiNama(w.nama_lengkap);
+    if (nama) {
+      if (!wargaByNama.has(nama)) wargaByNama.set(nama, []);
+      wargaByNama.get(nama).push(w);
+    }
+  }
+  const anggotaByNik = new Map();
+  const anggotaByNama = new Map();
+  for (const a of anggotaDb) {
+    const nik = nikBersih(a.nik);
+    if (nik.length === 16) anggotaByNik.set(nik, a);
+    const nama = normalisasiNama(a.nama_lengkap);
+    if (nama) {
+      if (!anggotaByNama.has(nama)) anggotaByNama.set(nama, []);
+      anggotaByNama.get(nama).push(a);
+    }
+  }
+
+  const nikSahBelumAda = [];
+  const nikTidakSahNamaBelumAda = [];
+  const nikTidakSahNamaAda = [];
+  let diWarga = 0;
+  let diAnggotaSaja = 0;
+  let nikSah = 0;
+
+  for (const baris of barisCsv) {
+    const nik = nikBersih(baris.nik);
+    const nama = teks(baris.nama);
+    const hub = teks(baris.hub_kk);
+    const meta = { nama, baris: baris.nomorBaris, hub };
+    if (nik.length === 16) {
+      nikSah += 1;
+      const w = wargaByNik.get(nik);
+      const a = anggotaByNik.get(nik);
+      if (w) {
+        diWarga += 1;
+        continue;
+      }
+      if (a) {
+        diAnggotaSaja += 1;
+        continue;
+      }
+      nikSahBelumAda.push(meta);
+      continue;
+    }
+    const kunci = normalisasiNama(nama);
+    const adaNama = (kunci && wargaByNama.has(kunci)) || (kunci && anggotaByNama.has(kunci));
+    if (adaNama) nikTidakSahNamaAda.push({ ...meta, nikDigit: nik.length });
+    else nikTidakSahNamaBelumAda.push({ ...meta, nikDigit: nik.length });
+  }
+
+  return {
+    barisCsv: barisCsv.length,
+    nikSah,
+    diWarga,
+    diAnggotaSaja,
+    nikSahBelumAda,
+    nikTidakSahNamaAda,
+    nikTidakSahNamaBelumAda,
+  };
 }
 
 function lokasiCsv(csvArg) {
@@ -665,7 +927,12 @@ function susunRencana(barisCsv, wargaDb, anggotaDb) {
       });
       continue;
     }
-    const alamatBaru = gabungAlamatKtp(baris.alamat_ktp, baris.no_rmh);
+    const alamatBaru = perkirakanAlamat(
+      baris.alamat_ktp,
+      baris.no_rmh,
+      warga.detail_alamat,
+      wargaDb
+    );
     const statusBaru = normalisasiStatusWarga(baris.status_warga);
     if (!alamatBaru) {
       catat("alamat_tidak_bisa_dirakit", {
@@ -931,8 +1198,12 @@ async function main() {
   ujiStatusWajib();
   muatEnvLokal();
   const opsi = parseArgumen(process.argv.slice(2));
+  if (opsi.buatKkHilang && !opsi.hanyaNik && !opsi.hanyaNama) {
+    gagal("--buat-kk-hilang wajib disertai --hanya-nik= atau --hanya-nama= agar tidak membuat KK massal.");
+  }
   const lokasi = lokasiCsv(opsi.csvArg);
-  const barisCsv = bacaCsv(lokasi);
+  const barisMentah = bacaCsv(lokasi);
+  const barisCsv = opsi.daftarKkHilang || opsi.daftarBelumAda ? barisMentah : saringSatuKartu(barisMentah, opsi.hanyaNik, opsi.hanyaNama);
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const kunci = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -941,7 +1212,7 @@ async function main() {
   }
 
   const supabase = createClient(url, kunci, { auth: { persistSession: false } });
-  const [wargaDb, anggotaDb] = await Promise.all([
+  let [wargaDb, anggotaDb] = await Promise.all([
     ambilSemua(
       supabase,
       "warga",
@@ -950,9 +1221,95 @@ async function main() {
     ambilSemua(supabase, "anggota_keluarga", "id, nik, warga_id, rt_id, nama_lengkap"),
   ]);
 
-  const rencana = susunRencana(barisCsv, wargaDb, anggotaDb);
+  if (opsi.daftarKkHilang) {
+    const hilang = daftarKepalaBelumAda(barisCsv, wargaDb, anggotaDb);
+    console.log(`KK di CSV yang belum jadi akun aktif: ${hilang.length}`);
+    for (const item of hilang) {
+      const alamat = item.alamat || "(alamat KTP kosong)";
+      console.log(`- ${item.nama} | baris ${item.baris} | ${item.jiwa} jiwa | ${item.status} | ${alamat} ${item.noRmh}`);
+      for (const s of item.saudara) {
+        const tempat = s.wargaAktif ? "akun warga aktif" : s.diWarga ? "akun warga nonaktif" : s.diAnggota ? "sudah anggota KK lain" : "belum ada";
+        console.log(`    ${s.hub}: ${s.nama} (${tempat})`);
+      }
+    }
+    return;
+  }
+
+  if (opsi.daftarBelumAda) {
+    const d = daftarJiwaBelumAda(barisCsv, wargaDb, anggotaDb);
+    console.log(`Baris CSV: ${d.barisCsv}`);
+    console.log(`NIK 16 digit sudah di tabel warga: ${d.diWarga}`);
+    console.log(`NIK 16 digit hanya di anggota_keluarga: ${d.diAnggotaSaja}`);
+    console.log(`NIK 16 digit belum di database: ${d.nikSahBelumAda.length}`);
+    console.log(`NIK tidak sah, nama juga belum di database: ${d.nikTidakSahNamaBelumAda.length}`);
+    console.log(`NIK tidak sah, tapi nama sudah ada di database: ${d.nikTidakSahNamaAda.length}`);
+    if (d.nikSahBelumAda.length) {
+      console.log("------------------------------------------------");
+      console.log("Belum masuk (NIK sah):");
+      for (const item of d.nikSahBelumAda) {
+        console.log(`- ${item.nama} | baris ${item.baris} | ${item.hub || "(hub kosong)"}`);
+      }
+    }
+    if (d.nikTidakSahNamaBelumAda.length) {
+      console.log("------------------------------------------------");
+      console.log("Belum masuk (NIK tidak 16 digit, nama tidak ketemu):");
+      for (const item of d.nikTidakSahNamaBelumAda) {
+        console.log(`- ${item.nama} | baris ${item.baris} | ${item.hub || "(hub kosong)"} | digit=${item.nikDigit}`);
+      }
+    }
+    fs.mkdirSync(FOLDER_PRIVAT, { recursive: true });
+    fs.writeFileSync(
+      path.join(FOLDER_PRIVAT, "hasil-jiwa-belum-ada.json"),
+      `${JSON.stringify(d, null, 2)}\n`
+    );
+    return;
+  }
+
+  const rencanaBuatKk = opsi.buatKkHilang ? await buatKkYangHilang(supabase, barisCsv, wargaDb) : [];
+  const kkSiapInsert = rencanaBuatKk.filter((k) => k.payload);
+  const kkGagalRencana = rencanaBuatKk.filter((k) => !k.payload);
+  if (rencanaBuatKk.length) {
+    console.log("Rencana KK baru:");
+    for (const item of kkSiapInsert) {
+      console.log(`  - ${item.nama} (baris CSV ${item.baris})`);
+    }
+    for (const item of kkGagalRencana) {
+      console.log(`  - ${item.nama} dilewati: ${item.alasan}`);
+    }
+  }
+
+  let rencana = susunRencana(
+    barisCsv,
+    opsi.apply
+      ? wargaDb
+      : [
+          ...wargaDb,
+          ...kkSiapInsert.map((k) => ({
+            id: `rencana-${k.payload.nik}`,
+            ...k.payload,
+          })),
+        ],
+    anggotaDb
+  );
   const ringkasan = ringkasanDari(barisCsv, rencana);
-  tulisLaporan(ringkasan, rencana);
+  const satuKartu = Boolean(opsi.hanyaNik || opsi.hanyaNama);
+  if (!satuKartu) tulisLaporan(ringkasan, rencana);
+  else {
+    fs.mkdirSync(FOLDER_PRIVAT, { recursive: true });
+    fs.writeFileSync(
+      path.join(FOLDER_PRIVAT, "hasil-pulih-satu-kk.json"),
+      `${JSON.stringify(
+        {
+          namaKk: kkSiapInsert.map((k) => k.nama),
+          jiwaCsv: barisCsv.map((b) => ({ nama: teks(b.nama), hub: teks(b.hub_kk), baris: b.nomorBaris })),
+          konversi: rencana.konversi.map((k) => ({ nama: k.nama, hubungan: k.hubungan, sumber: k.sumber })),
+          ringkasan,
+        },
+        null,
+        2
+      )}\n`
+    );
+  }
   cetakRingkasan(ringkasan, opsi.apply);
 
   if (!opsi.apply) {
@@ -964,8 +1321,24 @@ async function main() {
     gagal(`APPLY ditolak. Tambahkan --konfirmasi=${TOKEN_KONFIRMASI}`);
   }
 
+  let kkDibuat = 0;
+  for (const item of kkSiapInsert) {
+    const { error } = await supabase.from("warga").insert(item.payload).select("id").maybeSingle();
+    if (error) gagal(`Gagal membuat KK ${item.nama}: ${error.message}`);
+    kkDibuat += 1;
+  }
+  if (kkDibuat) {
+    wargaDb = await ambilSemua(
+      supabase,
+      "warga",
+      "id, nik, nama_lengkap, tanggal_lahir, tempat_lahir, jenis_kelamin, agama, pekerjaan, rt_id, status_aktif, detail_alamat, status_tinggal, no_kk, pendidikan, hubungan_kk"
+    );
+    rencana = susunRencana(barisCsv, wargaDb, anggotaDb);
+  }
+
   const hasil = await terapkan(supabase, rencana.konversi, rencana.pembaruanProfil);
   console.log("------------------------------------------------");
+  console.log(`buat akun KK: ${kkDibuat}`);
   console.log(`insert anggota_keluarga: ${hasil.insertAnggota}`);
   console.log(`nonaktifkan akun jiwa: ${hasil.nonaktifWarga}`);
   console.log(`ubah profil warga: ${hasil.profilDiubah}`);
