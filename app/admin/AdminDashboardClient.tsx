@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -124,11 +125,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               </div>
             </div>
           </div>
-          <form action={logoutAction} className="shrink-0">
-            <button type="submit" className="w-full md:w-auto bg-white/5 hover:bg-rose-600 hover:border-rose-500 text-slate-200 hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg border border-white/10 transition-colors active:scale-95">
-              Keluar Dasbor
-            </button>
-          </form>
+          <div className="flex flex-row items-start gap-2 shrink-0">
+            <TombolNotifikasiPush sasaran="pengurus" />
+            <form action={logoutAction} className="shrink-0">
+              <button type="submit" className="w-full md:w-auto bg-white/5 hover:bg-rose-600 hover:border-rose-500 text-slate-200 hover:text-white text-xs font-semibold py-2.5 px-4 rounded-lg border border-white/10 transition-colors active:scale-95">
+                Keluar Dasbor
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 

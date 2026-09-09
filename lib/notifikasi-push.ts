@@ -10,8 +10,45 @@ export type PayloadNotifikasi = {
   tag?: string;
 };
 
+export type LanggananPushBersih = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+export function bacaMuatanLanggananPush(
+  body: unknown
+): { ok: true; data: LanggananPushBersih } | { ok: false; message: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, message: "Format langganan push tidak valid." };
+  }
+  const input = body as Record<string, unknown>;
+  const keys = input.keys && typeof input.keys === "object" && !Array.isArray(input.keys)
+    ? input.keys as Record<string, unknown>
+    : null;
+  const endpoint = typeof input.endpoint === "string" ? input.endpoint.trim() : "";
+  const p256dh = keys && typeof keys.p256dh === "string" ? keys.p256dh.trim() : "";
+  const auth = keys && typeof keys.auth === "string" ? keys.auth.trim() : "";
+  if (!endpoint || !p256dh || !auth) {
+    return { ok: false, message: "Data langganan push tidak lengkap." };
+  }
+  if (endpoint.length > 2048 || p256dh.length > 256 || auth.length > 256) {
+    return { ok: false, message: "Data langganan push terlalu panjang." };
+  }
+  try {
+    const endpointUrl = new URL(endpoint);
+    if (endpointUrl.protocol !== "https:") throw new Error("protocol");
+  } catch {
+    return { ok: false, message: "Endpoint push tidak valid." };
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(p256dh) || !/^[A-Za-z0-9_-]+$/.test(auth)) {
+    return { ok: false, message: "Kunci langganan push tidak valid." };
+  }
+  return { ok: true, data: { endpoint, p256dh, auth } };
+}
+
 const PESAN_PUSH_BELUM_SIAP =
-  "Fitur notifikasi belum aktif di database. Jalankan SQL wargaku-v2-push-ibu-soft-delete.sql di Supabase.";
+  "Fitur notifikasi belum aktif di database. Jalankan SQL wargaku-v2-push-ibu-soft-delete.sql dan push-langganan-pengurus.sql di Supabase.";
 
 function klienAdmin(): SupabaseClient {
   return createClient(
@@ -145,6 +182,41 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rt
   return { terkirim };
 }
 
+export async function kirimNotifikasiKePengurus(
+  payload: PayloadNotifikasi,
+  sasaran: { rtId: string; pengurusId?: string }
+) {
+  const rtBersih = uuidTenantSah(sasaran.rtId);
+  if (!rtBersih) {
+    return { terkirim: 0, pesan: "Wilayah pengurus push belum valid." };
+  }
+  const pengurusId = typeof sasaran.pengurusId === "string" ? sasaran.pengurusId.trim() : "";
+  if (sasaran.pengurusId && !uuidTenantSah(pengurusId)) {
+    return { terkirim: 0, pesan: "Identitas pengurus push belum valid." };
+  }
+  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
+
+  const supabase = klienAdmin();
+  let query = supabase
+    .from("push_langganan")
+    .select("endpoint, p256dh, auth, pengurus_id")
+    .eq("rt_id", rtBersih)
+    .not("pengurus_id", "is", null);
+  if (pengurusId) query = query.eq("pengurus_id", pengurusId);
+
+  const { data, error } = await query;
+  if (error) {
+    return { terkirim: 0, pesan: skemaBelumSiap(error) ? PESAN_PUSH_BELUM_SIAP : error.message };
+  }
+  if (!data?.length) return { terkirim: 0 };
+
+  let terkirim = 0;
+  for (const row of data) {
+    if (await kirimKeLangganan(row, payload)) terkirim += 1;
+  }
+  return { terkirim };
+}
+
 export async function catatDanKirimSekali(
   jenis: string,
   kunciUnik: string,
@@ -194,8 +266,11 @@ export async function catatDanKirimSekali(
     console.error("Gagal mencatat riwayat notifikasi:", error.message);
   }
   if (sasaran.semua) {
-    console.error("Siaran push ke semua tenant ditolak; wajib rt_id dari sesi.");
-    return { terkirim: 0, pesan: "Siaran push lintas RT ditolak." };
+    if (!rtId) {
+      console.error("Siaran push ke semua tenant ditolak; wajib rt_id dari sesi.");
+      return { terkirim: 0, pesan: "Siaran push lintas RT ditolak." };
+    }
+    return kirimNotifikasiKeSemuaWarga(payload, rtId);
   }
   if (sasaran.wargaId) return kirimNotifikasiKeWarga(sasaran.wargaId, payload);
   return { terkirim: 0 };

@@ -11,20 +11,42 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-export default function TombolNotifikasiPush() {
+type SasaranNotifikasi = "warga" | "pengurus";
+
+export default function TombolNotifikasiPush({
+  sasaran = "warga",
+}: {
+  sasaran?: SasaranNotifikasi;
+}) {
   const [status, setStatus] = useState<"idle" | "aktif" | "menunggu" | "tidak-didukung">("idle");
   const [pesan, setPesan] = useState("");
+  const urlLangganan = sasaran === "pengurus" ? "/api/admin/push/subscribe" : "/api/push/subscribe";
+  const urlTes = sasaran === "pengurus" ? "/api/admin/push/tes" : "/api/push/tes";
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
       setStatus("tidak-didukung");
       return;
     }
+    let batal = false;
     navigator.serviceWorker.ready.then(async (reg) => {
       const existing = await reg.pushManager.getSubscription();
-      if (existing) setStatus("aktif");
+      if (!existing || batal) return;
+      // Langganan di peramban belum tentu ada di server (baris terhapus,
+      // atau perangkat ini baru dipakai pengurus). Sinkron ulang diam-diam;
+      // bila server menolak, tombol tetap bisa diklik.
+      const simpan = await fetch(urlLangganan, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(existing.toJSON()),
+      }).catch(() => null);
+      if (batal) return;
+      setStatus(simpan?.ok ? "aktif" : "idle");
     }).catch(() => undefined);
-  }, []);
+    return () => {
+      batal = true;
+    };
+  }, [urlLangganan]);
 
   const aktifkan = async () => {
     setStatus("menunggu");
@@ -54,7 +76,7 @@ export default function TombolNotifikasiPush() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
-      const simpan = await fetch("/api/push/subscribe", {
+      const simpan = await fetch(urlLangganan, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(subscription.toJSON()),
@@ -63,13 +85,13 @@ export default function TombolNotifikasiPush() {
         const err = await simpan.json().catch(() => ({}));
         throw new Error(err.error || "Gagal mendaftarkan perangkat.");
       }
-      const tes = await fetch("/api/push/tes", { method: "POST" });
+      const tes = await fetch(urlTes, { method: "POST" });
       const tesData = await tes.json().catch(() => ({}));
       setStatus("aktif");
-      setPesan(tesData.success ? "Notifikasi aktif. Cek apakah tes muncul di perangkat ini." : "Langganan tersimpan. Izinkan notifikasi sistem agar pengumuman RT masuk.");
-    } catch (err: any) {
+      setPesan(tesData.success ? "Notifikasi aktif. Cek apakah tes muncul di perangkat ini." : "Langganan tersimpan. Izinkan notifikasi sistem agar pemberitahuan masuk.");
+    } catch (err: unknown) {
       setStatus("idle");
-      setPesan(err.message || "Gagal mengaktifkan notifikasi.");
+      setPesan(err instanceof Error ? err.message : "Gagal mengaktifkan notifikasi.");
     }
   };
 

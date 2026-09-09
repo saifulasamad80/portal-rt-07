@@ -48,7 +48,7 @@ export default async function AdminPengumumanPage() {
       await kirimNotifikasiKeSemuaWarga({
         title: "Pengumuman baru dari pengurus RT",
         body: judulBersih.length > 120 ? `${judulBersih.slice(0, 117)}...` : judulBersih,
-        url: "/",
+        url: "/portal",
         tag: `pengumuman-${barisBaru?.id || "baru"}`,
       }, sesi.rtId);
     } catch (pushErr) {

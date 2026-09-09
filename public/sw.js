@@ -1,4 +1,4 @@
-const CACHE_NAME = "portal-rt-v4";
+const CACHE_NAME = "portal-rt-v5";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -56,10 +56,19 @@ self.addEventListener("notificationclick", (event) => {
   const tujuan = tautanNotifikasiAman(event.notification.data?.url);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      let cadangan = null;
       for (const client of clientList) {
-        if (client.url.includes(tujuan) && "focus" in client) return client.focus();
+        let pathClient = "";
+        try {
+          pathClient = new URL(client.url).pathname || "/";
+        } catch (_err) {
+          continue;
+        }
+        if (pathClient === tujuan && "focus" in client) return client.focus();
+        if (!cadangan && "focus" in client) cadangan = client;
       }
       if (self.clients.openWindow) return self.clients.openWindow(tujuan);
+      if (cadangan) return cadangan.focus();
     })
   );
 });

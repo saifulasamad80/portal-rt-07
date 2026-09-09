@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -87,14 +88,14 @@ export default function VerifikasiWargaClient({
           &larr; Kembali ke Pusat Komando
         </Link>
 
-        <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-amber-500 flex justify-between items-center">
+        <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-amber-500 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Verifikasi Pendaftaran</h1>
             <p className="text-slate-400 text-sm">
               Hanya akun aktif yang belum Disetujui (Menunggu atau Ditolak). Setelah Disetujui, baris pindah ke Buku Induk.
             </p>
           </div>
-          <div className="text-5xl hidden md:block grayscale brightness-200">🪪</div>
+          <TombolNotifikasiPush sasaran="pengurus" />
         </div>
 
         {notifikasi && (

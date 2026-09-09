@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { JUDUL_TIKET_PENDAFTARAN } from "@/lib/kebijakan-sensus";
+import { kirimNotifikasiKePengurus } from "@/lib/notifikasi-push";
 import { pastikanRtRegistrasiAda } from "@/lib/registrasi-tenant";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
@@ -466,6 +467,20 @@ export async function aksiRegister(
       throw new Error("Insert tiket verifikasi gagal: Supabase tidak mengembalikan id dan tidak mengembalikan error.");
     }
     tiketId = String(tiketBaru.id);
+
+    try {
+      await kirimNotifikasiKePengurus(
+        {
+          title: "Pendaftar baru menunggu verifikasi",
+          body: `${kepala.nama_lengkap} mendaftar dan masuk antrean Verifikasi Pendaftaran.`,
+          url: "/admin/verifikasi",
+          tag: `verifikasi-${wargaId}`,
+        },
+        { rtId }
+      );
+    } catch (pushErr) {
+      console.error("Pendaftaran tersimpan, namun notifikasi pengurus gagal:", pushErr);
+    }
 
     return { success: true, message: "SUKSES" };
   } catch (error: unknown) {
