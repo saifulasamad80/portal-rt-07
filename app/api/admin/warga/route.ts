@@ -65,7 +65,8 @@ export async function DELETE(request: Request) {
           const cadangan = await arsipkanWargaKarenaPemilu(
             privileged,
             target.sesi.id,
-            target.sesi.nama
+            target.sesi.nama,
+            target.sesi.rtId
           );
           return NextResponse.json(cadangan);
         } catch (fallbackErr: unknown) {

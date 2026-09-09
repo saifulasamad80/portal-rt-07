@@ -3,6 +3,8 @@
 -- Hapus baris tidak langsung hilang: salinan masuk kotak_sampah dulu.
 -- Pulihkan lewat halaman /admin/kotak-sampah. Jangan SET session_replication_role
 -- = replica saat menghapus warga — itu melewati trigger ini.
+-- Arsip pemilu memanggil hapus_anggota_tanpa_kotak_sampah() agar tanggungan
+-- dilepas tanpa masuk recycle bin (set_config app.kotak_sampah_lewati).
 -- ======================================================================================
 
 CREATE TABLE IF NOT EXISTS public.kotak_sampah (
@@ -55,6 +57,10 @@ DECLARE
   v_bundel uuid;
   v_nama text;
 BEGIN
+  IF current_setting('app.kotak_sampah_lewati', true) IN ('1', 'true', 'on') THEN
+    RETURN OLD;
+  END IF;
+
   v_rt := OLD.rt_id;
   IF v_rt IS NULL THEN
     RAISE EXCEPTION 'kotak_sampah: rt_id wajib sebelum menghapus %.', TG_TABLE_NAME
@@ -100,3 +106,46 @@ CREATE TRIGGER trg_kotak_sampah_anggota
   BEFORE DELETE ON public.anggota_keluarga
   FOR EACH ROW
   EXECUTE FUNCTION public.tangkap_ke_kotak_sampah();
+
+-- Dipakai hanya saat arsip pemilu: tanggungan dilepas bersama data personal KK,
+-- bukan disimpan untuk dipulihkan. SET LOCAL di dalam fungsi ini aman di pooler.
+CREATE OR REPLACE FUNCTION public.hapus_anggota_tanpa_kotak_sampah(
+  p_warga_id uuid,
+  p_rt_id uuid
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_n integer := 0;
+BEGIN
+  IF p_warga_id IS NULL OR p_rt_id IS NULL THEN
+    RAISE EXCEPTION 'warga_id dan rt_id wajib untuk melepas tanggungan arsip pemilu'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.warga AS w
+     WHERE w.id = p_warga_id
+       AND w.rt_id = p_rt_id
+  ) THEN
+    RETURN 0;
+  END IF;
+
+  PERFORM set_config('app.kotak_sampah_lewati', '1', true);
+
+  DELETE FROM public.anggota_keluarga AS a
+   WHERE a.warga_id = p_warga_id
+     AND a.rt_id = p_rt_id;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.hapus_anggota_tanpa_kotak_sampah(uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.hapus_anggota_tanpa_kotak_sampah(uuid, uuid)
+  TO postgres, service_role;

@@ -358,15 +358,23 @@ export async function ambilRingkasanWarga(
   };
 }
 
-export async function bersihkanRelasiNonPemilu(supabase: SupabaseClient, wargaId: string) {
+export async function bersihkanRelasiNonPemilu(
+  supabase: SupabaseClient,
+  wargaId: string,
+  opsi?: { lewatiAnggotaKeluarga?: boolean }
+) {
   const { data: lapakMilikWarga } = await supabase.from("lapak_warga").select("id").eq("warga_id", wargaId);
   if (lapakMilikWarga && lapakMilikWarga.length > 0) {
     const lapakIds = lapakMilikWarga.map((l: { id: string }) => l.id);
     await supabase.from("limbah_ekonomis").update({ teknisi_id: null }).in("teknisi_id", lapakIds);
   }
 
+  const tabelTurunan = opsi?.lewatiAnggotaKeluarga
+    ? TABEL_TURUNAN_WARGA.filter((tabel) => tabel !== "anggota_keluarga")
+    : TABEL_TURUNAN_WARGA;
+
   const peringatan: string[] = [];
-  for (const tabel of TABEL_TURUNAN_WARGA) {
+  for (const tabel of tabelTurunan) {
     const { error } = await supabase.from(tabel).delete().eq("warga_id", wargaId);
     if (error) {
       // Tabel/kolom yang belum ada di skema bukan kegagalan yang perlu
@@ -378,12 +386,65 @@ export async function bersihkanRelasiNonPemilu(supabase: SupabaseClient, wargaId
   return peringatan;
 }
 
+async function hapusAnggotaUntukArsipPemilu(
+  supabase: SupabaseClient,
+  wargaId: string,
+  rtId: string | null | undefined
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const rtSah = uuidTenantSah(rtId);
+  if (!rtSah) {
+    return { ok: false, message: "Wilayah RT warga tidak sah; arsip pemilu dibatalkan." };
+  }
+
+  const { error } = await supabase.rpc("hapus_anggota_tanpa_kotak_sampah", {
+    p_warga_id: wargaId,
+    p_rt_id: rtSah,
+  });
+  if (!error) return { ok: true };
+  if (!skemaBelumSiap(error)) {
+    return { ok: false, message: `Gagal melepas tanggungan untuk arsip pemilu: ${error.message}` };
+  }
+
+  const { error: errHapus } = await supabase
+    .from("anggota_keluarga")
+    .delete()
+    .eq("warga_id", wargaId)
+    .eq("rt_id", rtSah);
+  if (errHapus && !skemaBelumSiap(errHapus)) {
+    return { ok: false, message: `Gagal melepas tanggungan: ${errHapus.message}` };
+  }
+
+  const { error: errSampah } = await supabase
+    .from("kotak_sampah")
+    .delete()
+    .eq("bundel_id", wargaId)
+    .eq("rt_id", rtSah)
+    .eq("tabel_asal", "anggota_keluarga")
+    .is("dipulihkan_pada", null);
+  if (errSampah && !skemaBelumSiap(errSampah)) {
+    console.error("Gagal membersihkan sisa kotak sampah arsip pemilu:", errSampah.message);
+  }
+  return { ok: true };
+}
+
 export async function arsipkanWargaKarenaPemilu(
   supabase: SupabaseClient,
   wargaId: string,
-  namaAsli: string | undefined
+  namaAsli: string | undefined,
+  rtId?: string | null
 ): Promise<HasilHapusWarga> {
-  await bersihkanRelasiNonPemilu(supabase, wargaId);
+  let rtArsip = rtId ?? null;
+  if (!uuidTenantSah(rtArsip)) {
+    const ringkasan = await ambilRingkasanWarga(supabase, wargaId);
+    if (ringkasan.ok && ringkasan.ditemukan) rtArsip = ringkasan.warga.rt_id;
+  }
+
+  const anggota = await hapusAnggotaUntukArsipPemilu(supabase, wargaId, rtArsip);
+  if (!anggota.ok) {
+    return { success: false, mode: "gagal", message: anggota.message };
+  }
+
+  await bersihkanRelasiNonPemilu(supabase, wargaId, { lewatiAnggotaKeluarga: true });
 
   const nikArsip = `99${wargaId.replace(/-/g, "").slice(0, 14)}`;
   const pinAcak = await bcrypt.hash(`${wargaId}-${Date.now()}`, 10);
@@ -508,7 +569,12 @@ export async function prosesHapusAtauArsipWarga(
   // mentah ke Vercel.
   const arsipkanDanCatat = async (): Promise<HasilHapusWarga> => {
     try {
-      const hasil = await arsipkanWargaKarenaPemilu(supabasePrivileged, wargaId, namaTarget);
+      const hasil = await arsipkanWargaKarenaPemilu(
+        supabasePrivileged,
+        wargaId,
+        namaTarget,
+        target.rt_id
+      );
       if (!hasil.success) return hasil;
 
       await catatAudit(
