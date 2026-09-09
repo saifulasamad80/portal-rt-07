@@ -3,6 +3,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
+import {
+  type AnggotaKartu,
+  susunHasilCari,
+  teksCari,
+} from "@/lib/cari-jiwa-warga";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -20,13 +25,22 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
 
   // Pencarian defensif: baris hasil arsip pemilu bisa memiliki nama atau NIK
   // bernilai null, dan memanggil .toLowerCase() di atasnya akan mematikan
-  // seluruh halaman.
-  const kunciCari = search.trim().toLowerCase();
-  const filteredWarga = daftarAman.filter((w) => {
-    if (!kunciCari) return true;
-    const nama = String(w?.nama_lengkap || "").toLowerCase();
-    const nik = String(w?.nik || "");
-    return nama.includes(kunciCari) || nik.includes(kunciCari);
+  // seluruh halaman. Nama istri/anak ikut dicari, lalu kartu KK-nya yang dibuka.
+  const kunciCari = teksCari(search);
+  const hasilCari = susunHasilCari(daftarAman, kunciCari);
+  const filteredWarga = hasilCari.map((item) => item.warga);
+  const jiwaCocok = hasilCari.flatMap((item) => {
+    const namaKk = String(item.warga.nama_lengkap || "Tanpa nama");
+    const dariKk = item.cocokKk
+      ? [{ idKartu: item.warga.id, nama: namaKk, peran: "Kepala keluarga", namaKk }]
+      : [];
+    const dariAnggota = item.tanggunganCocok.map((ak) => ({
+      idKartu: item.warga.id,
+      nama: String(ak.nama_lengkap || "Tanpa nama"),
+      peran: String(ak.hubungan_keluarga || "Tanggungan"),
+      namaKk,
+    }));
+    return [...dariKk, ...dariAnggota];
   });
 
   const formatWA = (nomor: string) => {
@@ -245,7 +259,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-white mb-1">Buku Induk Warga</h1>
-            <p className="text-slate-400 text-sm">Hanya warga dengan status validasi Disetujui. Pendaftar baru ada di antrean verifikasi.</p>
+            <p className="text-slate-400 text-sm">Hanya kepala keluarga aktif yang sudah disetujui. Jiwa tanggungan tidak dihitung sebagai KK. Pendaftar baru ada di antrean verifikasi.</p>
             <Link href="/admin/verifikasi" className="inline-block mt-3 text-[11px] font-bold uppercase tracking-widest text-amber-300 hover:text-amber-200">
               Buka antrean verifikasi →
             </Link>
@@ -282,7 +296,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
             </div>
 
             <div className="w-full xl:w-auto flex flex-col sm:flex-row flex-wrap gap-2">
-              <input type="text" placeholder="🔍 Cari Nama atau NIK..." className="flex-1 sm:flex-none sm:w-64 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <input type="search" placeholder="🔍 Cari istri, anak, KK, NIK, atau No. KK..." className="flex-1 sm:flex-none sm:w-80 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
               <button onClick={downloadTemplateCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">📥 Template CSV</button>
               <label className={`cursor-pointer px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 ${isUploading ? 'bg-slate-300 text-slate-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
                 <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
@@ -293,6 +307,39 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
               </button>
             </div>
           </div>
+
+          {kunciCari ? (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-2">
+                {jiwaCocok.length} jiwa cocok — istri/anak menampilkan kartu kepala keluarganya
+              </p>
+              {jiwaCocok.length === 0 ? (
+                <p className="text-xs text-amber-900 font-semibold">Tidak ada nama, NIK, atau No. KK yang cocok.</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+                  {jiwaCocok.slice(0, 20).map((jiwa, idx) => (
+                    <li key={`${jiwa.idKartu}-${jiwa.nama}-${idx}`}>
+                      <a
+                        href={`#kk-${jiwa.idKartu}`}
+                        className="text-xs font-bold text-slate-800 hover:text-blue-700"
+                      >
+                        {jiwa.nama}
+                        <span className="font-semibold text-slate-500">
+                          {" "}
+                          · {jiwa.peran}
+                          {jiwa.peran !== "Kepala keluarga" ? ` di KK ${jiwa.namaKk}` : ""}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500 mb-3">
+              Cari nama istri atau anak. Hasilnya kartu KK tempat jiwa itu tercatat, bukan baris KK baru.
+            </p>
+          )}
 
           <div className="overflow-x-auto max-h-[700px] overflow-y-auto custom-scrollbar rounded-xl border border-slate-200">
             <table className="w-full text-left border-collapse text-sm">
@@ -305,17 +352,23 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                 </tr>
               </thead>
               <tbody>
-                {filteredWarga.length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-slate-400 font-bold italic">Tidak ada data warga ditemukan.</td></tr>
+                {hasilCari.length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-400 font-bold italic">{kunciCari ? "Tidak ada KK, istri, anak, atau NIK yang cocok." : "Tidak ada data warga ditemukan."}</td></tr>
                 ) : (
-                  filteredWarga.map((w) => {
+                  hasilCari.map((hasil) => {
+                    const w = hasil.warga;
                     const totalJiwaDalamKK = 1 + (w.anggota_keluarga ? w.anggota_keluarga.length : 0);
-                    const namaKK = w.nama_lengkap || "Tanpa Nama";
+                    const namaKK = String(w.nama_lengkap || "Tanpa Nama");
+                    const idCocok = new Set(hasil.tanggunganCocok.map((ak) => String(ak.id || ak.nama_lengkap || "")));
                     
                     return (
-                    <tr key={w.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
+                    <tr id={`kk-${w.id}`} key={w.id} className="border-b border-slate-200 hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 align-top border-r border-slate-100">
                         <div className="font-black text-slate-800 text-base mb-2">{namaKK}</div>
+                        <div className="font-mono text-[10px] text-slate-500 mb-2">
+                          No. KK: {w.no_kk ? `${String(w.no_kk).slice(0, 4)}********${String(w.no_kk).slice(-4)}` : "—"}
+                          {w.hubungan_kk ? ` · ${w.hubungan_kk === "KK" ? "Kepala keluarga" : w.hubungan_kk}` : ""}
+                        </div>
                         
                         <div className="space-y-2 mb-4">
                           <div className="flex items-center gap-2">
@@ -362,11 +415,16 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-200 pb-1">Daftar Individu</span>
                           <span className="text-[10px] bg-slate-800 text-white font-black px-2 py-0.5 rounded shadow-sm">{totalJiwaDalamKK} Jiwa</span>
                         </div>
+                        {hasil.tanggunganCocok.length > 0 ? (
+                          <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-3">
+                            Ketemu {hasil.tanggunganCocok.map((ak) => ak.nama_lengkap).join(", ")} sebagai {hasil.tanggunganCocok.map((ak) => ak.hubungan_keluarga || "tanggungan").join(", ")} di KK ini.
+                          </p>
+                        ) : null}
 
                         <div className="flex flex-col gap-2 relative z-0">
-                          <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-lg shadow-sm relative z-10">
+                          <div className={`p-2.5 rounded-lg shadow-sm relative z-10 ${hasil.cocokKk ? "bg-amber-50 border-2 border-amber-400" : "bg-blue-50 border border-blue-200"}`}>
                             <div className="flex justify-between items-start mb-1">
-                              <span className="font-black text-blue-900 text-xs">{namaKK}</span>
+                              <span className={`font-black text-xs ${hasil.cocokKk ? "text-amber-950" : "text-blue-900"}`}>{namaKK}</span>
                               <span className="text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-sm">Kepala Keluarga</span>
                             </div>
                             <div className="font-mono text-[10px] text-blue-700 font-bold bg-white px-1.5 py-0.5 rounded border border-blue-100 w-fit">
@@ -375,17 +433,18 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                           </div>
 
                           {w.anggota_keluarga && w.anggota_keluarga.length > 0 ? (
-                            w.anggota_keluarga.map((ak: any, idx: number) => {
+                            w.anggota_keluarga.map((ak: AnggotaKartu, idx: number) => {
                               const isLast = idx === w.anggota_keluarga.length - 1;
+                              const cocokAnggota = idCocok.has(String(ak.id || ak.nama_lengkap || ""));
                               return (
                                 <div key={ak.id || idx} className="relative ml-5 z-10">
                                   <div className={`absolute -left-3 border-l-2 border-slate-300 ${isLast ? 'h-[18px] top-0' : 'h-full top-0'}`}></div>
                                   <div className="absolute -left-3 top-[16px] w-3 border-t-2 border-slate-300"></div>
                                   
-                                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg shadow-sm hover:border-blue-300 transition-colors">
+                                  <div className={`p-2.5 rounded-lg shadow-sm ${cocokAnggota ? "bg-amber-50 border-2 border-amber-400" : "bg-slate-50 border border-slate-200 hover:border-blue-300"}`}>
                                     <div className="flex justify-between items-start mb-1">
                                       <span className="font-bold text-slate-800 text-xs">{ak.nama_lengkap || 'Tanpa Nama'}</span>
-                                      <span className="text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{ak.hubungan_keluarga || '-'}</span>
+                                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${cocokAnggota ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-600"}`}>{ak.hubungan_keluarga || '-'}</span>
                                     </div>
                                     <div className="font-mono text-[10px] text-slate-500 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200 w-fit">
                                       NIK: {ak.nik ? `${String(ak.nik).slice(0, 4)}********${String(ak.nik).slice(-4)}` : <span className="text-rose-400 italic">Belum diisi</span>}

@@ -15,8 +15,19 @@ import {
 } from "@/lib/session-security";
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { tempelAnggotaKeKartuKk } from "@/lib/cari-jiwa-warga";
 
-const STATUS_TINGGAL_SAH = ["Warga Tetap", "Warga Kontrak", "Kontrak", "Kos", "Pendatang"] as const;
+const STATUS_TINGGAL_SAH = [
+  "Penduduk Tetap",
+  "Penduduk Tidak Tetap",
+  "Warga Tetap",
+  "Warga Kontrak",
+  "Kontrak",
+  "Kos",
+  "Pendatang",
+  "Penyewa Kos",
+  "Penyewa Kontrakan",
+] as const;
 const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
 const BATAS_BARIS_IMPORT = 1000;
 
@@ -32,50 +43,50 @@ export default async function WargaAdminPage() {
   if (!otentikasiHalaman.ok) redirect("/admin");
 
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasiHalaman.sesi);
+  const rtIdSesi = otentikasiHalaman.sesi.rtId;
 
-  let queryWarga = supabaseAdmin
-    .from("warga")
-    .select(`
-      id,
-      nik,
-      nama_lengkap,
-      no_whatsapp,
-      status_tinggal,
-      detail_alamat,
-      status_verifikasi,
-      status_validasi,
-      status_aktif,
-      ktp_path,
-      kk_path,
-      created_at,
-      rt_id,
-      anggota_keluarga (id, nik, nama_lengkap, hubungan_keluarga, rt_id)
-    `);
-  queryWarga = queryWarga.eq("status_validasi", "Disetujui").eq("rt_id", otentikasiHalaman.sesi.rtId);
-  const { data: wargaRes, error: errWarga } = await queryWarga.order("created_at", { ascending: false });
+  // Jiwa tanggungan diambil kueri terpisah. Embed nested PostgREST sering
+  // pulang kosong di bawah RLS pengurus, sehingga cari "Giyanti" seolah
+  // tidak ada padahal istri itu tercatat di kartu KK.
+  const [{ data: wargaRes, error: errWarga }, { data: anggotaRes, error: errAnggota }] = await Promise.all([
+    supabaseAdmin
+      .from("warga")
+      .select(`
+        id,
+        nik,
+        nama_lengkap,
+        no_whatsapp,
+        status_tinggal,
+        detail_alamat,
+        no_kk,
+        pendidikan,
+        hubungan_kk,
+        status_verifikasi,
+        status_validasi,
+        status_aktif,
+        ktp_path,
+        kk_path,
+        created_at,
+        rt_id
+      `)
+      .eq("status_validasi", "Disetujui")
+      .neq("status_aktif", false)
+      .eq("rt_id", rtIdSesi)
+      .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("anggota_keluarga")
+      .select("id, nik, nama_lengkap, hubungan_keluarga, rt_id, warga_id")
+      .eq("rt_id", rtIdSesi),
+  ]);
 
   if (errWarga) console.error("Gagal memuat buku induk warga:", errWarga.message);
+  if (errAnggota) console.error("Gagal memuat tanggungan buku induk:", errAnggota.message);
 
-  // RLS sudah membatasi relasi nested, tetapi baris warisan lintas tenant
-  // tetap disaring sebelum daftar dikirim ke Client Component.
-  const wargaListAman = (Array.isArray(wargaRes) ? wargaRes : []).map((warga: Record<string, unknown>) => {
-    const rtIdWarga = String(warga.rt_id || "");
-    const anggotaMentah = Array.isArray(warga.anggota_keluarga) ? warga.anggota_keluarga : [];
-    const anggotaKeluarga = anggotaMentah
-      .filter((anggota: { rt_id?: unknown }) => {
-        const rtIdAnggota = String(anggota?.rt_id || "");
-        if (rtIdAnggota === rtIdWarga) return true;
-        console.error("Relasi anggota lintas RT disembunyikan dari daftar warga:", warga.id);
-        return false;
-      })
-      .map((anggota: Record<string, unknown>) => {
-        const { rt_id: _rtId, ...tanpaTenant } = anggota;
-        void _rtId;
-        return tanpaTenant;
-      });
-
-    return { ...warga, anggota_keluarga: anggotaKeluarga };
-  });
+  const wargaListAman = tempelAnggotaKeKartuKk(
+    Array.isArray(wargaRes) ? wargaRes : [],
+    Array.isArray(anggotaRes) ? anggotaRes : [],
+    rtIdSesi
+  );
 
   async function hapusWarga(id: string) {
     "use server";
