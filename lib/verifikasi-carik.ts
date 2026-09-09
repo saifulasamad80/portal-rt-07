@@ -9,9 +9,16 @@ import {
 import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export const PILIHAN_STATUS_TINGGAL = [
-  "Warga Tetap",
+  "Penduduk Tetap",
+  "Penduduk Tidak Tetap",
   "Penyewa Kos",
   "Penyewa Kontrakan",
+] as const;
+
+/** Nilai warisan tetap sah sampai baris itu ikut dirapikan dari CSV. */
+export const STATUS_TINGGAL_DITERIMA = [
+  ...PILIHAN_STATUS_TINGGAL,
+  "Warga Tetap",
 ] as const;
 
 export const PILIHAN_AGAMA = [
@@ -43,6 +50,25 @@ export const PILIHAN_DAYA_LISTRIK = [
 
 export const PILIHAN_HUBUNGAN = ["Istri", "Suami", "Anak", "Lainnya"] as const;
 
+export const PILIHAN_HUBUNGAN_KK = ["KK", "Istri", "Suami", "Anak", "Lainnya"] as const;
+
+export const PILIHAN_PENDIDIKAN = [
+  "Belum sekolah",
+  "Tidak/Belum Sekolah",
+  "Tdk Tamat SD/MI",
+  "SD",
+  "SD/MI",
+  "Masih SD/MI",
+  "SLTP",
+  "SLTP/MTSN",
+  "SLTA",
+  "SLTA/MA",
+  "DII",
+  "DIP III",
+  "DIP IV/STRATA 1",
+  "STRATA 2",
+] as const;
+
 export const BIDANG_WAJIB_CARIK = [
   "nama_lengkap",
   "tempat_lahir",
@@ -50,9 +76,12 @@ export const BIDANG_WAJIB_CARIK = [
   "jenis_kelamin",
   "agama",
   "pekerjaan",
+  "pendidikan",
   "no_whatsapp",
   "status_tinggal",
   "detail_alamat",
+  "no_kk",
+  "hubungan_kk",
   "pendapatan_bulanan",
   "daya_listrik",
 ] as const;
@@ -84,6 +113,7 @@ export type AnggotaInput = {
   jenis_kelamin: string;
   agama: string;
   pekerjaan: string;
+  pendidikan?: string | null;
 };
 
 export type BiodataInput = {
@@ -93,9 +123,12 @@ export type BiodataInput = {
   jenis_kelamin: string;
   agama: string;
   pekerjaan: string;
+  pendidikan: string;
   no_whatsapp: string;
   status_tinggal: string;
   detail_alamat: string;
+  no_kk: string;
+  hubungan_kk: string;
   pendapatan_bulanan: string;
   daya_listrik: string;
 };
@@ -180,15 +213,18 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
   void _idDiabaikan;
 
   const data: BiodataInput = {
-    nama_lengkap: teks(sisa.nama_lengkap).slice(0, 150),
+    nama_lengkap: teks(sisa.nama_lengkap).slice(0, 100),
     tempat_lahir: teks(sisa.tempat_lahir).slice(0, 100),
     tanggal_lahir: normalisasiTanggal(sisa.tanggal_lahir),
     jenis_kelamin: normalisasiJenisKelamin(teks(sisa.jenis_kelamin)),
     agama: teks(sisa.agama),
     pekerjaan: teks(sisa.pekerjaan).slice(0, 100),
+    pendidikan: teks(sisa.pendidikan).slice(0, 80),
     no_whatsapp: teks(sisa.no_whatsapp).replace(/[^\d+]/g, ""),
     status_tinggal: teks(sisa.status_tinggal),
-    detail_alamat: teks(sisa.detail_alamat).slice(0, 300),
+    detail_alamat: teks(sisa.detail_alamat).slice(0, 255),
+    no_kk: teks(sisa.no_kk).replace(/\D/g, ""),
+    hubungan_kk: teks(sisa.hubungan_kk),
     pendapatan_bulanan: teks(sisa.pendapatan_bulanan),
     daya_listrik: teks(sisa.daya_listrik),
   };
@@ -203,11 +239,16 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
     return { ok: false, message: "Agama belum dipilih dengan benar." };
   }
   if (!data.pekerjaan) return { ok: false, message: "Pekerjaan wajib diisi." };
+  if (!data.pendidikan) return { ok: false, message: "Pendidikan wajib diisi." };
+  if (data.no_kk.length !== 16) return { ok: false, message: "Nomor KK wajib 16 digit." };
+  if (!dalamDaftar(data.hubungan_kk, PILIHAN_HUBUNGAN_KK)) {
+    return { ok: false, message: "Hubungan dalam KK wajib dipilih." };
+  }
   if (data.no_whatsapp.replace(/\D/g, "").length < 10) {
     return { ok: false, message: "Nomor WhatsApp wajib diisi (minimal 10 digit, mulai 08)." };
   }
-  if (!dalamDaftar(data.status_tinggal, PILIHAN_STATUS_TINGGAL)) {
-    return { ok: false, message: "Status tinggal harus Warga Tetap, Penyewa Kos, atau Penyewa Kontrakan." };
+  if (!dalamDaftar(data.status_tinggal, STATUS_TINGGAL_DITERIMA)) {
+    return { ok: false, message: "Status tinggal harus Penduduk Tetap, Penduduk Tidak Tetap, Penyewa Kos, atau Penyewa Kontrakan." };
   }
   if (!data.detail_alamat) return { ok: false, message: "Detail alamat (gang/blok/nomor rumah) wajib diisi." };
   if (!dalamDaftar(data.pendapatan_bulanan, PILIHAN_PENDAPATAN)) {
@@ -273,6 +314,7 @@ export function sanitasiAnggota(
       return { ok: false, message: `Agama ${label} wajib dipilih.` };
     }
     if (!teks(a.pekerjaan)) return { ok: false, message: `Pekerjaan ${label} wajib diisi.` };
+    const pendidikan = teks(a.pendidikan).slice(0, 80);
     if (nikTerpakai.has(nik)) {
       return { ok: false, message: `NIK ${nik} dipakai lebih dari sekali dalam keluarga ini.` };
     }
@@ -289,6 +331,7 @@ export function sanitasiAnggota(
       jenis_kelamin: gender,
       agama: teks(a.agama),
       pekerjaan: teks(a.pekerjaan).slice(0, 100),
+      pendidikan: pendidikan || null,
     });
   }
 

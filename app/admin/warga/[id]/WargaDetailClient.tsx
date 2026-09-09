@@ -9,8 +9,10 @@ import {
   PILIHAN_AGAMA,
   PILIHAN_DAYA_LISTRIK,
   PILIHAN_HUBUNGAN,
+  PILIHAN_HUBUNGAN_KK,
   PILIHAN_JENIS_KELAMIN,
   PILIHAN_PENDAPATAN,
+  PILIHAN_PENDIDIKAN,
   PILIHAN_STATUS_TINGGAL,
   type AnggotaInput,
   type DuplikatWarga,
@@ -37,6 +39,7 @@ type AnggotaWargaDetail = {
   jenis_kelamin: string | null;
   agama: string | null;
   pekerjaan: string | null;
+  pendidikan: string | null;
 };
 
 type ProfilWargaDetail = {
@@ -51,6 +54,9 @@ type ProfilWargaDetail = {
   jenis_kelamin: string | null;
   agama: string | null;
   pekerjaan: string | null;
+  pendidikan: string | null;
+  no_kk: string | null;
+  hubungan_kk: string | null;
   pendapatan_bulanan: string | null;
   daya_listrik: string | null;
   status_verifikasi: string | null;
@@ -100,6 +106,7 @@ function dariAnggota(warga: ProfilWargaDetail): AnggotaInput[] {
     jenis_kelamin: normalisasiGender(ak.jenis_kelamin) || ak.jenis_kelamin || "",
     agama: ak.agama || "",
     pekerjaan: ak.pekerjaan || "",
+    pendidikan: ak.pendidikan || "",
   }));
 }
 
@@ -135,9 +142,12 @@ export default function WargaDetailClient({
     jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
     agama: warga?.agama || "",
     pekerjaan: warga?.pekerjaan || "",
+    pendidikan: warga?.pendidikan || "",
     no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
     status_tinggal: warga?.status_tinggal || "",
     detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
+    no_kk: String(warga?.no_kk || "").replace(/\D/g, ""),
+    hubungan_kk: warga?.hubungan_kk || "",
     pendapatan_bulanan: warga?.pendapatan_bulanan || "",
     daya_listrik: warga?.daya_listrik || "",
   });
@@ -309,9 +319,12 @@ export default function WargaDetailClient({
             <h2 className="font-bold text-slate-900 mb-4">Biodata</h2>
             <dl className="space-y-3 text-sm">
               <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">TTL</dt><dd className="col-span-2 font-semibold">{warga.tempat_lahir || "—"}, {warga.tanggal_lahir || "—"}</dd></div>
+              <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">Nomor KK</dt><dd className="col-span-2 font-mono font-semibold">{warga.no_kk || "—"}</dd></div>
+              <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">Hubungan KK</dt><dd className="col-span-2 font-semibold">{warga.hubungan_kk === "KK" ? "Kepala keluarga" : (warga.hubungan_kk || "—")}</dd></div>
               <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">Gender</dt><dd className="col-span-2 font-semibold">{warga.jenis_kelamin || "—"}</dd></div>
               <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">Agama</dt><dd className="col-span-2 font-semibold">{warga.agama || "—"}</dd></div>
               <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">Pekerjaan</dt><dd className="col-span-2 font-semibold">{warga.pekerjaan || "—"}</dd></div>
+              <div className="grid grid-cols-3 gap-2"><dt className="text-slate-500">Pendidikan</dt><dd className="col-span-2 font-semibold">{warga.pendidikan || "—"}</dd></div>
               <div className="grid grid-cols-3 gap-2 items-center">
                 <dt className="text-slate-500">WhatsApp</dt>
                 <dd className="col-span-2">
@@ -354,12 +367,13 @@ export default function WargaDetailClient({
                   <th className="py-2 pr-3">Nama & NIK</th>
                   <th className="py-2 pr-3">TTL</th>
                   <th className="py-2 pr-3">Hubungan</th>
+                  <th className="py-2 pr-3">Pendidikan</th>
                   <th className="py-2">Pekerjaan</th>
                 </tr>
               </thead>
               <tbody>
                 {!warga.anggota_keluarga?.length ? (
-                  <tr><td colSpan={4} className="py-6 text-center text-slate-400">Tidak ada tanggungan tercatat.</td></tr>
+                  <tr><td colSpan={5} className="py-6 text-center text-slate-400">Tidak ada tanggungan tercatat.</td></tr>
                 ) : warga.anggota_keluarga.map((ak) => (
                   <tr key={ak.id} className="border-b border-slate-100">
                     <td className="py-3 pr-3">
@@ -368,6 +382,7 @@ export default function WargaDetailClient({
                     </td>
                     <td className="py-3 pr-3 text-xs">{ak.tempat_lahir || "—"}, {ak.tanggal_lahir || "—"}<div className="text-slate-500">{ak.jenis_kelamin}</div></td>
                     <td className="py-3 pr-3 font-semibold text-slate-700">{ak.hubungan_keluarga === "Lainnya" ? ak.hubungan_detail : ak.hubungan_keluarga}</td>
+                    <td className="py-3 pr-3 text-xs text-slate-600">{ak.pendidikan || "—"}</td>
                     <td className="py-3 text-xs text-slate-600">{ak.pekerjaan || "—"}</td>
                   </tr>
                 ))}
@@ -394,6 +409,17 @@ export default function WargaDetailClient({
                 <div className="md:col-span-2">
                   <label className={kelasLabel}>NIK</label>
                   <input value={warga.nik} disabled className={kelasKunci} />
+                </div>
+                <div>
+                  <label className={kelasLabel}>Nomor KK</label>
+                  <input className={kelasInput} inputMode="numeric" maxLength={16} value={formData.no_kk} onChange={(e) => ubahForm("no_kk", e.target.value.replace(/\D/g, "").slice(0, 16))} />
+                </div>
+                <div>
+                  <label className={kelasLabel}>Hubungan dalam KK</label>
+                  <select className={kelasInput} value={formData.hubungan_kk} onChange={(e) => ubahForm("hubungan_kk", e.target.value)}>
+                    <option value="">Pilih</option>
+                    {opsiDenganNilaiLama(PILIHAN_HUBUNGAN_KK, formData.hubungan_kk).map((n) => <option key={n} value={n}>{n === "KK" ? "Kepala keluarga" : n}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className={kelasLabel}>Nama lengkap</label>
@@ -430,10 +456,17 @@ export default function WargaDetailClient({
                   <input className={kelasInput} value={formData.pekerjaan} onChange={(e) => ubahForm("pekerjaan", e.target.value)} />
                 </div>
                 <div>
+                  <label className={kelasLabel}>Pendidikan</label>
+                  <select className={kelasInput} value={formData.pendidikan} onChange={(e) => ubahForm("pendidikan", e.target.value)}>
+                    <option value="">Pilih</option>
+                    {opsiDenganNilaiLama(PILIHAN_PENDIDIKAN, formData.pendidikan).map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label className={kelasLabel}>Status tinggal</label>
                   <select className={kelasInput} value={formData.status_tinggal} onChange={(e) => ubahForm("status_tinggal", e.target.value)}>
                     <option value="">Pilih</option>
-                    {PILIHAN_STATUS_TINGGAL.map((n) => <option key={n} value={n}>{n}</option>)}
+                    {opsiDenganNilaiLama(PILIHAN_STATUS_TINGGAL, formData.status_tinggal).map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
                 <div className="md:col-span-2">
@@ -461,7 +494,7 @@ export default function WargaDetailClient({
                   <h4 className="font-bold text-slate-800">Anggota keluarga</h4>
                   <button
                     type="button"
-                    onClick={() => setAnggota((sebelum) => [...sebelum, { nama_lengkap: "", nik: "", hubungan_keluarga: "", hubungan_detail: "", tanggal_lahir: "", tempat_lahir: "", jenis_kelamin: "", agama: "", pekerjaan: "" }])}
+                    onClick={() => setAnggota((sebelum) => [...sebelum, { nama_lengkap: "", nik: "", hubungan_keluarga: "", hubungan_detail: "", tanggal_lahir: "", tempat_lahir: "", jenis_kelamin: "", agama: "", pekerjaan: "", pendidikan: "" }])}
                     className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-900 text-white"
                   >
                     Tambah
@@ -486,6 +519,10 @@ export default function WargaDetailClient({
                       {opsiDenganNilaiLama(PILIHAN_HUBUNGAN, item.hubungan_keluarga).map((n) => <option key={n} value={n}>{n}</option>)}
                     </select>
                     <input className={kelasInput} placeholder="Pekerjaan" value={item.pekerjaan} onChange={(e) => ubahAnggota(index, "pekerjaan", e.target.value)} />
+                    <select className={kelasInput} value={item.pendidikan || ""} onChange={(e) => ubahAnggota(index, "pendidikan", e.target.value)}>
+                      <option value="">Pendidikan (opsional)</option>
+                      {opsiDenganNilaiLama(PILIHAN_PENDIDIKAN, item.pendidikan || "").map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
                     {item.hubungan_keluarga === "Lainnya" && (
                       <input className={`${kelasInput} md:col-span-2`} placeholder="Detail hubungan" value={item.hubungan_detail || ""} onChange={(e) => ubahAnggota(index, "hubungan_detail", e.target.value)} />
                     )}

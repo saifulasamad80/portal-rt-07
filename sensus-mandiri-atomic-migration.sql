@@ -229,15 +229,15 @@ BEGIN
       FROM jsonb_object_keys(p_biodata) AS field_names(field_name)
      WHERE field_names.field_name NOT IN (
        'nama_lengkap', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin',
-       'agama', 'pekerjaan', 'no_whatsapp', 'status_tinggal',
-       'detail_alamat', 'pendapatan_bulanan', 'daya_listrik'
+       'agama', 'pekerjaan', 'pendidikan', 'no_whatsapp', 'status_tinggal',
+       'detail_alamat', 'no_kk', 'hubungan_kk', 'pendapatan_bulanan', 'daya_listrik'
      )
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Field biodata tidak dikenal';
   END IF;
 
   IF btrim(coalesce(p_biodata->>'nama_lengkap', '')) = ''
-     OR length(btrim(p_biodata->>'nama_lengkap')) > 150
+     OR length(btrim(p_biodata->>'nama_lengkap')) > 100
      OR btrim(coalesce(p_biodata->>'tempat_lahir', '')) = ''
      OR length(btrim(p_biodata->>'tempat_lahir')) > 100
      OR coalesce(p_biodata->>'tanggal_lahir', '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
@@ -245,10 +245,14 @@ BEGIN
      OR btrim(coalesce(p_biodata->>'agama', '')) NOT IN ('Islam', 'Kristen/Katolik', 'Hindu', 'Budha', 'Konghucu')
      OR btrim(coalesce(p_biodata->>'pekerjaan', '')) = ''
      OR length(btrim(p_biodata->>'pekerjaan')) > 100
+     OR btrim(coalesce(p_biodata->>'pendidikan', '')) = ''
+     OR length(btrim(p_biodata->>'pendidikan')) > 80
+     OR coalesce(p_biodata->>'no_kk', '') !~ '^[0-9]{16}$'
+     OR btrim(coalesce(p_biodata->>'hubungan_kk', '')) NOT IN ('KK', 'Istri', 'Suami', 'Anak', 'Lainnya')
      OR regexp_replace(coalesce(p_biodata->>'no_whatsapp', ''), '[^0-9]', '', 'g') !~ '^[0-9]{10,15}$'
-     OR btrim(coalesce(p_biodata->>'status_tinggal', '')) NOT IN ('Warga Tetap', 'Penyewa Kos', 'Penyewa Kontrakan')
+     OR btrim(coalesce(p_biodata->>'status_tinggal', '')) NOT IN ('Penduduk Tetap', 'Penduduk Tidak Tetap', 'Warga Tetap', 'Penyewa Kos', 'Penyewa Kontrakan')
      OR btrim(coalesce(p_biodata->>'detail_alamat', '')) = ''
-     OR length(btrim(p_biodata->>'detail_alamat')) > 300
+     OR length(btrim(p_biodata->>'detail_alamat')) > 255
      OR btrim(coalesce(p_biodata->>'pendapatan_bulanan', '')) NOT IN ('< 1 Juta', '1 - 3 Juta', '3 - 5 Juta', '5 - 10 Juta', '> 10 Juta')
      OR btrim(coalesce(p_biodata->>'daya_listrik', '')) NOT IN ('450 VA (Subsidi)', '900 VA (Subsidi)', '900 VA (Non-Subsidi)', '1300 VA', '2200 VA', '> 2200 VA') THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Biodata sensus tidak valid';
@@ -359,7 +363,8 @@ BEGIN
         FROM jsonb_object_keys(v_member) AS field_names(field_name)
        WHERE field_names.field_name NOT IN (
          'id', 'nama_lengkap', 'nik', 'hubungan_keluarga', 'hubungan_detail',
-         'tanggal_lahir', 'tempat_lahir', 'jenis_kelamin', 'agama', 'pekerjaan'
+         'tanggal_lahir', 'tempat_lahir', 'jenis_kelamin', 'agama', 'pekerjaan',
+         'pendidikan'
        )
     ) THEN
       RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Field anggota tidak dikenal';
@@ -380,6 +385,7 @@ BEGIN
        OR btrim(coalesce(v_member->>'agama', '')) NOT IN ('Islam', 'Kristen/Katolik', 'Hindu', 'Budha', 'Konghucu')
        OR btrim(coalesce(v_member->>'pekerjaan', '')) = ''
        OR length(btrim(v_member->>'pekerjaan')) > 100
+       OR length(btrim(coalesce(v_member->>'pendidikan', ''))) > 80
        OR length(btrim(v_member->>'tempat_lahir')) > 100
        OR length(btrim(coalesce(v_member->>'hubungan_detail', ''))) > 80
        OR (v_hubungan = 'Lainnya' AND btrim(coalesce(v_member->>'hubungan_detail', '')) = '') THEN
@@ -434,15 +440,18 @@ BEGIN
   -- Biodata dibatasi ke kolom yang memang boleh diubah; NIK dan tenant tidak
   -- pernah berasal dari JSON.
   UPDATE public.warga
-     SET nama_lengkap = left(btrim(coalesce(p_biodata->>'nama_lengkap', '')), 150),
+     SET nama_lengkap = left(btrim(coalesce(p_biodata->>'nama_lengkap', '')), 100),
          tempat_lahir = left(btrim(coalesce(p_biodata->>'tempat_lahir', '')), 100),
          tanggal_lahir = (p_biodata->>'tanggal_lahir')::DATE,
          jenis_kelamin = btrim(coalesce(p_biodata->>'jenis_kelamin', '')),
          agama = btrim(coalesce(p_biodata->>'agama', '')),
          pekerjaan = left(btrim(coalesce(p_biodata->>'pekerjaan', '')), 100),
+         pendidikan = left(btrim(coalesce(p_biodata->>'pendidikan', '')), 80),
          no_whatsapp = left(regexp_replace(coalesce(p_biodata->>'no_whatsapp', ''), '[^0-9+]', '', 'g'), 30),
          status_tinggal = btrim(coalesce(p_biodata->>'status_tinggal', '')),
-         detail_alamat = left(btrim(coalesce(p_biodata->>'detail_alamat', '')), 300),
+         detail_alamat = left(btrim(coalesce(p_biodata->>'detail_alamat', '')), 255),
+         no_kk = btrim(coalesce(p_biodata->>'no_kk', '')),
+         hubungan_kk = btrim(coalesce(p_biodata->>'hubungan_kk', '')),
          pendapatan_bulanan = btrim(coalesce(p_biodata->>'pendapatan_bulanan', '')),
          daya_listrik = btrim(coalesce(p_biodata->>'daya_listrik', ''))
    WHERE id = p_warga_id
@@ -469,6 +478,7 @@ BEGIN
              jenis_kelamin = btrim(v_member->>'jenis_kelamin'),
              agama = btrim(v_member->>'agama'),
              pekerjaan = left(btrim(v_member->>'pekerjaan'), 100),
+             pendidikan = nullif(left(btrim(coalesce(v_member->>'pendidikan', '')), 80), ''),
              rt_id = p_rt_id
        WHERE id = v_id AND warga_id = p_warga_id AND rt_id = p_rt_id AND nik = v_nik;
       IF NOT FOUND THEN
@@ -477,7 +487,7 @@ BEGIN
     ELSE
       INSERT INTO public.anggota_keluarga (
         warga_id, rt_id, nama_lengkap, nik, hubungan_keluarga, hubungan_detail,
-        tanggal_lahir, tempat_lahir, jenis_kelamin, agama, pekerjaan
+        tanggal_lahir, tempat_lahir, jenis_kelamin, agama, pekerjaan, pendidikan
       ) VALUES (
         p_warga_id, p_rt_id, left(btrim(v_member->>'nama_lengkap'), 150), v_nik,
         btrim(v_member->>'hubungan_keluarga'),
@@ -487,7 +497,8 @@ BEGIN
         (v_member->>'tanggal_lahir')::DATE,
         left(btrim(v_member->>'tempat_lahir'), 100),
         btrim(v_member->>'jenis_kelamin'), btrim(v_member->>'agama'),
-        left(btrim(v_member->>'pekerjaan'), 100)
+        left(btrim(v_member->>'pekerjaan'), 100),
+        nullif(left(btrim(coalesce(v_member->>'pendidikan', '')), 80), '')
       );
     END IF;
   END LOOP;

@@ -49,12 +49,15 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       jenis_kelamin,
       agama,
       pekerjaan,
+      pendidikan,
       pendapatan_bulanan,
       daya_listrik,
       status_verifikasi,
       ktp_path,
       kk_path,
       rt_id,
+      no_kk,
+      hubungan_kk,
       anggota_keluarga (
         id,
         nik,
@@ -66,6 +69,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
         jenis_kelamin,
         agama,
         pekerjaan,
+        pendidikan,
         rt_id
       )
     `)
@@ -103,6 +107,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     jenis_kelamin: anggota.jenis_kelamin == null ? null : String(anggota.jenis_kelamin),
     agama: anggota.agama == null ? null : String(anggota.agama),
     pekerjaan: anggota.pekerjaan == null ? null : String(anggota.pekerjaan),
+    pendidikan: anggota.pendidikan == null ? null : String(anggota.pendidikan),
   }));
 
   const [statusCarik, duplikat] = await Promise.all([
@@ -128,6 +133,9 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     jenis_kelamin: wargaRes.jenis_kelamin,
     agama: wargaRes.agama,
     pekerjaan: wargaRes.pekerjaan,
+    pendidikan: wargaRes.pendidikan,
+    no_kk: wargaRes.no_kk,
+    hubungan_kk: wargaRes.hubungan_kk,
     pendapatan_bulanan: wargaRes.pendapatan_bulanan,
     daya_listrik: wargaRes.daya_listrik,
     status_verifikasi: wargaRes.status_verifikasi,

@@ -209,6 +209,7 @@ async function sinkronAnggota(
           jenis_kelamin: a.jenis_kelamin,
           agama: a.agama,
           pekerjaan: a.pekerjaan,
+          pendidikan: a.pendidikan || null,
         })
         .eq("id", a.id)
         .eq("warga_id", wargaId)
@@ -238,6 +239,7 @@ async function sinkronAnggota(
         jenis_kelamin: a.jenis_kelamin,
         agama: a.agama,
         pekerjaan: a.pekerjaan,
+        pendidikan: a.pendidikan || null,
       },
     ]).select("id").maybeSingle();
 

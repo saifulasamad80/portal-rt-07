@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import imageCompression from "browser-image-compression";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
 
 const FITUR_KTP_AKTIF = false; 
 const MAKS_ANGGOTA = 30;
@@ -17,7 +18,7 @@ const KUNCI_DRAFT = (rt: string, wilayah: string) =>
 // FIX: Tambahkan properti agama
 type AnggotaKeluarga = {
   nama: string; nik: string; hubungan: string; hubunganDetail: string;
-  tglLahir: string; tempatLahir: string; gender: string; agama: string; pekerjaan: string;
+  tglLahir: string; tempatLahir: string; gender: string; agama: string; pekerjaan: string; pendidikan: string;
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
@@ -35,6 +36,8 @@ type DraftRegister = {
   gender: string;
   agama: string;
   pekerjaan: string;
+  pendidikan: string;
+  noKk: string;
   pendapatan: string;
   listrik: string;
   dokumenMenyusul: boolean;
@@ -64,6 +67,7 @@ function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaKeluarga[]): 
       gender: String(item.gender ?? ""),
       agama: String(item.agama ?? ""),
       pekerjaan: String(item.pekerjaan ?? ""),
+      pendidikan: String(item.pendidikan ?? ""),
       fileKtp: null,
       ktpMenyusul: Boolean(item.ktpMenyusul),
     }));
@@ -79,6 +83,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
   const [statusTinggal, setStatusTinggal] = useState(""); const [detailAlamat, setDetailAlamat] = useState("");
   const [tglLahir, setTglLahir] = useState(""); const [tempatLahir, setTempatLahir] = useState("");
   const [gender, setGender] = useState(""); const [agama, setAgama] = useState(""); const [pekerjaan, setPekerjaan] = useState("");
+  const [pendidikan, setPendidikan] = useState(""); const [noKk, setNoKk] = useState("");
   const [pendapatan, setPendapatan] = useState(""); const [listrik, setListrik] = useState("");
   const [fileKtp, setFileKtp] = useState<File | null>(null); const [fileKk, setFileKk] = useState<File | null>(null);
   const [dokumenMenyusul, setDokumenMenyusul] = useState(false);
@@ -104,6 +109,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
           setGender(String(parsed.gender ?? ""));
           setAgama(String(parsed.agama ?? ""));
           setPekerjaan(String(parsed.pekerjaan ?? ""));
+          setPendidikan(String(parsed.pendidikan ?? ""));
+          setNoKk(String(parsed.noKk ?? "").replace(/\D/g, "").slice(0, 16));
           setPendapatan(String(parsed.pendapatan ?? ""));
           setListrik(String(parsed.listrik ?? ""));
           setDokumenMenyusul(Boolean(parsed.dokumenMenyusul));
@@ -133,6 +140,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
         gender,
         agama,
         pekerjaan,
+        pendidikan,
+        noKk,
         pendapatan,
         listrik,
         dokumenMenyusul,
@@ -156,6 +165,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     gender,
     agama,
     pekerjaan,
+    pendidikan,
+    noKk,
     pendapatan,
     listrik,
     dokumenMenyusul,
@@ -219,7 +230,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
   const tambahAnggota = () => {
     setAnggota((dataLama) => {
       if (dataLama.length >= MAKS_ANGGOTA) return dataLama;
-      return [...dataLama, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", agama: "", pekerjaan: "", fileKtp: null, ktpMenyusul: false }];
+      return [...dataLama, { nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "", tempatLahir: "", gender: "", agama: "", pekerjaan: "", pendidikan: "", fileKtp: null, ktpMenyusul: false }];
     });
   };
   const ubahAnggota = <K extends keyof AnggotaKeluarga>(index: number, field: K, value: AnggotaKeluarga[K]) => {
@@ -234,6 +245,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     if (pinLemah.includes(pin)) return alert("PIN terlalu gampang ditebak!");
     const errNikKK = validasiNIKLogika(nik, "Kepala Keluarga");
     if (errNikKK) return alert(errNikKK);
+    if (noKk.replace(/\D/g, "").length !== 16) return alert("Nomor KK Kepala Keluarga wajib 16 digit.");
+    if (!pendidikan) return alert("Pendidikan Kepala Keluarga wajib dipilih.");
     if (!tanggalValid(tglLahir)) return alert("Tanggal lahir Kepala Keluarga tidak valid.");
     if (anggota.length > MAKS_ANGGOTA) return alert(`Maksimal ${MAKS_ANGGOTA} anggota keluarga.`);
 
@@ -277,7 +290,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
             nama_lengkap: a.nama, nik: a.nik, hubungan_keluarga: a.hubungan,
             hubungan_detail: a.hubungan === "Lainnya" ? a.hubunganDetail : null,
             tanggal_lahir: a.tglLahir, tempat_lahir: a.tempatLahir, jenis_kelamin: a.gender,
-            agama: a.agama, pekerjaan: a.pekerjaan, ktp_path: pathKtpAnggota // FIX INJEKSI AGAMA
+            agama: a.agama, pekerjaan: a.pekerjaan, pendidikan: a.pendidikan || null, ktp_path: pathKtpAnggota
           };
         })
       );
@@ -285,7 +298,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
       // FIX INJEKSI AGAMA
       const payloadKepala = {
         nik, nama_lengkap: nama, no_whatsapp: wa, pin, status_tinggal: statusTinggal, detail_alamat: detailAlamat,
-        tanggal_lahir: tglLahir, tempat_lahir: tempatLahir, jenis_kelamin: gender, agama, pekerjaan,
+        tanggal_lahir: tglLahir, tempat_lahir: tempatLahir, jenis_kelamin: gender, agama, pekerjaan, pendidikan,
+        no_kk: noKk, hubungan_kk: "KK",
         pendapatan_bulanan: pendapatan, daya_listrik: listrik, ktp_path: pathKtpKK, kk_path: pathKkKK
       };
 
@@ -341,6 +355,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">NIK (16 Digit)</label><input type="text" maxLength={16} minLength={16} pattern="[0-9]{16}" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-bold" value={nik} onChange={(e) => setNik(e.target.value.replace(/[^0-9]/g, ''))} /></div>
+              <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Nomor KK (16 Digit)</label><input type="text" maxLength={16} minLength={16} pattern="[0-9]{16}" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-bold" value={noKk} onChange={(e) => setNoKk(e.target.value.replace(/[^0-9]/g, ''))} /></div>
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Nama Lengkap</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={nama} onChange={(e) => setNama(e.target.value)} /></div>
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Tempat Lahir</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={tempatLahir} onChange={(e) => setTempatLahir(e.target.value)} /></div>
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Tanggal Lahir</label><input type="date" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={tglLahir} onChange={(e) => setTglLahir(e.target.value)} /></div>
@@ -361,6 +376,13 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
               </div>
               
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Pekerjaan</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={pekerjaan} onChange={(e) => setPekerjaan(e.target.value)} /></div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Pendidikan</label>
+                <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={pendidikan} onChange={(e) => setPendidikan(e.target.value)}>
+                  <option value="" disabled>Pilih...</option>
+                  {PILIHAN_PENDIDIKAN.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
               
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">No. WhatsApp</label><input type="tel" minLength={10} maxLength={15} required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-bold" value={wa} onChange={(e) => setWa(e.target.value.replace(/[^0-9]/g, ''))} /></div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
@@ -373,7 +395,10 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
               <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Status Tempat Tinggal</label>
               <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold" value={statusTinggal} onChange={(e) => setStatusTinggal(e.target.value)}>
                 <option value="" disabled>-- Pilih Status --</option>
-                <option value="Warga Tetap">Warga Tetap (Rumah Pribadi)</option><option value="Penyewa Kos">Penyewa Kos</option><option value="Penyewa Kontrakan">Penyewa Kontrakan</option>
+                <option value="Penduduk Tetap">Penduduk Tetap</option>
+                <option value="Penduduk Tidak Tetap">Penduduk Tidak Tetap</option>
+                <option value="Penyewa Kos">Penyewa Kos</option>
+                <option value="Penyewa Kontrakan">Penyewa Kontrakan</option>
               </select>
             </div>
             
@@ -487,6 +512,13 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
                     </div>
                     
                     <div><label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Pekerjaan</label><input type="text" required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded p-2.5 text-sm font-bold" value={item.pekerjaan} onChange={(e) => ubahAnggota(index, "pekerjaan", e.target.value)} /></div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1 uppercase">Pendidikan</label>
+                      <select className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded p-2.5 text-sm font-bold" value={item.pendidikan} onChange={(e) => ubahAnggota(index, "pendidikan", e.target.value)}>
+                        <option value="">Opsional</option>
+                        {PILIHAN_PENDIDIKAN.map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
                   </div>
 
                   {item.hubungan === "Lainnya" && (

@@ -26,9 +26,12 @@ export default async function SensusPage() {
       jenis_kelamin,
       agama,
       pekerjaan,
+      pendidikan,
       no_whatsapp,
       status_tinggal,
       detail_alamat,
+      no_kk,
+      hubungan_kk,
       pendapatan_bulanan,
       daya_listrik,
       anggota_keluarga (
@@ -42,7 +45,8 @@ export default async function SensusPage() {
         tempat_lahir,
         jenis_kelamin,
         agama,
-        pekerjaan
+        pekerjaan,
+        pendidikan
       )
     `)
     .eq("id", otentikasi.sesi.id)
@@ -77,6 +81,7 @@ export default async function SensusPage() {
       jenis_kelamin: string | null;
       agama: string | null;
       pekerjaan: string | null;
+      pendidikan: string | null;
     }) => ({
       id: anggota.id,
       nik: anggota.nik,
@@ -88,6 +93,7 @@ export default async function SensusPage() {
       jenis_kelamin: anggota.jenis_kelamin,
       agama: anggota.agama,
       pekerjaan: anggota.pekerjaan,
+      pendidikan: anggota.pendidikan,
     })),
   };
 

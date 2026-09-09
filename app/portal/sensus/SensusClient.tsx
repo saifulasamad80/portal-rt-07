@@ -8,8 +8,10 @@ import {
   PILIHAN_AGAMA,
   PILIHAN_DAYA_LISTRIK,
   PILIHAN_HUBUNGAN,
+  PILIHAN_HUBUNGAN_KK,
   PILIHAN_JENIS_KELAMIN,
   PILIHAN_PENDAPATAN,
+  PILIHAN_PENDIDIKAN,
   PILIHAN_STATUS_TINGGAL,
   type AnggotaInput,
 } from "@/lib/verifikasi-carik";
@@ -42,6 +44,7 @@ type AnggotaProfil = {
   jenis_kelamin: string | null;
   agama: string | null;
   pekerjaan: string | null;
+  pendidikan: string | null;
 };
 
 type ProfilSensus = {
@@ -53,9 +56,12 @@ type ProfilSensus = {
   jenis_kelamin: string | null;
   agama: string | null;
   pekerjaan: string | null;
+  pendidikan: string | null;
   no_whatsapp: string | null;
   status_tinggal: string | null;
   detail_alamat: string | null;
+  no_kk: string | null;
+  hubungan_kk: string | null;
   pendapatan_bulanan: string | null;
   daya_listrik: string | null;
   anggota_keluarga: AnggotaProfil[] | null;
@@ -68,9 +74,12 @@ type BiodataSensus = {
   jenis_kelamin: string;
   agama: string;
   pekerjaan: string;
+  pendidikan: string;
   no_whatsapp: string;
   status_tinggal: string;
   detail_alamat: string;
+  no_kk: string;
+  hubungan_kk: string;
   pendapatan_bulanan: string;
   daya_listrik: string;
 };
@@ -112,6 +121,7 @@ function anggotaKosong(): AnggotaInput {
     jenis_kelamin: "",
     agama: "",
     pekerjaan: "",
+    pendidikan: "",
   };
 }
 
@@ -127,6 +137,7 @@ function dariWarga(warga: ProfilSensus): AnggotaInput[] {
     jenis_kelamin: normalisasiGender(ak.jenis_kelamin) || ak.jenis_kelamin || "",
     agama: ak.agama || "",
     pekerjaan: ak.pekerjaan || "",
+    pendidikan: ak.pendidikan || "",
   }));
 }
 
@@ -138,9 +149,12 @@ function buatBiodataAwal(warga: ProfilSensus): BiodataSensus {
     jenis_kelamin: normalisasiGender(warga?.jenis_kelamin) || warga?.jenis_kelamin || "",
     agama: warga?.agama || "",
     pekerjaan: warga?.pekerjaan || "",
+    pendidikan: warga?.pendidikan || "",
     no_whatsapp: nilaiKosong(warga?.no_whatsapp) ? "" : warga?.no_whatsapp || "",
     status_tinggal: warga?.status_tinggal || "",
     detail_alamat: nilaiKosong(warga?.detail_alamat) ? "" : warga?.detail_alamat || "",
+    no_kk: String(warga?.no_kk || "").replace(/\D/g, ""),
+    hubungan_kk: warga?.hubungan_kk || "",
     pendapatan_bulanan: warga?.pendapatan_bulanan || "",
     daya_listrik: warga?.daya_listrik || "",
   };
@@ -156,9 +170,12 @@ function normalisasiBiodataDraft(mentah: unknown, fallback: BiodataSensus): Biod
     jenis_kelamin: String(data.jenis_kelamin ?? fallback.jenis_kelamin),
     agama: String(data.agama ?? fallback.agama),
     pekerjaan: String(data.pekerjaan ?? fallback.pekerjaan),
+    pendidikan: String(data.pendidikan ?? fallback.pendidikan),
     no_whatsapp: String(data.no_whatsapp ?? fallback.no_whatsapp),
     status_tinggal: String(data.status_tinggal ?? fallback.status_tinggal),
     detail_alamat: String(data.detail_alamat ?? fallback.detail_alamat),
+    no_kk: String(data.no_kk ?? fallback.no_kk).replace(/\D/g, ""),
+    hubungan_kk: String(data.hubungan_kk ?? fallback.hubungan_kk),
     pendapatan_bulanan: String(data.pendapatan_bulanan ?? fallback.pendapatan_bulanan),
     daya_listrik: String(data.daya_listrik ?? fallback.daya_listrik),
   };
@@ -179,6 +196,7 @@ function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaInput[]): Ang
       jenis_kelamin: String(item.jenis_kelamin ?? ""),
       agama: String(item.agama ?? ""),
       pekerjaan: String(item.pekerjaan ?? ""),
+      pendidikan: String(item.pendidikan ?? ""),
     }));
 }
 
@@ -268,6 +286,9 @@ export default function SensusClient({
     if (index === 1) {
       if (!biodata.nama_lengkap || !biodata.tempat_lahir || !biodata.tanggal_lahir) return "Lengkapi nama dan tempat/tanggal lahir.";
       if (!biodata.jenis_kelamin || !biodata.agama || !biodata.pekerjaan) return "Lengkapi jenis kelamin, agama, dan pekerjaan.";
+      if (!biodata.pendidikan) return "Pendidikan wajib dipilih.";
+      if (biodata.no_kk.replace(/\D/g, "").length !== 16) return "Nomor KK wajib 16 digit.";
+      if (!biodata.hubungan_kk) return "Hubungan dalam KK wajib dipilih.";
       if (!biodata.no_whatsapp || biodata.no_whatsapp.replace(/\D/g, "").length < 10) return "Nomor WhatsApp wajib diisi.";
       if (!biodata.status_tinggal || !biodata.detail_alamat) return "Lengkapi status tinggal dan detail alamat.";
     }
@@ -458,6 +479,26 @@ export default function SensusClient({
                 <input value={warga.nik} disabled className={kelasKunci} />
               </div>
               <div>
+                <label className={kelasLabel}>Nomor KK</label>
+                <input
+                  className={kelasInput}
+                  inputMode="numeric"
+                  maxLength={16}
+                  value={biodata.no_kk}
+                  onChange={(e) => ubahBiodata("no_kk", e.target.value.replace(/\D/g, "").slice(0, 16))}
+                  placeholder="16 digit"
+                />
+              </div>
+              <div>
+                <label className={kelasLabel}>Hubungan dalam KK</label>
+                <select className={kelasInput} value={biodata.hubungan_kk} onChange={(e) => ubahBiodata("hubungan_kk", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {opsiDenganNilaiLama(PILIHAN_HUBUNGAN_KK, biodata.hubungan_kk).map((n) => (
+                    <option key={n} value={n}>{n === "KK" ? "Kepala keluarga" : n}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className={kelasLabel}>Nama lengkap</label>
                 <input className={kelasInput} value={biodata.nama_lengkap} onChange={(e) => ubahBiodata("nama_lengkap", e.target.value)} />
               </div>
@@ -491,15 +532,24 @@ export default function SensusClient({
                   ))}
                 </select>
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <label className={kelasLabel}>Pekerjaan</label>
                 <input className={kelasInput} value={biodata.pekerjaan} onChange={(e) => ubahBiodata("pekerjaan", e.target.value)} />
+              </div>
+              <div>
+                <label className={kelasLabel}>Pendidikan</label>
+                <select className={kelasInput} value={biodata.pendidikan} onChange={(e) => ubahBiodata("pendidikan", e.target.value)}>
+                  <option value="">Pilih</option>
+                  {opsiDenganNilaiLama(PILIHAN_PENDIDIKAN, biodata.pendidikan).map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className={kelasLabel}>Status tinggal</label>
                 <select className={kelasInput} value={biodata.status_tinggal} onChange={(e) => ubahBiodata("status_tinggal", e.target.value)}>
                   <option value="">Pilih</option>
-                  {PILIHAN_STATUS_TINGGAL.map((n) => (
+                  {opsiDenganNilaiLama(PILIHAN_STATUS_TINGGAL, biodata.status_tinggal).map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>
@@ -592,6 +642,15 @@ export default function SensusClient({
                           <label className={kelasLabel}>Pekerjaan</label>
                           <input className={kelasInput} value={item.pekerjaan} onChange={(e) => ubahAnggota(index, "pekerjaan", e.target.value)} />
                         </div>
+                        <div>
+                          <label className={kelasLabel}>Pendidikan</label>
+                          <select className={kelasInput} value={item.pendidikan || ""} onChange={(e) => ubahAnggota(index, "pendidikan", e.target.value)}>
+                            <option value="">Pilih (opsional)</option>
+                            {opsiDenganNilaiLama(PILIHAN_PENDIDIKAN, item.pendidikan || "").map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </div>
                         {item.hubungan_keluarga === "Lainnya" && (
                           <div className="md:col-span-2">
                             <label className={kelasLabel}>Detail hubungan</label>
@@ -647,7 +706,10 @@ export default function SensusClient({
             <h2 className="text-lg font-bold text-slate-900">Tinjau dan nyatakan</h2>
             <div className="rounded-2xl border border-slate-200 divide-y divide-slate-100 text-sm">
               <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">NIK</span><span className="font-mono font-semibold">{warga.nik}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Nomor KK</span><span className="font-mono font-semibold">{biodata.no_kk}</span></div>
               <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Nama</span><span className="font-semibold text-right">{biodata.nama_lengkap}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Hubungan KK</span><span className="font-semibold text-right">{biodata.hubungan_kk === "KK" ? "Kepala keluarga" : biodata.hubungan_kk}</span></div>
+              <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Pendidikan</span><span className="font-semibold text-right">{biodata.pendidikan}</span></div>
               <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">TTL</span><span className="font-semibold text-right">{biodata.tempat_lahir}, {biodata.tanggal_lahir}</span></div>
               <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Alamat</span><span className="font-semibold text-right">{biodata.detail_alamat}</span></div>
               <div className="p-4 flex justify-between gap-3"><span className="text-slate-500">Anggota keluarga</span><span className="font-semibold text-right">{anggota.length === 0 ? "Tidak ada" : anggota.map((a) => a.nama_lengkap).join(", ")}</span></div>

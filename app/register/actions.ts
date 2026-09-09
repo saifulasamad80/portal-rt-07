@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { JUDUL_TIKET_PENDAFTARAN } from "@/lib/kebijakan-sensus";
 import { pastikanRtRegistrasiAda } from "@/lib/registrasi-tenant";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
 
 /**
  * Public registration is intentionally backed by the service-role client: a
@@ -21,6 +22,8 @@ const MAKS_DATA_URL = 720 * 1024;
 const FITUR_KTP_AKTIF = false;
 
 const STATUS_TINGGAL_SAH = [
+  "Penduduk Tetap",
+  "Penduduk Tidak Tetap",
   "Warga Tetap",
   "Penyewa Kos",
   "Penyewa Kontrakan",
@@ -79,6 +82,9 @@ type KepalaTernormalisasi = {
   jenis_kelamin: (typeof JENIS_KELAMIN_SAH)[number];
   agama: (typeof AGAMA_SAH)[number];
   pekerjaan: string;
+  pendidikan: (typeof PILIHAN_PENDIDIKAN)[number];
+  no_kk: string;
+  hubungan_kk: "KK";
   pendapatan_bulanan: (typeof PENDAPATAN_SAH)[number];
   daya_listrik: (typeof LISTRIK_SAH)[number];
   ktp: DokumenInput;
@@ -95,6 +101,7 @@ type AnggotaTernormalisasi = {
   jenis_kelamin: (typeof JENIS_KELAMIN_SAH)[number];
   agama: (typeof AGAMA_SAH)[number];
   pekerjaan: string;
+  pendidikan: string | null;
   ktp: DokumenInput;
 };
 
@@ -224,6 +231,9 @@ function normalisasiKepala(value: unknown): KepalaTernormalisasi {
     jenis_kelamin: pilih(source, "jenis_kelamin", JENIS_KELAMIN_SAH),
     agama: pilih(source, "agama", AGAMA_SAH),
     pekerjaan: teks(source, "pekerjaan", 100),
+    pendidikan: pilih(source, "pendidikan", PILIHAN_PENDIDIKAN),
+    no_kk: nik(source, "no_kk"),
+    hubungan_kk: "KK",
     pendapatan_bulanan: pilih(source, "pendapatan_bulanan", PENDAPATAN_SAH),
     daya_listrik: pilih(source, "daya_listrik", LISTRIK_SAH),
     ktp: dokumen(source.ktp_path),
@@ -259,6 +269,7 @@ function normalisasiAnggota(value: unknown): AnggotaTernormalisasi[] {
       jenis_kelamin: pilih(source, "jenis_kelamin", JENIS_KELAMIN_SAH),
       agama: pilih(source, "agama", AGAMA_SAH),
       pekerjaan: teks(source, "pekerjaan", 100),
+      pendidikan: teks(source, "pendidikan", 80, false) || null,
       ktp: dokumen(source.ktp_path),
     };
     if (!FITUR_KTP_AKTIF && hasil.ktp.jenis === "unggah") throw new RegistrasiAmanError(PESAN_VALIDASI);
@@ -380,6 +391,9 @@ export async function aksiRegister(
         jenis_kelamin: kepala.jenis_kelamin,
         agama: kepala.agama,
         pekerjaan: kepala.pekerjaan,
+        pendidikan: kepala.pendidikan,
+        no_kk: kepala.no_kk,
+        hubungan_kk: kepala.hubungan_kk,
         pendapatan_bulanan: kepala.pendapatan_bulanan,
         daya_listrik: kepala.daya_listrik,
         ktp_path: safeKtpPath,
@@ -421,6 +435,7 @@ export async function aksiRegister(
           jenis_kelamin: item.jenis_kelamin,
           agama: item.agama,
           pekerjaan: item.pekerjaan,
+          pendidikan: item.pendidikan,
           ktp_path: safePath,
         });
       }

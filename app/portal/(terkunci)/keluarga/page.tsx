@@ -22,6 +22,7 @@ type AnggotaTerbaca = {
   jenis_kelamin: string | null;
   agama: string | null;
   pekerjaan: string | null;
+  pendidikan: string | null;
 };
 
 function formatTanggalLokal(nilai: string | null | undefined) {
@@ -74,9 +75,12 @@ export default async function HalamanKeluarga() {
         jenis_kelamin,
         agama,
         pekerjaan,
+        pendidikan,
         no_whatsapp,
         status_tinggal,
         detail_alamat,
+        no_kk,
+        hubungan_kk,
         pendapatan_bulanan,
         daya_listrik,
         anggota_keluarga (
@@ -90,7 +94,8 @@ export default async function HalamanKeluarga() {
           tempat_lahir,
           jenis_kelamin,
           agama,
-          pekerjaan
+          pekerjaan,
+          pendidikan
         )
       `)
       .eq("id", otentikasi.sesi.id)
@@ -136,6 +141,7 @@ export default async function HalamanKeluarga() {
     jenis_kelamin: teksAtauStrip(anggota.jenis_kelamin),
     agama: teksAtauStrip(anggota.agama),
     pekerjaan: teksAtauStrip(anggota.pekerjaan),
+    pendidikan: teksAtauStrip(anggota.pendidikan),
   }));
 
   const riwayat = (tiketRes || []).map((tiket) => ({
@@ -257,11 +263,17 @@ export default async function HalamanKeluarga() {
               <p className="font-mono text-lg font-semibold tracking-wide text-slate-900">{profilWarga.nik}</p>
               <p className="text-sm text-slate-600 mt-1">{teksAtauStrip(profilWarga.nama_lengkap)}</p>
             </div>
+            <BarisData label="Nomor KK" nilai={teksAtauStrip(profilWarga.no_kk)} />
+            <BarisData
+              label="Hubungan dalam KK"
+              nilai={String(profilWarga.hubungan_kk || "").trim() === "KK" ? "Kepala keluarga" : teksAtauStrip(profilWarga.hubungan_kk)}
+            />
             <BarisData label="Tempat lahir" nilai={teksAtauStrip(profilWarga.tempat_lahir)} />
             <BarisData label="Tanggal lahir" nilai={formatTanggalLokal(profilWarga.tanggal_lahir)} />
             <BarisData label="Jenis kelamin" nilai={teksAtauStrip(profilWarga.jenis_kelamin)} />
             <BarisData label="Agama" nilai={teksAtauStrip(profilWarga.agama)} />
             <BarisData label="Pekerjaan" nilai={teksAtauStrip(profilWarga.pekerjaan)} />
+            <BarisData label="Pendidikan" nilai={teksAtauStrip(profilWarga.pendidikan)} />
             <BarisData label="WhatsApp" nilai={teksAtauStrip(profilWarga.no_whatsapp)} />
             <BarisData label="Status tinggal" nilai={teksAtauStrip(profilWarga.status_tinggal)} />
             <BarisData label="Alamat" nilai={teksAtauStrip(profilWarga.detail_alamat)} />
@@ -292,6 +304,7 @@ export default async function HalamanKeluarga() {
                   <BarisData label="Jenis kelamin" nilai={anggota.jenis_kelamin} />
                   <BarisData label="Agama" nilai={anggota.agama} />
                   <BarisData label="Pekerjaan" nilai={anggota.pekerjaan} />
+                  <BarisData label="Pendidikan" nilai={anggota.pendidikan} />
                 </div>
               </article>
             ))
