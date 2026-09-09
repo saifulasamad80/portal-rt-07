@@ -357,8 +357,12 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                 ) : (
                   hasilCari.map((hasil) => {
                     const w = hasil.warga;
-                    const totalJiwaDalamKK = 1 + (w.anggota_keluarga ? w.anggota_keluarga.length : 0);
+                    const tanggungan = Array.isArray(w.anggota_keluarga) ? w.anggota_keluarga : [];
+                    const totalJiwaDalamKK = 1 + tanggungan.length;
                     const namaKK = String(w.nama_lengkap || "Tanpa Nama");
+                    const statusTinggal = String(w.status_tinggal || "Tidak diisi");
+                    const nomorWa = String(w.no_whatsapp || "");
+                    const alamat = String(w.detail_alamat || "").trim();
                     const idCocok = new Set(hasil.tanggunganCocok.map((ak) => String(ak.id || ak.nama_lengkap || "")));
                     
                     return (
@@ -376,13 +380,13 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                               {w.status_aktif === false ? 'ARSIP PEMILU' : w.status_verifikasi === 'Disetujui' ? 'SAH' : 'DIBLOKIR'}
                             </span>
                             <span className="text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-700 px-2 py-1 rounded shadow-sm">
-                              {w.status_tinggal || 'Tidak diisi'}
+                              {statusTinggal}
                             </span>
                           </div>
                           
-                          {adaWhatsApp(w.no_whatsapp) ? (
-                            <a href={`https://wa.me/${formatWA(w.no_whatsapp)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 border border-emerald-200 w-fit">
-                              💬 {w.no_whatsapp}
+                          {adaWhatsApp(nomorWa) ? (
+                            <a href={`https://wa.me/${formatWA(nomorWa)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 border border-emerald-200 w-fit">
+                              💬 {nomorWa}
                             </a>
                           ) : (
                             <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 w-fit">WA: Kosong</span>
@@ -407,7 +411,7 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                       </td>
 
                       <td className="p-4 align-top border-r border-slate-100">
-                        <div className="text-xs text-slate-600 leading-relaxed">{w.detail_alamat || <span className="italic text-slate-400">Alamat tidak rinci</span>}</div>
+                        <div className="text-xs text-slate-600 leading-relaxed">{alamat || <span className="italic text-slate-400">Alamat tidak rinci</span>}</div>
                       </td>
 
                       <td className="p-4 align-top border-r border-slate-100 bg-white">
@@ -432,9 +436,9 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                             </div>
                           </div>
 
-                          {w.anggota_keluarga && w.anggota_keluarga.length > 0 ? (
-                            w.anggota_keluarga.map((ak: AnggotaKartu, idx: number) => {
-                              const isLast = idx === w.anggota_keluarga.length - 1;
+                          {tanggungan.length > 0 ? (
+                            tanggungan.map((ak: AnggotaKartu, idx: number) => {
+                              const isLast = idx === tanggungan.length - 1;
                               const cocokAnggota = idCocok.has(String(ak.id || ak.nama_lengkap || ""));
                               return (
                                 <div key={ak.id || idx} className="relative ml-5 z-10">
