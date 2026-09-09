@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import AjakanPasangAplikasi from "@/components/AjakanPasangAplikasi";
+import PesanDialogProvider from "@/components/PesanDialogProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -88,6 +89,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <main className="flex-1 flex flex-col w-full">{children}</main>
         <AjakanPasangAplikasi />
+        <PesanDialogProvider />
       </body>
     </html>
   );

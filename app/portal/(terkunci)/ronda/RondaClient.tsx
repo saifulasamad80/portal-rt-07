@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 type JadwalRonda = {
   id: string;
@@ -19,6 +20,7 @@ const BADGE_STATUS: Record<string, string> = {
 export default function RondaClient({ jadwal, konfirmasiKehadiran }: { jadwal: JadwalRonda[]; konfirmasiKehadiran: (id: string, aksi: string, alasan: string) => Promise<unknown> }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
 
   const handleKonfirmasi = async (idJadwal: string, aksi: string) => {
     let alasan = "";
@@ -32,10 +34,18 @@ export default function RondaClient({ jadwal, konfirmasiKehadiran }: { jadwal: J
     setLoadingId(idJadwal);
     try {
       await konfirmasiKehadiran(idJadwal, aksi, alasan);
-      alert("Konfirmasi berhasil dikirim ke Pengurus Keamanan RT!");
+      setPesan({
+        tipe: "sukses",
+        judul: "Konfirmasi berhasil dikirim",
+        teks: "Pengurus Keamanan RT sudah menerima konfirmasi kehadiran Anda.",
+      });
       router.refresh();
     } catch (error: unknown) {
-      alert("Gagal menyimpan konfirmasi: " + (error instanceof Error ? error.message : "Kesalahan tidak diketahui"));
+      setPesan({
+        tipe: "gagal",
+        judul: "Konfirmasi belum tersimpan",
+        teks: error instanceof Error ? error.message : "Kesalahan tidak diketahui.",
+      });
     }
     setLoadingId("");
   };
@@ -105,6 +115,7 @@ export default function RondaClient({ jadwal, konfirmasiKehadiran }: { jadwal: J
           )}
         </div>
       </div>
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

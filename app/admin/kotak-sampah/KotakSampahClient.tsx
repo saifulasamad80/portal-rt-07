@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { BundelKotakSampah, HasilKotakSampah } from "@/lib/kotak-sampah-tipe";
+import PesanDialog from "@/components/PesanDialog";
 
 type Notifikasi = { tipe: "sukses" | "gagal"; pesan: string } | null;
 
@@ -59,17 +60,18 @@ export default function KotakSampahClient({
           </div>
         </div>
 
-        {notifikasi ? (
-          <div
-            className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
-              notifikasi.tipe === "sukses"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                : "bg-rose-50 border-rose-200 text-rose-800"
-            }`}
-          >
-            {notifikasi.pesan}
-          </div>
-        ) : null}
+        <PesanDialog
+          pesan={
+            notifikasi
+              ? {
+                  tipe: notifikasi.tipe,
+                  teks: notifikasi.pesan,
+                  judul: notifikasi.tipe === "gagal" ? "Pemulihan belum berhasil" : "Pemulihan berhasil",
+                }
+              : null
+          }
+          onClose={() => setNotifikasi(null)}
+        />
 
         {pesanMuat ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

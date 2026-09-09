@@ -2,9 +2,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 export default function InventarisClient({ masterBarang, riwayat, jadwalTerisi, ajukanBooking }: { masterBarang: any[], riwayat: any[], jadwalTerisi: any[], ajukanBooking: any }) {
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
   const router = useRouter();
 
   const [namaBarang, setNamaBarang] = useState(""); 
@@ -22,18 +24,31 @@ export default function InventarisClient({ masterBarang, riwayat, jadwalTerisi, 
     
     // Gembok Front-End mencegah tombol klik
     if (isTanggalBentrok()) {
-      alert(`⚠️ TANGGAL BENTROK!\n\nBarang "${namaBarang}" sudah di-booking oleh warga lain pada tanggal ini. Silakan cari tanggal kosong.`);
+      setPesan({
+        tipe: "gagal",
+        judul: "Tanggal tidak tersedia",
+        deskripsi: "Permohonan belum dikirim karena jadwal barang bertabrakan.",
+        teks: `Barang "${namaBarang}" sudah di-booking oleh warga lain pada tanggal ini. Silakan cari tanggal kosong.`,
+      });
       return;
     }
 
     setSubmitLoading(true);
     try {
       await ajukanBooking(namaBarang, tanggal, keterangan);
-      alert("✅ Booking berhasil diajukan! Menunggu persetujuan RT.");
+      setPesan({
+        tipe: "sukses",
+        judul: "Booking berhasil diajukan",
+        teks: "Permohonan Anda sudah masuk dan menunggu persetujuan RT.",
+      });
       setNamaBarang(""); setTanggal(""); setKeterangan("");
       router.refresh();
-    } catch (error: any) {
-      alert(error.message); // Akan menampilkan error merah dari Backend
+    } catch (error: unknown) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Booking belum dapat dikirim",
+        teks: error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.",
+      });
     }
     setSubmitLoading(false);
   };
@@ -140,6 +155,7 @@ export default function InventarisClient({ masterBarang, riwayat, jadwalTerisi, 
 
         </div>
       </div>
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import PesanDialog from "@/components/PesanDialog";
 
 const TARGET_MUTLAK = 151;
 
@@ -144,16 +145,6 @@ export default function ModulJumantik({
             </button>
           </form>
 
-          {pesan && (
-            <p
-              className={`text-[11px] font-semibold leading-relaxed mb-4 ${
-                pesan.tipe === "sukses" ? "text-emerald-700" : "text-rose-700"
-              }`}
-            >
-              {pesan.teks}
-            </p>
-          )}
-
           <div className="mb-4">
             <div className="flex items-center justify-between gap-3 mb-1.5">
               <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Cakupan pemeriksaan</span>
@@ -211,6 +202,18 @@ export default function ModulJumantik({
           </div>
         </div>
       </section>
+      <PesanDialog
+        pesan={
+          pesan
+            ? {
+                tipe: pesan.tipe,
+                teks: pesan.teks,
+                judul: pesan.tipe === "gagal" ? "Laporan Jumantik belum tersimpan" : "Laporan Jumantik tersimpan",
+              }
+            : null
+        }
+        onClose={() => setPesan(null)}
+      />
 
       {modalDarurat && (
         <div

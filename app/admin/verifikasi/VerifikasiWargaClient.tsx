@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
+import PesanDialog from "@/components/PesanDialog";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -98,14 +99,22 @@ export default function VerifikasiWargaClient({
           <TombolNotifikasiPush sasaran="pengurus" />
         </div>
 
-        {notifikasi && (
-          <div className={`rounded-xl border p-4 flex items-start justify-between gap-4 shadow-sm ${notifikasi.tipe === "sukses" ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800"}`}>
-            <p className="text-xs font-bold leading-relaxed">{notifikasi.pesan}</p>
-            <button onClick={() => setNotifikasi(null)} className="text-[10px] font-black uppercase tracking-widest opacity-60 hover:opacity-100">
-              Tutup
-            </button>
-          </div>
-        )}
+        <PesanDialog
+          pesan={
+            notifikasi
+              ? {
+                  tipe: notifikasi.tipe,
+                  teks: notifikasi.pesan,
+                  judul: notifikasi.tipe === "gagal" ? "Validasi belum berhasil" : "Validasi berhasil",
+                  deskripsi:
+                    notifikasi.tipe === "gagal"
+                      ? "Periksa keterangan di bawah sebelum mencoba lagi."
+                      : "Perubahan status warga sudah dicatat.",
+                }
+              : null
+          }
+          onClose={() => setNotifikasi(null)}
+        />
 
         <div className="bg-white p-4 md:p-5 rounded-2xl border border-slate-200 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Tautan rujukan publik</p>

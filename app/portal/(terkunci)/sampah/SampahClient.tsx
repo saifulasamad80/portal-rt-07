@@ -14,6 +14,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 
 import { angkaPostgrest } from "@/lib/angka-postgrest";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -22,6 +23,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
   const [tabAktif, setTabAktif] = useState("kiloan"); 
   const [isFormOpen, setIsFormOpen] = useState(false); 
   const [loading, setLoading] = useState(false);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
 
   const [namaBarang, setNamaBarang] = useState("");
   const [kategori, setKategori] = useState("Elektronik");
@@ -117,16 +119,34 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
 
   const handleLapor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSetuju) return alert("Anda harus mencentang Surat Pernyataan Digital!");
+    if (!isSetuju) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Laporan belum dapat dikirim",
+        deskripsi: "Persetujuan digital diperlukan sebelum barang dilaporkan.",
+        teks: "Anda harus mencentang Surat Pernyataan Digital.",
+      });
+      return;
+    }
     
     setLoading(true);
     try {
       await aksiLaporLimbah({ nama_barang: namaBarang, kategori, opsi_tujuan: opsiTujuan, deskripsi });
-      alert("Sempurna! Barang berhasil masuk antrean Rak Bin RT.");
+      setPesan({
+        tipe: "sukses",
+        judul: "Laporan berhasil dikirim",
+        teks: "Barang berhasil masuk antrean Rak Bin RT.",
+      });
       setIsFormOpen(false);
       setNamaBarang(""); setDeskripsi(""); setIsSetuju(false);
       router.refresh();
-    } catch (error: any) { alert("Gagal melapor: " + error.message); }
+    } catch (error: unknown) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Laporan belum dapat dikirim",
+        teks: error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.",
+      });
+    }
     setLoading(false);
   };
 
@@ -276,6 +296,7 @@ export default function SampahClient({ wargaAktif, saldo, totalKg, riwayatKiloan
           </div>
         </div>
       )}
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

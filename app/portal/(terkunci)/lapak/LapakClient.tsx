@@ -3,11 +3,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapakKu, orderanJasa, aksiBuat, aksiHapus, aksiSelesaikanOrder }: { wargaAktif: any, nomorWaDefault: string, katalog: any[], lapakKu: any[], orderanJasa: any[], aksiBuat: any, aksiHapus: any, aksiSelesaikanOrder: any }) {
   const router = useRouter();
   const [tab, setTab] = useState<"katalog" | "lapak_saya" | "order_servis">("katalog");
   const [loading, setLoading] = useState(false);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
 
   // Form Lapak Baru
   const [namaUsaha, setNamaUsaha] = useState("");
@@ -27,8 +29,22 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
 
   const handleSimpanLapak = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (kuotaHabis) return alert("Batas maksimal kepemilikan lapak telah tercapai!");
-    if (!fileFoto) return alert("Pilih satu foto brosur/produk andalan Anda!");
+    if (kuotaHabis) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Lapak belum dapat dibuka",
+        teks: "Batas maksimal kepemilikan lapak telah tercapai.",
+      });
+      return;
+    }
+    if (!fileFoto) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Foto lapak belum dipilih",
+        teks: "Pilih satu foto brosur atau produk andalan Anda sebelum mengirim.",
+      });
+      return;
+    }
     
     setLoading(true);
     try {
@@ -41,12 +57,22 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
       });
 
       await aksiBuat({ namaUsaha, kategori, deskripsi, wa: formatWA(wa), fotoBase64 });
-      alert("Lapak berhasil diajukan! Menunggu persetujuan Pengurus RT.");
+      setPesan({
+        tipe: "sukses",
+        judul: "Lapak berhasil diajukan",
+        teks: "Lapak Anda menunggu persetujuan Pengurus RT.",
+      });
       
       setNamaUsaha(""); setKategori(""); setDeskripsi(""); setWa(nomorWaDefault); setFileFoto(null);
       setTab("lapak_saya");
       router.refresh();
-    } catch (error: any) { alert("Gagal membuka lapak: " + error.message); }
+    } catch (error: unknown) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Lapak belum dapat dibuka",
+        teks: error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.",
+      });
+    }
     setLoading(false);
   };
 
@@ -56,7 +82,14 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
       const inputBiaya = prompt("Masukkan TOTAL TAGIHAN REPARASI (Tanpa titik/koma, contoh: 150000)\n\nSistem akan otomatis memotong 10% untuk Kas RT.");
       if (!inputBiaya) return;
       biaya = parseInt(inputBiaya);
-      if (isNaN(biaya) || biaya < 1000) return alert("Format biaya tidak valid!");
+      if (isNaN(biaya) || biaya < 1000) {
+        setPesan({
+          tipe: "gagal",
+          judul: "Biaya reparasi tidak valid",
+          teks: "Masukkan nominal angka minimal Rp1.000 tanpa titik atau koma.",
+        });
+        return;
+      }
       if (!confirm(`Total Tagihan: Rp ${biaya.toLocaleString('id-ID')}\nFee Kas RT (10%): Rp ${(biaya * 0.1).toLocaleString('id-ID')}\nPenghasilan Bersih Anda: Rp ${(biaya * 0.9).toLocaleString('id-ID')}\n\nLanjutkan?`)) return;
     } else {
       if (!confirm("Barang tidak bisa diperbaiki? Sistem akan mengembalikannya ke Gudang Rak Bin.")) return;
@@ -65,9 +98,21 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
     setLoading(true);
     try {
       await aksiSelesaikanOrder(idBarang, biaya, isGagal);
-      alert(isGagal ? "Barang dikembalikan ke Gudang Rak Bin." : "Order selesai! Hubungi pemilik barang untuk pembayaran.");
+      setPesan({
+        tipe: "sukses",
+        judul: isGagal ? "Barang dikembalikan" : "Order reparasi selesai",
+        teks: isGagal
+          ? "Barang sudah dikembalikan ke Gudang Rak Bin."
+          : "Order selesai. Hubungi pemilik barang untuk pembayaran.",
+      });
       router.refresh();
-    } catch (error: any) { alert("Gagal memproses order: " + error.message); }
+    } catch (error: unknown) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Order belum dapat diproses",
+        teks: error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.",
+      });
+    }
     setLoading(false);
   };
 
@@ -147,7 +192,7 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
                           <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shrink-0 ${k.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : k.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>{k.status}</span>
                         </div>
                         <p className="text-[10px] text-slate-500 font-bold mb-2 uppercase">{k.kategori}</p>
-                        <button onClick={async () => { if(confirm('Yakin ingin menghapus lapak ini secara permanen?')) { try { await aksiHapus(k.id); router.refresh(); } catch(e:any) { alert(e.message); } } }} className="text-[10px] font-bold text-rose-500 hover:bg-rose-50 px-3 py-1.5 rounded border border-rose-200 transition-colors w-full md:w-auto text-center mt-2 shadow-sm active:scale-95">
+                        <button onClick={async () => { if(confirm('Yakin ingin menghapus lapak ini secara permanen?')) { try { await aksiHapus(k.id); router.refresh(); } catch(e: unknown) { setPesan({ tipe: "gagal", judul: "Lapak belum dapat dihapus", teks: e instanceof Error ? e.message : "Terjadi kesalahan yang tidak diketahui." }); } } }} className="text-[10px] font-bold text-rose-500 hover:bg-rose-50 px-3 py-1.5 rounded border border-rose-200 transition-colors w-full md:w-auto text-center mt-2 shadow-sm active:scale-95">
                           Tutup / Hapus Lapak
                         </button>
                       </div>
@@ -262,6 +307,7 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
         )}
 
       </div>
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

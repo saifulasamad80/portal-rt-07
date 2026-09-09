@@ -15,6 +15,7 @@ import {
   PILIHAN_STATUS_TINGGAL,
   type AnggotaInput,
 } from "@/lib/verifikasi-carik";
+import PesanDialog from "@/components/PesanDialog";
 import { aksiNikTidakSesuai, aksiSimpanCarik } from "./actions";
 
 const LANGKAH = [
@@ -92,6 +93,14 @@ type DraftSensus = {
   setujuData: boolean;
   setujuTanggungJawab: boolean;
   langkah: number;
+};
+
+type AksiPesan = "lanjut" | "kirim" | "laporan";
+
+type PesanForm = {
+  tipe: "sukses" | "gagal";
+  teks: string;
+  aksi?: AksiPesan;
 };
 
 function pesanKesalahan(error: unknown, cadangan: string) {
@@ -211,7 +220,7 @@ export default function SensusClient({
   const kunciDraft = KUNCI_DRAFT(warga?.id || warga?.nik || "unknown", modeRevisi);
   const [langkah, setLangkah] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [pesan, setPesan] = useState<{ tipe: "sukses" | "gagal"; teks: string } | null>(null);
+  const [pesan, setPesan] = useState<PesanForm | null>(null);
   const [nikDikonfirmasi, setNikDikonfirmasi] = useState(false);
   const [modalNikSalah, setModalNikSalah] = useState(false);
   const [modalLanjutKeluarga, setModalLanjutKeluarga] = useState(false);
@@ -309,10 +318,14 @@ export default function SensusClient({
     return null;
   };
 
+  const tampilkanGagal = (teks: string, aksi: AksiPesan) => {
+    setPesan({ tipe: "gagal", teks, aksi });
+  };
+
   const lanjut = () => {
     const gagal = validasiLangkah(langkah);
     if (gagal) {
-      setPesan({ tipe: "gagal", teks: gagal });
+      tampilkanGagal(gagal, "lanjut");
       return;
     }
     setPesan(null);
@@ -325,12 +338,12 @@ export default function SensusClient({
 
   const handleSimpan = async () => {
     if (!setujuData || !setujuTanggungJawab) {
-      setPesan({ tipe: "gagal", teks: "Centang kedua pernyataan verifikasi sebelum mengirim." });
+      tampilkanGagal("Centang kedua pernyataan verifikasi sebelum mengirim.", "kirim");
       return;
     }
     const gagal = validasiLangkah(1) || validasiLangkah(2) || validasiLangkah(3);
     if (gagal) {
-      setPesan({ tipe: "gagal", teks: gagal });
+      tampilkanGagal(gagal, "kirim");
       return;
     }
 
@@ -349,9 +362,9 @@ export default function SensusClient({
         router.refresh();
         return;
       }
-      setPesan({ tipe: "gagal", teks: hasil.message });
+      tampilkanGagal(hasil.message, "kirim");
     } catch (error: unknown) {
-      setPesan({ tipe: "gagal", teks: pesanKesalahan(error, "Jaringan terputus saat menyimpan.") });
+      tampilkanGagal(pesanKesalahan(error, "Jaringan terputus saat menyimpan."), "kirim");
     }
     setLoading(false);
   };
@@ -366,10 +379,10 @@ export default function SensusClient({
         router.refresh();
         return;
       }
-      setPesan({ tipe: "gagal", teks: hasil.message });
+      tampilkanGagal(hasil.message, "laporan");
       setModalNikSalah(false);
     } catch (error: unknown) {
-      setPesan({ tipe: "gagal", teks: pesanKesalahan(error, "Gagal mengirim laporan NIK.") });
+      tampilkanGagal(pesanKesalahan(error, "Gagal mengirim laporan NIK."), "laporan");
       setModalNikSalah(false);
     }
     setLoading(false);
@@ -426,8 +439,8 @@ export default function SensusClient({
           ))}
         </ol>
 
-        {pesan && (
-          <div className={`rounded-2xl border p-4 text-sm font-medium ${pesan.tipe === "gagal" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
+        {pesan?.tipe === "sukses" && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
             {pesan.teks}
           </div>
         )}
@@ -765,6 +778,30 @@ export default function SensusClient({
           )}
         </div>
       </div>
+
+      <PesanDialog
+        pesan={
+          pesan
+            ? {
+                tipe: pesan.tipe,
+                teks: pesan.teks,
+                judul:
+                  pesan.aksi === "kirim"
+                    ? "Verifikasi belum dapat dikirim"
+                    : pesan.aksi === "laporan"
+                      ? "Laporan belum dapat dikirim"
+                      : "Belum dapat melanjutkan",
+                deskripsi:
+                  pesan.aksi === "kirim"
+                    ? "Periksa kembali isian dan pernyataan Anda sebelum mencoba mengirim lagi."
+                    : pesan.aksi === "laporan"
+                      ? "Laporan NIK belum berhasil diteruskan ke pengurus RT."
+                      : "Ada isian yang belum sesuai pada langkah ini.",
+              }
+            : null
+        }
+        onClose={() => setPesan(null)}
+      />
 
       {modalLanjutKeluarga && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

@@ -2,9 +2,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 export default function LaporClient({ warga, initialLaporan, kirimLaporan }: { warga: any, initialLaporan: any[], kirimLaporan: any }) {
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
   const router = useRouter();
 
   const [judul, setJudul] = useState("");
@@ -17,13 +19,21 @@ export default function LaporClient({ warga, initialLaporan, kirimLaporan }: { w
     try {
       // FAKTA: Menjalankan Server Action, bukan client supabase fetch
       await kirimLaporan(judul, deskripsi);
-      alert("Laporan berhasil dikirim ke Pengurus RT!");
+      setPesan({
+        tipe: "sukses",
+        judul: "Laporan berhasil dikirim",
+        teks: "Pengurus RT sudah menerima laporan Anda.",
+      });
       setJudul(""); 
       setDeskripsi("");
       // FAKTA: Memaksa server memuat ulang data terbaru secara otomatis dari database
       router.refresh(); 
-    } catch (error: any) {
-      alert("Gagal mengirim laporan: " + error.message);
+    } catch (error: unknown) {
+      setPesan({
+        tipe: "gagal",
+        judul: "Laporan belum dapat dikirim",
+        teks: error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.",
+      });
     }
     setSubmitLoading(false);
   };
@@ -86,6 +96,7 @@ export default function LaporClient({ warga, initialLaporan, kirimLaporan }: { w
           </div>
         </div>
       </div>
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

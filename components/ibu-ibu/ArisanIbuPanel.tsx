@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 type Anggota = {
   id: string;
@@ -45,6 +46,7 @@ export default function ArisanIbuPanel({
   const [wa, setWa] = useState("");
   const [catatan, setCatatan] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
   const router = useRouter();
 
   const totalSetoran = arisan.reduce((sum, a) => sum + Number(a.setoran_terakhir || 0), 0);
@@ -57,16 +59,28 @@ export default function ArisanIbuPanel({
     try {
       const res = await aksiDaftarArisan(nama, wa, catatan);
       if (res.success) {
-        alert("Pendaftaran arisan tercatat. Pengurus akan menindaklanjuti.");
+        setPesan({
+          tipe: "sukses",
+          judul: "Pendaftaran berhasil dikirim",
+          teks: "Pendaftaran arisan tercatat. Pengurus akan menindaklanjuti.",
+        });
         setNama("");
         setWa("");
         setCatatan("");
         router.refresh();
       } else {
-        alert(res.message || "Gagal mendaftar.");
+        setPesan({
+          tipe: "gagal",
+          judul: "Pendaftaran belum berhasil",
+          teks: res.message || "Gagal mendaftar.",
+        });
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Gagal mendaftar.");
+      setPesan({
+        tipe: "gagal",
+        judul: "Pendaftaran belum berhasil",
+        teks: err instanceof Error ? err.message : "Gagal mendaftar.",
+      });
     }
     setLoading(false);
   };
@@ -167,6 +181,7 @@ export default function ArisanIbuPanel({
           </div>
         </div>
       </div>
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

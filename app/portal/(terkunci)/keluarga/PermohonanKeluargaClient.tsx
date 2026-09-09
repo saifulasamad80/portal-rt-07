@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { HasilCarik } from "@/lib/verifikasi-carik";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 type TiketPermohonan = {
   id: string;
@@ -31,7 +32,7 @@ export default function PermohonanKeluargaClient({
   const router = useRouter();
   const [alasan, setAlasan] = useState("");
   const [mengirim, setMengirim] = useState(false);
-  const [pesan, setPesan] = useState<{ tipe: "sukses" | "gagal"; teks: string } | null>(null);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
 
   async function kirim(e: React.FormEvent) {
     e.preventDefault();
@@ -92,17 +93,6 @@ export default function PermohonanKeluargaClient({
           </form>
         )}
 
-        {pesan && (
-          <p
-            className={`mt-4 text-sm font-medium rounded-xl border px-4 py-3 ${
-              pesan.tipe === "gagal"
-                ? "bg-rose-50 border-rose-200 text-rose-800"
-                : "bg-emerald-50 border-emerald-200 text-emerald-800"
-            }`}
-          >
-            {pesan.teks}
-          </p>
-        )}
       </div>
 
       {riwayat.length > 0 && (
@@ -137,6 +127,25 @@ export default function PermohonanKeluargaClient({
           })}
         </div>
       )}
+
+      <PesanDialog
+        pesan={
+          pesan
+            ? {
+                ...pesan,
+                judul:
+                  pesan.tipe === "gagal"
+                    ? "Permohonan belum dapat dikirim"
+                    : "Permohonan berhasil dikirim",
+                deskripsi:
+                  pesan.tipe === "gagal"
+                    ? "Periksa keterangan di bawah sebelum mencoba mengirim kembali."
+                    : "Pengurus RT akan meninjau permohonan perubahan data Anda.",
+              }
+            : null
+        }
+        onClose={() => setPesan(null)}
+      />
     </section>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PesanDialog from "@/components/PesanDialog";
 import {
   hitungKelengkapan,
   nilaiKosong,
@@ -225,11 +226,21 @@ export default function WargaDetailClient({
           ← Kembali ke buku induk
         </Link>
 
-        {pesan && (
-          <div className={`rounded-2xl border p-4 text-sm font-medium ${pesan.tipe === "gagal" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
-            {pesan.teks}
-          </div>
-        )}
+        <PesanDialog
+          pesan={
+            pesan
+              ? {
+                  ...pesan,
+                  judul: pesan.tipe === "gagal" ? "Perubahan belum berhasil" : "Perubahan berhasil",
+                  deskripsi:
+                    pesan.tipe === "gagal"
+                      ? "Periksa keterangan di bawah sebelum mengulangi tindakan."
+                      : "Sistem sudah mencatat tindakan pengurus.",
+                }
+              : null
+          }
+          onClose={() => setPesan(null)}
+        />
 
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">

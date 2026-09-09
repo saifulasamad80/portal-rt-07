@@ -2,20 +2,30 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
 export default function VotingClient({ wargaAktif, votingAktif, suaraKu, aksiPilih }: { wargaAktif: any, votingAktif: any, suaraKu: any, aksiPilih: any }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [pesan, setPesan] = useState<PesanDialogData | null>(null);
 
   const handlePilih = async (pilihan: string) => {
     if (!confirm(`Tentukan pilihan Anda pada: ${pilihan}? (Suara tidak bisa diubah)`)) return;
     setLoading(true);
     try {
       await aksiPilih(votingAktif.id, pilihan);
-      alert("Terima kasih! Suara Anda telah masuk ke kotak suara digital.");
+      setPesan({
+        tipe: "sukses",
+        judul: "Suara berhasil dikirim",
+        teks: "Pilihan Anda sudah masuk ke kotak suara digital dan tidak dapat diubah.",
+      });
       router.refresh();
     } catch (error: any) {
-      alert("Gagal mengirim suara: " + error.message);
+      setPesan({
+        tipe: "gagal",
+        judul: "Suara belum dapat dikirim",
+        teks: error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.",
+      });
     }
     setLoading(false);
   };
@@ -73,6 +83,7 @@ export default function VotingClient({ wargaAktif, votingAktif, suaraKu, aksiPil
           )}
         </div>
       </div>
+      <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
     </div>
   );
 }

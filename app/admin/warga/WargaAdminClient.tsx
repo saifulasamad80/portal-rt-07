@@ -8,6 +8,7 @@ import {
   susunHasilCari,
   teksCari,
 } from "@/lib/cari-jiwa-warga";
+import PesanDialog from "@/components/PesanDialog";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -267,15 +268,22 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
           <div className="text-5xl hidden md:block grayscale brightness-200">👥</div>
         </div>
 
-        {notifikasi && (
-          <div className={`rounded-xl border p-4 flex items-start justify-between gap-4 shadow-sm ${notifikasi.tipe === 'sukses' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
-            <div className="flex items-start gap-3">
-              <span className="text-lg leading-none mt-0.5">{notifikasi.tipe === 'sukses' ? '✅' : '⚠️'}</span>
-              <p className="text-xs font-bold leading-relaxed">{notifikasi.pesan}</p>
-            </div>
-            <button onClick={() => setNotifikasi(null)} className="text-[10px] font-black uppercase tracking-widest opacity-60 hover:opacity-100 shrink-0">Tutup</button>
-          </div>
-        )}
+        <PesanDialog
+          pesan={
+            notifikasi
+              ? {
+                  tipe: notifikasi.tipe,
+                  teks: notifikasi.pesan,
+                  judul: notifikasi.tipe === "gagal" ? "Perintah warga belum berhasil" : "Perintah warga berhasil",
+                  deskripsi:
+                    notifikasi.tipe === "gagal"
+                      ? "Sistem memberikan keterangan di bawah. Perbaiki penyebabnya lalu coba lagi."
+                      : "Perubahan data warga sudah dicatat.",
+                }
+              : null
+          }
+          onClose={() => setNotifikasi(null)}
+        />
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-blue-500">
           

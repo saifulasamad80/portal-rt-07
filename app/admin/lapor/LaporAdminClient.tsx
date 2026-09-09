@@ -7,6 +7,7 @@ import {
   adalahTiketPerubahanKeluarga,
   tiketKeluargaMasihTerbuka,
 } from "@/lib/kebijakan-sensus";
+import PesanDialog from "@/components/PesanDialog";
 
 type HasilAksiLapor = { success: boolean; message?: string };
 
@@ -225,18 +226,6 @@ export default function LaporAdminClient({
                   <p className="text-xs text-slate-600 leading-relaxed">{laporanAktif.deskripsi}</p>
                 </div>
 
-                {pesan && (
-                  <p
-                    className={`mb-4 text-sm font-medium rounded-xl border px-4 py-3 ${
-                      pesan.tipe === "gagal"
-                        ? "bg-rose-50 border-rose-200 text-rose-800"
-                        : "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    }`}
-                  >
-                    {pesan.teks}
-                  </p>
-                )}
-
                 {tiketKeluargaTerbuka ? (
                   <div className="space-y-4">
                     <p className="text-xs text-slate-500 leading-relaxed">
@@ -335,6 +324,21 @@ export default function LaporAdminClient({
           </div>
         </div>
       </div>
+      <PesanDialog
+        pesan={
+          pesan
+            ? {
+                ...pesan,
+                judul: pesan.tipe === "gagal" ? "Tindak lanjut belum berhasil" : "Tindak lanjut berhasil",
+                deskripsi:
+                  pesan.tipe === "gagal"
+                    ? "Periksa penyebab di bawah sebelum mencoba lagi."
+                    : "Perubahan tiket sudah dicatat oleh sistem.",
+              }
+            : null
+        }
+        onClose={() => setPesan(null)}
+      />
     </div>
   );
 }

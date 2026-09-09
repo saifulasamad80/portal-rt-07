@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
+import PesanDialog from "@/components/PesanDialog";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -138,15 +139,22 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-9 relative z-10 space-y-6">
 
-        {notifikasi && (
-          <div className={`rounded-2xl border p-4 flex items-start justify-between gap-4 shadow-sm ${notifikasi.tipe === 'sukses' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="w-8 h-8 rounded-xl bg-white/70 border border-white flex items-center justify-center text-sm shrink-0">{notifikasi.tipe === 'sukses' ? '✅' : '⚠️'}</span>
-              <p className="text-[13px] font-semibold leading-relaxed pt-1.5">{notifikasi.pesan}</p>
-            </div>
-            <button onClick={() => setNotifikasi(null)} className="text-[10px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 shrink-0 pt-2 transition-opacity">Tutup</button>
-          </div>
-        )}
+        <PesanDialog
+          pesan={
+            notifikasi
+              ? {
+                  tipe: notifikasi.tipe,
+                  teks: notifikasi.pesan,
+                  judul: notifikasi.tipe === "gagal" ? "Validasi belum berhasil" : "Validasi berhasil",
+                  deskripsi:
+                    notifikasi.tipe === "gagal"
+                      ? "Periksa keterangan di bawah dan coba ulangi setelah data atau sesi diperbaiki."
+                      : "Status warga sudah diperbarui oleh sistem.",
+                }
+              : null
+          }
+          onClose={() => setNotifikasi(null)}
+        />
 
         {modeWebmaster && (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
