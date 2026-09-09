@@ -7,6 +7,7 @@
   "include": [
     "next-env.d.ts",
     "lib/kebijakan-sensus.ts",
+    "lib/peta-status-tinggal.ts",
     "lib/session-security.ts",
     "lib/versi-sesi.ts",
     "lib/verifikasi-carik.ts",

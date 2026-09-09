@@ -7,13 +7,9 @@ import {
   PESAN_TINJAUAN_PENGURUS,
 } from "@/lib/kebijakan-sensus";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { PILIHAN_STATUS_TINGGAL } from "@/lib/peta-status-tinggal";
 
-export const PILIHAN_STATUS_TINGGAL = [
-  "Penduduk Tetap",
-  "Penduduk Tidak Tetap",
-  "Penyewa Kos",
-  "Penyewa Kontrakan",
-] as const;
+export { PILIHAN_STATUS_TINGGAL, petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
 
 /** Nilai warisan tetap sah sampai baris itu ikut dirapikan dari CSV. */
 export const STATUS_TINGGAL_DITERIMA = [

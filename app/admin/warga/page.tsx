@@ -16,18 +16,12 @@ import {
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { POLA_UUID } from "@/lib/uuid-tenant";
 import { tempelAnggotaKeKartuKk } from "@/lib/cari-jiwa-warga";
+import { petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
+import {
+  PILIHAN_AGAMA,
+  PILIHAN_HUBUNGAN_KK,
+} from "@/lib/verifikasi-carik";
 
-const STATUS_TINGGAL_SAH = [
-  "Penduduk Tetap",
-  "Penduduk Tidak Tetap",
-  "Warga Tetap",
-  "Warga Kontrak",
-  "Kontrak",
-  "Kos",
-  "Pendatang",
-  "Penyewa Kos",
-  "Penyewa Kontrakan",
-] as const;
 const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
 const BATAS_BARIS_IMPORT = 1000;
 
@@ -192,25 +186,39 @@ export default async function WargaAdminPage() {
         const statusTinggal = String(w?.status_tinggal ?? "").trim();
         const jenisKelamin = String(w?.jenis_kelamin ?? "").trim();
         const tanggalLahir = String(w?.tanggal_lahir ?? "").trim();
+        const noKkDigit = String(w?.no_kk ?? "").replace(/\D/g, "");
+        if (noKkDigit && noKkDigit.length !== 16) {
+          gagal++;
+          continue;
+        }
 
-        const payload = {
+        const pendidikan = String(w?.pendidikan ?? "").trim().slice(0, 80);
+        const agama = String(w?.agama ?? "").trim();
+        const hubunganKkMentah = String(w?.hubungan_kk ?? "").trim();
+        const hubunganKk = (PILIHAN_HUBUNGAN_KK as readonly string[]).includes(hubunganKkMentah)
+          ? hubunganKkMentah
+          : "KK";
+
+        const payload: Record<string, unknown> = {
           nik,
-          nama_lengkap: namaLengkap.slice(0, 150),
+          nama_lengkap: namaLengkap.slice(0, 100),
           no_whatsapp: String(w?.no_whatsapp ?? "").replace(/[^\d+]/g, "").trim(),
-          status_tinggal: STATUS_TINGGAL_SAH.includes(statusTinggal as (typeof STATUS_TINGGAL_SAH)[number])
-            ? statusTinggal
-            : "Warga Tetap",
-          detail_alamat: String(w?.detail_alamat ?? "").trim().slice(0, 300),
+          status_tinggal: petaStatusTinggalImpor(statusTinggal),
+          detail_alamat: String(w?.detail_alamat ?? "").trim().slice(0, 255),
           tanggal_lahir: /^\d{4}-\d{2}-\d{2}$/.test(tanggalLahir) ? tanggalLahir : null,
           tempat_lahir: String(w?.tempat_lahir ?? "").trim().slice(0, 100),
           jenis_kelamin: JENIS_KELAMIN_SAH.includes(jenisKelamin as (typeof JENIS_KELAMIN_SAH)[number])
             ? jenisKelamin
             : "Laki-laki",
           pekerjaan: String(w?.pekerjaan ?? "").trim().slice(0, 100),
+          hubungan_kk: hubunganKk,
           status_verifikasi: "Disetujui",
           pin: defaultPinHash,
           rt_id: rtId,
         };
+        if (noKkDigit) payload.no_kk = noKkDigit;
+        if (pendidikan) payload.pendidikan = pendidikan;
+        if ((PILIHAN_AGAMA as readonly string[]).includes(agama)) payload.agama = agama;
 
         const { error } = await supabase.from("warga").insert([payload]);
         if (error) {
