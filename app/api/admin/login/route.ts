@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
@@ -9,14 +8,8 @@ import {
   SESSION_ISSUER,
   sessionVersionTidakTersedia,
 } from "@/lib/session-security";
+import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { KLAIM_VERSI_SESI, angkaVersiSesi } from "@/lib/versi-sesi";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +25,8 @@ export async function POST(request: Request) {
     if (!username || !password || password.length > 512) {
       return NextResponse.json({ error: "Username dan Password wajib diisi!" }, { status: 400 });
     }
+
+    const supabaseAdmin = getSupabaseAdminClient();
 
     // Hindari interpolasi input ke sintaks filter PostgREST `.or(...)`.
     const kolomAdmin = "id, nama_lengkap, jabatan, password, rt_id, percobaan_gagal, terkunci_sampai, level, session_version";
