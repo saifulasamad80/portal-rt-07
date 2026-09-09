@@ -10,6 +10,7 @@ import {
 import { POLA_UUID } from "@/lib/uuid-tenant";
 import {
   adalahArsipPemilu,
+  kePayloadUpdateBiodata,
   sanitasiAnggota,
   sanitasiBiodata,
   type AnggotaInput,
@@ -186,6 +187,20 @@ async function siapkanSinkronAnggota(
   return { ok: true, rencana: { anggotaLama: tersimpan } };
 }
 
+function kolomAnggota(a: AnggotaInput) {
+  return {
+    nama_lengkap: a.nama_lengkap,
+    hubungan_keluarga: a.hubungan_keluarga,
+    hubungan_detail: a.hubungan_detail,
+    tanggal_lahir: a.tanggal_lahir || null,
+    tempat_lahir: a.tempat_lahir || null,
+    jenis_kelamin: a.jenis_kelamin || null,
+    agama: a.agama || null,
+    pekerjaan: a.pekerjaan || null,
+    pendidikan: a.pendidikan || null,
+  };
+}
+
 async function sinkronAnggota(
   supabase: SupabaseClient,
   wargaId: string,
@@ -200,17 +215,7 @@ async function sinkronAnggota(
       idTertahan.add(a.id);
       const { data, error } = await supabase
         .from("anggota_keluarga")
-        .update({
-          nama_lengkap: a.nama_lengkap,
-          hubungan_keluarga: a.hubungan_keluarga,
-          hubungan_detail: a.hubungan_detail,
-          tanggal_lahir: a.tanggal_lahir,
-          tempat_lahir: a.tempat_lahir,
-          jenis_kelamin: a.jenis_kelamin,
-          agama: a.agama,
-          pekerjaan: a.pekerjaan,
-          pendidikan: a.pendidikan || null,
-        })
+        .update(kolomAnggota(a))
         .eq("id", a.id)
         .eq("warga_id", wargaId)
         .eq("rt_id", rtId)
@@ -230,16 +235,8 @@ async function sinkronAnggota(
       {
         warga_id: wargaId,
         rt_id: rtId,
-        nama_lengkap: a.nama_lengkap,
         nik: a.nik,
-        hubungan_keluarga: a.hubungan_keluarga,
-        hubungan_detail: a.hubungan_detail,
-        tanggal_lahir: a.tanggal_lahir,
-        tempat_lahir: a.tempat_lahir,
-        jenis_kelamin: a.jenis_kelamin,
-        agama: a.agama,
-        pekerjaan: a.pekerjaan,
-        pendidikan: a.pendidikan || null,
+        ...kolomAnggota(a),
       },
     ]).select("id").maybeSingle();
 
@@ -392,8 +389,9 @@ async function simpanVerifikasiCarikInternal(
   }
 
   const supabasePrivileged = getSupabaseAdminClient();
+  const ketat = opsi.capCarik;
 
-  const biodata = sanitasiBiodata(biodataMentah);
+  const biodata = sanitasiBiodata(biodataMentah, { ketat });
   if (!biodata.ok) return { success: false, message: biodata.message };
 
   // FormData/Server Action arguments are attacker-controlled at runtime even
@@ -403,7 +401,7 @@ async function simpanVerifikasiCarikInternal(
   if (!Array.isArray(anggotaMentah)) {
     return { success: false, message: PESAN_TINJAUAN_PENGURUS };
   }
-  const anggota = sanitasiAnggota(anggotaMentah, String(warga.nik));
+  const anggota = sanitasiAnggota(anggotaMentah, String(warga.nik), { ketat });
   if (!anggota.ok) return { success: false, message: anggota.message };
 
   // Preflight kepemilikan dan konflik harus selesai sebelum mutasi pertama.
@@ -414,7 +412,7 @@ async function simpanVerifikasiCarikInternal(
 
   const queryUpdate = supabasePrivileged
     .from("warga")
-    .update(biodata.data)
+    .update(kePayloadUpdateBiodata(biodata.data, ketat))
     .eq("id", wargaId)
     .eq("nik", String(warga.nik))
     .eq("rt_id", rtId);

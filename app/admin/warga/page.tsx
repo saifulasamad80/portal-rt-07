@@ -20,6 +20,7 @@ import { petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
 import {
   PILIHAN_AGAMA,
   PILIHAN_HUBUNGAN_KK,
+  validasiNik,
 } from "@/lib/verifikasi-carik";
 
 const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
@@ -176,9 +177,10 @@ export default async function WargaAdminPage() {
         const nik = String(w?.nik ?? "").replace(/\D/g, "").trim();
         const namaLengkap = String(w?.nama_lengkap ?? "").trim();
 
-        // Sanitasi Zero-Trust: NIK wajib 16 digit dan nama tidak boleh kosong,
-        // agar baris CSV yang rusak tidak mengotori buku induk.
-        if (nik.length !== 16 || !namaLengkap) {
+        // Patokan pengurus: NIK sah + nama cukup untuk masuk buku induk.
+        // Pendidikan, no. KK, dan field Carik lain dilengkapi lewat verifikasi data.
+        const cacatNik = validasiNik(nik, namaLengkap || "baris impor");
+        if (cacatNik || !namaLengkap) {
           gagal++;
           continue;
         }
@@ -187,10 +189,6 @@ export default async function WargaAdminPage() {
         const jenisKelamin = String(w?.jenis_kelamin ?? "").trim();
         const tanggalLahir = String(w?.tanggal_lahir ?? "").trim();
         const noKkDigit = String(w?.no_kk ?? "").replace(/\D/g, "");
-        if (noKkDigit && noKkDigit.length !== 16) {
-          gagal++;
-          continue;
-        }
 
         const pendidikan = String(w?.pendidikan ?? "").trim().slice(0, 80);
         const agama = String(w?.agama ?? "").trim();
@@ -216,7 +214,7 @@ export default async function WargaAdminPage() {
           pin: defaultPinHash,
           rt_id: rtId,
         };
-        if (noKkDigit) payload.no_kk = noKkDigit;
+        if (noKkDigit.length === 16) payload.no_kk = noKkDigit;
         if (pendidikan) payload.pendidikan = pendidikan;
         if ((PILIHAN_AGAMA as readonly string[]).includes(agama)) payload.agama = agama;
 

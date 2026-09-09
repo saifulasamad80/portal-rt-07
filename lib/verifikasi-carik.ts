@@ -7,7 +7,7 @@ import {
   PESAN_TINJAUAN_PENGURUS,
 } from "@/lib/kebijakan-sensus";
 import { POLA_UUID } from "@/lib/uuid-tenant";
-import { PILIHAN_STATUS_TINGGAL } from "@/lib/peta-status-tinggal";
+import { PILIHAN_STATUS_TINGGAL, petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
 
 export { PILIHAN_STATUS_TINGGAL, petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
 
@@ -200,13 +200,17 @@ function normalisasiJenisKelamin(nilai: string) {
   return nilai;
 }
 
-export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; data: BiodataInput } | { ok: false; message: string } {
+export function sanitasiBiodata(
+  mentah: Record<string, unknown>,
+  opsi?: { ketat?: boolean }
+): { ok: true; data: BiodataInput } | { ok: false; message: string } {
   // NIK sengaja dibuang di sini: kolom itu gembok identitas dan tidak boleh
   // ikut payload UPDATE, baik dari warga maupun pengurus.
   const { nik: _nikDiabaikan, pin: _pinDiabaikan, id: _idDiabaikan, ...sisa } = mentah;
   void _nikDiabaikan;
   void _pinDiabaikan;
   void _idDiabaikan;
+  const ketat = opsi?.ketat !== false;
 
   const data: BiodataInput = {
     nama_lengkap: teks(sisa.nama_lengkap).slice(0, 100),
@@ -226,6 +230,20 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
   };
 
   if (!data.nama_lengkap) return { ok: false, message: "Nama lengkap wajib diisi." };
+
+  // Jalur pengurus (ketat: false): NIK sudah di buku induk. Field Carik
+  // yang kosong tidak menahan simpan; dilengkapi nanti lewat verifikasi data.
+  if (!ketat) {
+    if (data.no_kk && data.no_kk.length !== 16) data.no_kk = "";
+    if (data.status_tinggal && !dalamDaftar(data.status_tinggal, STATUS_TINGGAL_DITERIMA)) {
+      data.status_tinggal = petaStatusTinggalImpor(data.status_tinggal);
+    }
+    if (data.hubungan_kk && !dalamDaftar(data.hubungan_kk, PILIHAN_HUBUNGAN_KK)) {
+      data.hubungan_kk = "";
+    }
+    return { ok: true, data };
+  }
+
   if (!data.tempat_lahir) return { ok: false, message: "Tempat lahir wajib diisi." };
   if (!data.tanggal_lahir) return { ok: false, message: "Tanggal lahir wajib diisi." };
   if (!dalamDaftar(data.jenis_kelamin, PILIHAN_JENIS_KELAMIN)) {
@@ -257,14 +275,36 @@ export function sanitasiBiodata(mentah: Record<string, unknown>): { ok: true; da
   return { ok: true, data };
 }
 
+/** Simpan pengurus hanya menulis field yang sudah terisi sah; yang kosong dibiarkan. */
+export function kePayloadUpdateBiodata(data: BiodataInput, ketat: boolean): Record<string, unknown> {
+  if (ketat) return { ...data };
+  const keluar: Record<string, unknown> = { nama_lengkap: data.nama_lengkap };
+  if (data.tempat_lahir) keluar.tempat_lahir = data.tempat_lahir;
+  if (data.tanggal_lahir) keluar.tanggal_lahir = data.tanggal_lahir;
+  if (dalamDaftar(data.jenis_kelamin, PILIHAN_JENIS_KELAMIN)) keluar.jenis_kelamin = data.jenis_kelamin;
+  if (dalamDaftar(data.agama, PILIHAN_AGAMA)) keluar.agama = data.agama;
+  if (data.pekerjaan) keluar.pekerjaan = data.pekerjaan;
+  if (data.pendidikan) keluar.pendidikan = data.pendidikan;
+  if (data.no_kk.length === 16) keluar.no_kk = data.no_kk;
+  if (dalamDaftar(data.hubungan_kk, PILIHAN_HUBUNGAN_KK)) keluar.hubungan_kk = data.hubungan_kk;
+  if (data.no_whatsapp.replace(/\D/g, "").length >= 10) keluar.no_whatsapp = data.no_whatsapp;
+  if (dalamDaftar(data.status_tinggal, STATUS_TINGGAL_DITERIMA)) keluar.status_tinggal = data.status_tinggal;
+  if (data.detail_alamat) keluar.detail_alamat = data.detail_alamat;
+  if (dalamDaftar(data.pendapatan_bulanan, PILIHAN_PENDAPATAN)) keluar.pendapatan_bulanan = data.pendapatan_bulanan;
+  if (dalamDaftar(data.daya_listrik, PILIHAN_DAYA_LISTRIK)) keluar.daya_listrik = data.daya_listrik;
+  return keluar;
+}
+
 export function sanitasiAnggota(
   daftar: unknown[],
-  nikKepala: string
+  nikKepala: string,
+  opsi?: { ketat?: boolean }
 ): { ok: true; data: AnggotaInput[] } | { ok: false; message: string } {
   if (daftar.length > BATAS_ANGGOTA_KELUARGA) {
     return { ok: false, message: `Maksimal ${BATAS_ANGGOTA_KELUARGA} anggota keluarga per rumah tangga.` };
   }
 
+  const ketat = opsi?.ketat !== false;
   const nikTerpakai = new Set<string>([teks(nikKepala)]);
   const idTerpakai = new Set<string>();
   const bersih: AnggotaInput[] = [];
@@ -294,6 +334,29 @@ export function sanitasiAnggota(
     }
     if (id) idTerpakai.add(id);
     if (!nama) return { ok: false, message: `Nama ${label} wajib diisi.` };
+    if (nikTerpakai.has(nik)) {
+      return { ok: false, message: `NIK ${nik} dipakai lebih dari sekali dalam keluarga ini.` };
+    }
+    nikTerpakai.add(nik);
+
+    if (!ketat) {
+      const genderLonggar = normalisasiJenisKelamin(teks(a.jenis_kelamin));
+      bersih.push({
+        id,
+        nama_lengkap: nama,
+        nik,
+        hubungan_keluarga: dalamDaftar(hubungan, PILIHAN_HUBUNGAN) ? hubungan : "Lainnya",
+        hubungan_detail: hubungan === "Lainnya" ? teks(a.hubungan_detail).slice(0, 80) || null : null,
+        tanggal_lahir: normalisasiTanggal(a.tanggal_lahir),
+        tempat_lahir: teks(a.tempat_lahir).slice(0, 100),
+        jenis_kelamin: dalamDaftar(genderLonggar, PILIHAN_JENIS_KELAMIN) ? genderLonggar : "",
+        agama: teks(a.agama),
+        pekerjaan: teks(a.pekerjaan).slice(0, 100),
+        pendidikan: teks(a.pendidikan).slice(0, 80) || null,
+      });
+      continue;
+    }
+
     if (!dalamDaftar(hubungan, PILIHAN_HUBUNGAN)) {
       return { ok: false, message: `Hubungan keluarga untuk ${label} wajib dipilih.` };
     }
@@ -311,10 +374,6 @@ export function sanitasiAnggota(
     }
     if (!teks(a.pekerjaan)) return { ok: false, message: `Pekerjaan ${label} wajib diisi.` };
     const pendidikan = teks(a.pendidikan).slice(0, 80);
-    if (nikTerpakai.has(nik)) {
-      return { ok: false, message: `NIK ${nik} dipakai lebih dari sekali dalam keluarga ini.` };
-    }
-    nikTerpakai.add(nik);
 
     bersih.push({
       id,

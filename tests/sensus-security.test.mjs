@@ -186,8 +186,9 @@ test("modul sensus mandiri tidak memiliki kapabilitas penghapus warga", async ()
   assert.doesNotMatch(migration, /prosesHapusAtauArsipWarga/);
 
   const posisiPreflight = domain.search(/siapkanSinkronAnggota\(supabasePrivileged, wargaId,/);
-  const posisiUpdateKepala = domain.indexOf('.from("warga")\n    .update(biodata.data)');
-  assert.ok(posisiPreflight >= 0 && posisiPreflight < posisiUpdateKepala);
+  const posisiUpdateKepala = domain.search(/\.from\("warga"\)\s*\n\s*\.update\(/);
+  assert.ok(posisiPreflight >= 0 && posisiUpdateKepala >= 0 && posisiPreflight < posisiUpdateKepala);
+  assert.match(domain, /kePayloadUpdateBiodata\(biodata\.data, ketat\)/);
   assert.match(domain, /\.from\("warga"\)\.select\("id"\)\.in\("nik", kebijakan\.nikBaru\)/);
   assert.match(domain, /\.from\("anggota_keluarga"\)\.select\("id"\)\.in\("nik", kebijakan\.nikBaru\)/);
 });

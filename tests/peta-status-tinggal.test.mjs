@@ -20,9 +20,21 @@ test("impor buku induk memakai peta Carik dan batas panjang yang sama", async ()
   const halaman = await baca("app/admin/warga/page.tsx");
   const klien = await baca("app/admin/warga/WargaAdminClient.tsx");
   assert.match(halaman, /petaStatusTinggalImpor/);
+  assert.match(halaman, /validasiNik/);
   assert.match(halaman, /namaLengkap\.slice\(0, 100\)/);
   assert.match(halaman, /slice\(0, 255\)/);
+  assert.match(halaman, /noKkDigit\.length === 16/);
+  assert.doesNotMatch(halaman, /noKkDigit && noKkDigit\.length !== 16/);
   assert.doesNotMatch(halaman, /: "Warga Tetap"/);
   assert.match(klien, /Penduduk Tetap/);
   assert.doesNotMatch(klien, /Warga Tetap/);
+});
+
+test("simpan pengurus longgar; verifikasi carik tetap ketat", async () => {
+  const domain = await baca("lib/verifikasi-carik.ts");
+  const server = await baca("lib/verifikasi-carik-server.ts");
+  assert.match(domain, /opsi\?\.ketat !== false/);
+  assert.match(domain, /kePayloadUpdateBiodata/);
+  assert.match(server, /const ketat = opsi\.capCarik/);
+  assert.match(server, /sanitasiBiodata\(biodataMentah, \{ ketat \}\)/);
 });

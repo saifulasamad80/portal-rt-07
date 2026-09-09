@@ -545,6 +545,9 @@ export default function WargaDetailClient({
                   Simpan & catat verifikasi carik
                 </button>
               </div>
+              <p className="text-[11px] text-slate-500 text-right">
+                Simpan biodata boleh belum lengkap. Tombol verifikasi carik menuntut field wajib terisi.
+              </p>
             </div>
           </div>
         </div>
