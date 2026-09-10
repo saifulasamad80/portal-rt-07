@@ -32,7 +32,8 @@ test("CSP mengizinkan CDN OneSignal dan tetap menahan frame asing", async () => 
   const proxy = await baca("proxy.ts");
   assert.match(proxy, /https:\/\/cdn\.onesignal\.com/);
   assert.match(proxy, /https:\/\/\*\.onesignal\.com/);
-  assert.match(proxy, /worker-src 'self' https:\/\/cdn\.onesignal\.com/);
+  assert.match(proxy, /script-src[^;]*https:\/\/\*\.onesignal\.com/);
+  assert.match(proxy, /worker-src 'self' blob: https:\/\/cdn\.onesignal\.com/);
   assert.match(proxy, /frame-ancestors 'none'/);
 });
 
