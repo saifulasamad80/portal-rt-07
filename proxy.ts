@@ -10,16 +10,16 @@ export function proxy(request: NextRequest) {
 
   // 3. TAMBAL DOSA CSP: Bikin aturan ketat dari mana aja sumber file yang boleh di-load
   const scriptSrc = process.env.NODE_ENV === "production"
-    ? "script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com";
+    ? "script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net";
   const cspHeader = `
     default-src 'self';
     ${scriptSrc};
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://*.supabase.co https://*.onesignal.com;
     font-src 'self' data:;
-    connect-src 'self' https://*.supabase.co https://fcm.googleapis.com https://android.googleapis.com https://updates.push.services.mozilla.com https://web.push.apple.com https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com;
-    worker-src 'self' blob: https://cdn.onesignal.com;
+    connect-src 'self' https://*.supabase.co https://fcm.googleapis.com https://android.googleapis.com https://updates.push.services.mozilla.com https://web.push.apple.com https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net;
+    worker-src 'self' blob: https://cdn.onesignal.com https://cdn.jsdelivr.net;
     frame-src https://onesignal.com https://*.onesignal.com;
     manifest-src 'self';
     object-src 'none';

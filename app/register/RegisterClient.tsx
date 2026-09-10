@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import imageCompression from "browser-image-compression";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { kompresGambarKeDataUrl, MAKS_BYTE_GAMBAR_ASLI } from "@/lib/kompresi-gambar-klien";
 import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
 
 const FITUR_KTP_AKTIF = false; 
@@ -10,7 +10,7 @@ const MAKS_ANGGOTA = 30;
 // The server applies the authoritative limit after compression as well.  This
 // client-side limit prevents a browser from spending unbounded CPU/memory on
 // an image that could never be accepted by the action.
-const MAKS_BYTE_FILE_ASLI = 5 * 1024 * 1024;
+const MAKS_BYTE_FILE_ASLI = MAKS_BYTE_GAMBAR_ASLI.dokumenIdentitas;
 const TIPE_GAMBAR_SAH = new Set(["image/jpeg", "image/png", "image/webp"]);
 const KUNCI_DRAFT = (rt: string, wilayah: string) =>
   `aplikasi-rt:register-draft:${encodeURIComponent(rt || wilayah || "default")}`;
@@ -214,17 +214,12 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
   };
 
   const kompresDanUbahKeBase64 = async (fileOri: File) => {
-    const options = { maxSizeMB: 0.1, maxWidthOrHeight: 1024, useWebWorker: false, fileType: "image/jpeg" };
     try {
-      await new Promise(resolve => setTimeout(resolve, 50)); 
-      const fileKompresi = await imageCompression(fileOri, options);
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(fileKompresi);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-      });
-    } catch { throw new Error("Kompresi gambar gagal. Silakan pilih dokumen lain."); }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return await kompresGambarKeDataUrl(fileOri, "dokumenIdentitas");
+    } catch {
+      throw new Error("Kompresi gambar gagal. Silakan pilih dokumen lain.");
+    }
   };
 
   const tambahAnggota = () => {

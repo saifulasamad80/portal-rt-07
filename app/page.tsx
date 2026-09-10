@@ -7,8 +7,9 @@ import PengumumanClient from "./PengumumanClient";
 import KinerjaSampahClient from "./portal/KinerjaSampahClient";
 import PanicButtonClient from "./PanicButtonClient";
 import GaleriKegiatanClient from "./GaleriKegiatanClient";
+import LapakPublik from "./LapakPublik";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const TARGET_JUMANTIK = 151;
 
@@ -52,7 +53,7 @@ export default async function LandingPage() {
     dataBalita,
     dataLansia,
     daftarFoto,
-    daftarDokumen,
+    daftarLapak,
     daftarKontak,
     masterRt,
     dataDemografiReal,
@@ -124,6 +125,7 @@ export default async function LandingPage() {
             <a href="#kesehatan" className="hover:text-white">Kesehatan</a>
             <a href="#kas" className="hover:text-white">Kas</a>
             <a href="#pengumuman" className="hover:text-white">Pengumuman</a>
+            <a href="#umkm" className="hover:text-white">UMKM</a>
             <a href="#galeri" className="hover:text-white">Galeri</a>
           </nav>
           <div className="flex items-center gap-2 shrink-0">
@@ -325,36 +327,7 @@ export default async function LandingPage() {
 
         <section id="pengumuman" className="scroll-mt-24 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
-
-          <article id="dokumen" className="scroll-mt-24 rounded-2xl border border-[#e4dccb] bg-white p-6 shadow-sm">
-            <KopBagian kicker="Berkas" judul="Unduh dokumen warga" deskripsi="Blanko, peraturan, dan arsip yang memang untuk diedarkan. Bukan KTP atau KK pribadi." />
-            {daftarDokumen.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[#e4dccb] bg-[#fbf8f1] px-4 py-10 text-center text-[12px] text-slate-500">
-                Belum ada dokumen publik yang diunggah pengurus.
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {daftarDokumen.map((dok) => (
-                  <li key={dok.id}>
-                    <a
-                      href={dok.url_berkas}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">{dok.judul}</p>
-                        <p className="text-[11px] text-slate-500">
-                          {dok.kategori || "Dokumen"} {dok.tanggal_terbit ? `· ${formatTanggal(dok.tanggal_terbit)}` : ""} {dok.ukuran_berkas ? `· ${dok.ukuran_berkas}` : ""}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-emerald-700">Unduh</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
+          <LapakPublik daftarLapak={daftarLapak} />
         </section>
 
         <section id="galeri" className="scroll-mt-24 rounded-3xl border border-[#e4dccb] bg-white p-6 shadow-sm md:p-8">
@@ -378,7 +351,7 @@ export default async function LandingPage() {
 
       <footer className="border-t border-[#e4dccb] bg-[#0F241C] px-4 py-10 text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#E8C56A]">Sistem Kependudukan RT 07</p>
-        <p className="mt-2 text-[12px] text-emerald-100/70">Data disegarkan paling lambat setiap 60 detik dari Buku Induk yang sah.</p>
+        <p className="mt-2 text-[12px] text-emerald-100/70">Pengumuman dan galeri tampil di beranda segera setelah pengurus mengunggahnya.</p>
       </footer>
     </div>
   );

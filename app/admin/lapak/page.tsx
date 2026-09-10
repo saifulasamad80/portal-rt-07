@@ -8,6 +8,7 @@ import {
   wajibOtentikasiAdmin,
 } from "@/lib/session-security";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { segarKanPortalPublik } from "@/lib/segar-portal-publik";
 
 export default async function AdminLapakPage() {
   const otentikasi = await otentikasiAdminAktif();
@@ -55,6 +56,7 @@ export default async function AdminLapakPage() {
       detail: `Lapak: ${target.nama_usaha}`,
       rt_id: target.rt_id,
     }]);
+      segarKanPortalPublik();
       return { success: true, message: "Status lapak berhasil diperbarui." };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : "Aksi lapak gagal." };

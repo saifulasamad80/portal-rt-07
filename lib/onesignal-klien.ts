@@ -1,5 +1,6 @@
 import {
   ONESIGNAL_APP_ID,
+  ONESIGNAL_ASAL_SITUS,
   ONESIGNAL_SW_PATH,
   ONESIGNAL_SW_SCOPE,
   idEksternalOneSignal,
@@ -31,6 +32,7 @@ declare global {
   interface Window {
     OneSignalDeferred?: AntrianOneSignal;
     __wargakuOneSignalInit?: boolean;
+    __wargakuOneSignalAntri?: boolean;
   }
 }
 
@@ -66,6 +68,28 @@ function antrianOneSignal(): AntrianOneSignal {
   return window.OneSignalDeferred;
 }
 
+export function asalOneSignalSah() {
+  if (typeof window === "undefined") return false;
+  try {
+    const sekarang = window.location.origin.replace(/\/$/, "");
+    return sekarang === ONESIGNAL_ASAL_SITUS;
+  } catch {
+    return false;
+  }
+}
+
+function pesanKesalahan(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function initOneSignalSudahJalan(err: unknown) {
+  return /already initialized/i.test(pesanKesalahan(err));
+}
+
+function initOneSignalDitolakAsal(err: unknown) {
+  return /can only be used on/i.test(pesanKesalahan(err));
+}
+
 export function jalankanSetelahOneSignalSiap(
   kerja: (sdk: OneSignalSDK) => void | Promise<void>
 ) {
@@ -75,19 +99,24 @@ export function jalankanSetelahOneSignalSiap(
 
 export async function inisialisasiOneSignalSdk() {
   if (typeof window === "undefined") return;
-  const localhost = window.location.hostname === "localhost"
-    || window.location.hostname === "127.0.0.1";
+  // Dashboard OneSignal mengunci Site URL ke origin produksi. Init di
+  // localhost/preview hanya memunculkan overlay Next.js, bukan push yang jalan.
+  if (!asalOneSignalSah()) return;
+  if (window.__wargakuOneSignalAntri) return;
+  window.__wargakuOneSignalAntri = true;
 
   jalankanSetelahOneSignalSiap(async (OneSignal) => {
     if (window.__wargakuOneSignalInit) {
       try {
         await tautkanSesiOneSignal(OneSignal);
-      } catch (err) {
-        console.error("OneSignal gagal menautkan sesi:", err);
+      } catch {
+        return;
       }
       return;
     }
     window.__wargakuOneSignalInit = true;
+    const localhost = window.location.hostname === "localhost"
+      || window.location.hostname === "127.0.0.1";
     try {
       await OneSignal.init({
         appId: ONESIGNAL_APP_ID,
@@ -113,14 +142,21 @@ export async function inisialisasiOneSignalSdk() {
         },
       });
     } catch (err) {
-      window.__wargakuOneSignalInit = false;
-      console.error("OneSignal gagal diinisialisasi:", err);
-      return;
+      if (initOneSignalSudahJalan(err)) {
+        // Strict Mode / antrian dobel: SDK sudah hidup, lanjut tautkan sesi.
+      } else if (initOneSignalDitolakAsal(err)) {
+        return;
+      } else {
+        window.__wargakuOneSignalInit = false;
+        window.__wargakuOneSignalAntri = false;
+        console.error("OneSignal gagal diinisialisasi:", err);
+        return;
+      }
     }
     try {
       await tautkanSesiOneSignal(OneSignal);
-    } catch (err) {
-      console.error("OneSignal gagal menautkan sesi:", err);
+    } catch {
+      return;
     }
   });
 }
@@ -163,7 +199,7 @@ async function tautkanSesiOneSignal(OneSignal: OneSignalSDK) {
 
 export function daftarkanLanggananOneSignal(peran: PeranOneSignal) {
   return new Promise<boolean>((selesai) => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !asalOneSignalSah()) {
       selesai(false);
       return;
     }

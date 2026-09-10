@@ -1,16 +1,13 @@
 import { redirect } from "next/navigation";
 import LapakClient from "./LapakClient";
-import { v4 as uuidv4 } from "uuid";
+import { BATAS_BYTE_FOTO, BUCKET_LAPAK } from "@/lib/batas-berkas-unggah";
+import { hapusBerkasPublikDariUrl, unggahBerkasPublik } from "@/lib/penyimpanan-konten-publik";
 import { otentikasiWargaAktif, wajibOtentikasiWarga, wargaUntukKlien } from "@/lib/session-security";
 import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { parseDataUrlGambar } from "@/lib/validasi-berkas-unggah";
+import { segarKanPortalPublik } from "@/lib/segar-portal-publik";
 const KATEGORI_LAPAK = ["Makanan & Minuman", "Jasa & Servis", "Pakaian & Fashion", "Lainnya"] as const;
-const MIME_FOTO: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
-const MAKS_FOTO_BASE64 = 700_000;
 const MAKS_BIAYA_REPARASI = 100_000_000;
 
 export default async function PortalLapakPage() {
@@ -86,20 +83,12 @@ export default async function PortalLapakPage() {
     if (errKuota) throw new Error("Kuota lapak belum dapat diverifikasi.");
     if ((jumlahLapak || 0) >= 2) throw new Error("Batas maksimal kepemilikan lapak telah tercapai.");
 
-    const matches = fotoBase64.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
-    if (!matches || fotoBase64.length > MAKS_FOTO_BASE64) throw new Error("Format atau ukuran foto tidak valid.");
-    const contentType = matches[1];
-    const encoded = matches[2];
-    if (encoded.length % 4 !== 0) throw new Error("Format foto tidak valid.");
-    const buffer = Buffer.from(encoded, "base64");
-    if (!buffer.length || buffer.length > 524_288) throw new Error("Ukuran foto terlalu besar.");
+    const foto = parseDataUrlGambar(fotoBase64);
+    if ("error" in foto) throw new Error(foto.error);
+    if (foto.buffer.length > BATAS_BYTE_FOTO) throw new Error("Ukuran foto terlalu besar.");
 
-    const extension = MIME_FOTO[contentType];
-    const fileName = `${uuidv4()}.${extension}`;
-    const { error: uploadError } = await penyimpanan.storage
-      .from("lapak_warga")
-      .upload(fileName, buffer, { contentType, upsert: false });
-    if (uploadError) throw new Error("Gagal unggah foto.");
+    const unggah = await unggahBerkasPublik(penyimpanan, BUCKET_LAPAK, sesi.rtId, foto.buffer, foto.contentType, foto.ekstensi);
+    if ("error" in unggah) throw new Error(unggah.error);
 
     const { data: inserted, error } = await supabase.from("lapak_warga").insert([{
       warga_id: sesi.id,
@@ -107,13 +96,14 @@ export default async function PortalLapakPage() {
       kategori,
       deskripsi,
       nomor_wa: nomorWa,
-      foto_url: penyimpanan.storage.from("lapak_warga").getPublicUrl(fileName).data.publicUrl,
+      foto_url: unggah.urlPublik,
       rt_id: sesi.rtId,
     }]).select("id").maybeSingle();
     if (error || !inserted) {
-      await penyimpanan.storage.from("lapak_warga").remove([fileName]);
+      await hapusBerkasPublikDariUrl(penyimpanan, BUCKET_LAPAK, unggah.urlPublik, sesi.rtId);
       throw new Error("Lapak gagal disimpan.");
     }
+    segarKanPortalPublik();
   }
 
   async function hapusLapakKu(idLapak: string) {
@@ -122,6 +112,14 @@ export default async function PortalLapakPage() {
     const idBersih = String(idLapak || "").trim();
     if (!POLA_UUID.test(idBersih)) throw new Error("ID lapak tidak valid.");
     const supabase = await buatKlienTerautentikasi(sesi);
+    const { data: target } = await supabase
+      .from("lapak_warga")
+      .select("id, foto_url")
+      .eq("id", idBersih)
+      .eq("warga_id", sesi.id)
+      .eq("rt_id", sesi.rtId)
+      .maybeSingle();
+    if (!target) throw new Error("Lapak tidak ditemukan atau bukan milik Anda.");
     const { data: terhapus, error } = await supabase
       .from("lapak_warga")
       .delete()
@@ -131,6 +129,8 @@ export default async function PortalLapakPage() {
       .select("id")
       .maybeSingle();
     if (error || !terhapus) throw new Error("Lapak tidak ditemukan atau bukan milik Anda.");
+    await hapusBerkasPublikDariUrl(getSupabaseAdminClientDariSesi(sesi), BUCKET_LAPAK, target.foto_url, sesi.rtId);
+    segarKanPortalPublik();
   }
 
   // SERVER ACTION: Teknisi Menyelesaikan Pekerjaan & Input Tagihan

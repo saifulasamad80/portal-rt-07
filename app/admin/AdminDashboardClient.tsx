@@ -228,6 +228,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Pengumuman RT</h2>
               <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Buat edaran ke warga</p>
             </Link>
+            <Link href="/admin/galeri" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
+              <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🖼️</div>
+              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Galeri Kegiatan</h2>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Unggah foto ke portal</p>
+            </Link>
             <Link href="/admin/ibu-ibu" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
               <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🌸</div>
               <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Modul Ibu-ibu</h2>

@@ -17,6 +17,7 @@ test("Layout memuat SDK OneSignal dan memakai worker PWA di scope root", async (
   const klien = await baca("lib/onesignal-klien.ts");
   const konstanta = await baca("lib/onesignal.ts");
   assert.match(layout, /ONESIGNAL_SDK_URL/);
+  assert.match(layout, /process\.env\.NODE_ENV === "production"/);
   assert.match(layout, /<InisialisasiOneSignal \/>/);
   assert.match(layout, /<PesanDialogProvider \/>/);
   assert.match(layout, /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
@@ -26,6 +27,9 @@ test("Layout memuat SDK OneSignal dan memakai worker PWA di scope root", async (
   assert.match(klien, /scope: ONESIGNAL_SW_SCOPE/);
   assert.match(klien, /notifyButton: \{ enable: false \}/);
   assert.match(klien, /autoPrompt: false/);
+  assert.match(klien, /asalOneSignalSah/);
+  assert.match(klien, /Can only be used on/i);
+  assert.match(konstanta, /ONESIGNAL_ASAL_SITUS/);
 });
 
 test("CSP mengizinkan CDN OneSignal dan tetap menahan frame asing", async () => {
@@ -33,7 +37,7 @@ test("CSP mengizinkan CDN OneSignal dan tetap menahan frame asing", async () => 
   assert.match(proxy, /https:\/\/cdn\.onesignal\.com/);
   assert.match(proxy, /https:\/\/\*\.onesignal\.com/);
   assert.match(proxy, /script-src[^;]*https:\/\/\*\.onesignal\.com/);
-  assert.match(proxy, /worker-src 'self' blob: https:\/\/cdn\.onesignal\.com/);
+  assert.match(proxy, /worker-src 'self' blob: https:\/\/cdn\.onesignal\.com https:\/\/cdn\.jsdelivr\.net/);
   assert.match(proxy, /frame-ancestors 'none'/);
 });
 

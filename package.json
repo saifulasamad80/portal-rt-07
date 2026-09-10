@@ -15,6 +15,7 @@
     "rapikan-keluarga:dry": "node scripts/rapikan-keluarga-csv.mjs"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.4",
     "bcryptjs": "^3.0.3",
@@ -27,6 +28,7 @@
     "nanoid": "^5.1.16",
     "next": "^16.4.0-canary.14",
     "nodemailer": "^9.0.5",
+    "pdfjs-dist": "^6.3.289",
     "react": "19.2.8",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.8",

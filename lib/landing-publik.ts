@@ -31,14 +31,12 @@ export type BarisPosyanduLansiaPublik = {
   tanggal_kunjungan: string;
 };
 
-export type DokumenPublikLanding = {
+export type LapakPublikLanding = {
   id: string;
-  judul: string;
-  deskripsi: string | null;
-  kategori: string | null;
-  url_berkas: string;
-  ukuran_berkas: string | null;
-  tanggal_terbit: string | null;
+  nama_usaha: string;
+  kategori: string;
+  deskripsi: string;
+  foto_url: string;
 };
 
 export type MasterRtPublik = {
@@ -104,7 +102,7 @@ export type MuatanLandingPublik = {
     kategori: string | null;
     tanggal_kegiatan: string | null;
   }>;
-  daftarDokumen: DokumenPublikLanding[];
+  daftarLapak: LapakPublikLanding[];
   daftarKontak: Array<{
     id: string;
     nama_layanan: string;
@@ -260,6 +258,7 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
     balitaRes,
     lansiaRes,
     etalaseRes,
+    lapakRes,
     masterRes,
   ] = await Promise.all([
     supabase
@@ -303,6 +302,13 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
       tenant,
     ),
     ambilEtalasePublik(supabase),
+    supabase
+      .from("lapak_warga")
+      .select("id, nama_usaha, kategori, deskripsi, foto_url")
+      .eq("rt_id", tenant)
+      .eq("status", "Aktif")
+      .order("created_at", { ascending: false })
+      .limit(8),
     supabase.from("master_rt").select("nama_rt, nama_rw, kelurahan").eq("id", tenant).maybeSingle(),
   ]);
 
@@ -319,7 +325,7 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
     dataBalita: dataAtauKosong(balitaRes, [] as BarisPosyanduBalitaPublik[], "posyandu balita"),
     dataLansia: dataAtauKosong(lansiaRes, [] as BarisPosyanduLansiaPublik[], "posyandu lansia"),
     daftarFoto: etalaseRes.galeri,
-    daftarDokumen: etalaseRes.dokumen as DokumenPublikLanding[],
+    daftarLapak: dataAtauKosong(lapakRes, [] as LapakPublikLanding[], "lapak UMKM"),
     daftarKontak: etalaseRes.kontak,
     masterRt: (masterRes.error ? null : masterRes.data) as MasterRtPublik | null,
     dataDemografiReal,

@@ -29,9 +29,24 @@ test("halaman landing tidak memegang service_role; DAL mengikat tenant termasuk 
   const tenant = await baca("lib/tenant-publik.ts");
 
   assert.match(halaman, /ambilMuatanLandingPublik/);
+  assert.match(halaman, /dynamic = "force-dynamic"/);
+  assert.doesNotMatch(halaman, /revalidate = 60/);
   assert.doesNotMatch(halaman, /getSupabaseAdminClient/);
   assert.doesNotMatch(halaman, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(halaman, /createClient\(/);
+  assert.match(halaman, /daftarLapak/);
+  assert.match(halaman, /LapakPublik/);
+  assert.doesNotMatch(halaman, /Unduh dokumen warga/);
+  const lapakPublik = await baca("app/LapakPublik.tsx");
+  assert.match(lapakPublik, /Masuk untuk hubungi/);
+  assert.doesNotMatch(lapakPublik, /wa\.me/);
+  assert.doesNotMatch(lapakPublik, /nomor_wa/);
+  assert.match(dal, /from\("lapak_warga"\)[\s\S]*?\.eq\("rt_id", tenant\)/);
+  assert.match(dal, /from\("lapak_warga"\)[\s\S]*?\.eq\("status", "Aktif"\)/);
+  assert.match(dal, /from\("lapak_warga"\)\s*\.select\("id, nama_usaha, kategori, deskripsi, foto_url"\)/);
+  const galeri = await baca("app/GaleriKegiatanClient.tsx");
+  assert.match(galeri, /grid-cols-2 md:grid-cols-3/);
+  assert.doesNotMatch(galeri, /md:col-span-3/);
 
   assert.match(dal, /import "server-only"/);
   assert.match(dal, /klienDanTenantPublik/);

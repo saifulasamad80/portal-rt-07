@@ -2,8 +2,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import imageCompression from "browser-image-compression";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
+import { kompresGambarKeDataUrl } from "@/lib/kompresi-gambar-klien";
 
 export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapakKu, orderanJasa, aksiBuat, aksiHapus, aksiSelesaikanOrder }: { wargaAktif: any, nomorWaDefault: string, katalog: any[], lapakKu: any[], orderanJasa: any[], aksiBuat: any, aksiHapus: any, aksiSelesaikanOrder: any }) {
   const router = useRouter();
@@ -48,13 +48,7 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
     
     setLoading(true);
     try {
-      const options = { maxSizeMB: 0.1, maxWidthOrHeight: 800, useWebWorker: false, fileType: "image/jpeg" };
-      const fileKompresi = await imageCompression(fileFoto, options);
-      
-      const fotoBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader(); reader.readAsDataURL(fileKompresi);
-        reader.onload = () => resolve(reader.result as string); reader.onerror = error => reject(error);
-      });
+      const fotoBase64 = await kompresGambarKeDataUrl(fileFoto, "fotoLapak");
 
       await aksiBuat({ namaUsaha, kategori, deskripsi, wa: formatWA(wa), fotoBase64 });
       setPesan({
@@ -225,7 +219,8 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
                 </div>
                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
                   <label className="block text-[11px] font-black text-orange-800 mb-2 uppercase">📸 Upload 1 Foto Andalan</label>
-                  <input type="file" accept="image/*" required disabled={kuotaHabis} onChange={e => setFileFoto(e.target.files?.[0] || null)} className="w-full text-xs text-orange-900 font-medium disabled:opacity-50" />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" required disabled={kuotaHabis} onChange={e => setFileFoto(e.target.files?.[0] || null)} className="w-full text-xs text-orange-900 font-medium disabled:opacity-50" />
+                  <p className="text-[10px] text-orange-800/70 font-medium mt-2">Foto dikompres otomatis ke JPEG ±120 KB sebelum diunggah.</p>
                 </div>
                 <button type="submit" disabled={loading || kuotaHabis} className={`w-full text-white font-black uppercase tracking-widest text-xs rounded-lg p-4 shadow-md mt-2 active:scale-95 ${loading || kuotaHabis ? 'bg-slate-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'}`}>
                   {loading ? "Menyimpan..." : "Ajukan Buka Lapak"}

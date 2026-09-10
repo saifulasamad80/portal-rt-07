@@ -71,14 +71,18 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <Script
-          id="onesignal-antrian"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: "window.OneSignalDeferred=window.OneSignalDeferred||[];",
-          }}
-        />
-        <Script id="onesignal-sdk" src={ONESIGNAL_SDK_URL} strategy="afterInteractive" />
+        {process.env.NODE_ENV === "production" ? (
+          <>
+            <Script
+              id="onesignal-antrian"
+              strategy="beforeInteractive"
+              dangerouslySetInnerHTML={{
+                __html: "window.OneSignalDeferred=window.OneSignalDeferred||[];",
+              }}
+            />
+            <Script id="onesignal-sdk" src={ONESIGNAL_SDK_URL} strategy="afterInteractive" />
+          </>
+        ) : null}
         <Script
           id="pwa-sw"
           strategy="afterInteractive"

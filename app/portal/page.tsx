@@ -136,7 +136,7 @@ export default async function PortalWarga() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-9 relative z-10 space-y-6">
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Siskamling</p>
@@ -160,18 +160,6 @@ export default async function PortalWarga() {
                 Lihat transparansi kas →
               </Link>
             )}
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Pengumuman</p>
-              <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">📢</span>
-            </div>
-            <p className="text-sm font-semibold text-slate-900 leading-snug truncate">
-              {pengumumanBaru?.judul || "Tidak ada siaran baru"}
-            </p>
-            <Link href="/" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
-              Buka mading RT →
-            </Link>
           </div>
         </section>
 
@@ -224,8 +212,8 @@ export default async function PortalWarga() {
                   <p className="text-[13px] text-slate-600 truncate">{pengumumanBaru.judul}</p>
                 </div>
               </div>
-              <Link href="/" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
-                Baca
+              <Link href="/#pengumuman" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+                Baca di mading
               </Link>
             </div>
           )}
@@ -296,7 +284,7 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Sirkular ekonomi &amp; kegiatan keluarga</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="UMKM & jasa tetangga" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="Daftar lapak & hubungi penjual" terkunci={layananTerkunci} />
             <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" terkunci={layananTerkunci} />
             <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" terkunci={layananTerkunci} />
             <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" terkunci={layananTerkunci} />

@@ -1,6 +1,33 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import ThumbnailPdf from "@/components/ThumbnailPdf";
+import { adalahUrlDrive, adalahUrlGambar, adalahUrlPdf, labelAksiLampiran } from "@/lib/lampiran-pengumuman";
+
+type SiaranPublik = {
+  id: string;
+  judul: string;
+  deskripsi: string;
+  link_dokumen: string | null;
+  tanggal_publikasi: string;
+};
+
+function LatarThumbnail({ siaran }: { siaran: SiaranPublik }) {
+  const url = siaran.link_dokumen;
+  if (adalahUrlGambar(url) && url) {
+    return <img src={url} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />;
+  }
+  if (adalahUrlPdf(url) && url) {
+    return <ThumbnailPdf url={url} alt="" />;
+  }
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+      <span className="text-3xl" aria-hidden>
+        {adalahUrlDrive(url) ? "📂" : "📄"}
+      </span>
+    </div>
+  );
+}
 
 export default function PengumumanClient({ pengumumanReguler, rekapVoting }: { pengumumanReguler: any[], rekapVoting: any }) {
   const [modalData, setModalData] = useState<any>(null);
@@ -62,22 +89,24 @@ export default function PengumumanClient({ pengumumanReguler, rekapVoting }: { p
           </div>
         )}
 
-        {pengumumanReguler && pengumumanReguler.length > 0 && pengumumanReguler.map((p) => (
-          <div 
-            key={p.id} 
+        {pengumumanReguler && pengumumanReguler.length > 0 && pengumumanReguler.map((p: SiaranPublik) => (
+          <button
+            type="button"
+            key={p.id}
             onClick={() => setModalData(p)}
-            className="aspect-square bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer group"
+            className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left shadow-sm transition-all duration-200 hover:border-blue-400 hover:shadow-md"
           >
-            <div className="w-10 h-10 bg-slate-50 text-blue-600 rounded-full flex items-center justify-center text-xl mb-3 group-hover:scale-110 group-hover:bg-white shadow-sm transition-transform duration-200">
-              {p.link_dokumen?.includes("drive.google.com") ? '📂' : p.link_dokumen ? '🔗' : '📄'}
-            </div>
-            <h3 className="font-bold text-slate-800 text-[10px] leading-snug line-clamp-2 px-1 group-hover:text-blue-700">
-              {p.judul}
-            </h3>
-            <span className="text-[8px] text-slate-400 font-bold mt-auto pt-2 uppercase tracking-widest" suppressHydrationWarning>
-              {new Date(p.tanggal_publikasi).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
+            <LatarThumbnail siaran={p} />
+            <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-slate-600">
+              {adalahUrlPdf(p.link_dokumen) ? "PDF" : adalahUrlGambar(p.link_dokumen) ? "Foto" : adalahUrlDrive(p.link_dokumen) ? "Folder" : "Info"}
             </span>
-          </div>
+            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-3 pt-8">
+              <span className="block font-bold text-[10px] leading-snug text-white line-clamp-2">{p.judul}</span>
+              <span className="mt-1 block text-[8px] font-bold uppercase tracking-widest text-white/70" suppressHydrationWarning>
+                {new Date(p.tanggal_publikasi).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+              </span>
+            </span>
+          </button>
         ))}
 
         {!rekapVoting && (!pengumumanReguler || pengumumanReguler.length === 0) && (
@@ -109,14 +138,25 @@ export default function PengumumanClient({ pengumumanReguler, rekapVoting }: { p
               </div>
 
               {modalData.link_dokumen && (
-                <a 
-                  href={modalData.link_dokumen} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95"
-                >
-                  Buka Dokumen {modalData.link_dokumen.includes("drive.google.com") ? '📂' : '🔗'}
-                </a>
+                <div className="space-y-3">
+                  {adalahUrlGambar(modalData.link_dokumen) ? (
+                    <img src={modalData.link_dokumen} alt="" className="w-full max-h-64 rounded-xl border border-slate-200 object-contain bg-slate-50" />
+                  ) : null}
+                  {adalahUrlPdf(modalData.link_dokumen) ? (
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 h-56">
+                      <ThumbnailPdf url={modalData.link_dokumen} alt="" />
+                    </div>
+                  ) : null}
+                  <a 
+                    href={modalData.link_dokumen} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black text-xs py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95"
+                  >
+                    {labelAksiLampiran(modalData.link_dokumen)}
+                    {adalahUrlDrive(modalData.link_dokumen) ? " 📂" : adalahUrlPdf(modalData.link_dokumen) ? " 📄" : adalahUrlGambar(modalData.link_dokumen) ? " 🖼️" : " 🔗"}
+                  </a>
+                </div>
               )}
             </div>
           </div>

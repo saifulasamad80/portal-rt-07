@@ -16,6 +16,12 @@ function formatTanggal(nilai: string | null) {
   return new Date(nilai).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function kelasGrid(jumlah: number) {
+  if (jumlah === 1) return "grid grid-cols-1";
+  if (jumlah === 2) return "grid grid-cols-2";
+  return "grid grid-cols-2 md:grid-cols-3";
+}
+
 export default function GaleriKegiatanClient({ daftarFoto }: { daftarFoto: FotoKegiatan[] }) {
   const [fotoAktif, setFotoAktif] = useState<FotoKegiatan | null>(null);
 
@@ -28,36 +34,31 @@ export default function GaleriKegiatanClient({ daftarFoto }: { daftarFoto: FotoK
     );
   }
 
-  const [utama, ...lainnya] = daftarFoto;
-
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-        <button
-          type="button"
-          onClick={() => setFotoAktif(utama)}
-          className="group relative md:col-span-3 aspect-[4/3] overflow-hidden rounded-2xl border border-[#e4dccb] bg-slate-900 text-left"
-        >
-          <img src={utama.url_foto} alt={utama.judul} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#E8C56A]">{utama.kategori || "Kegiatan"}</p>
-            <p className="text-sm font-semibold text-white">{utama.judul}</p>
-          </div>
-        </button>
-
-        <div className="grid grid-cols-2 md:grid-cols-1 md:col-span-2 gap-3">
-          {lainnya.slice(0, 4).map((foto) => (
-            <button
-              type="button"
-              key={foto.id}
-              onClick={() => setFotoAktif(foto)}
-              className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-[#e4dccb] bg-slate-800"
-            >
-              <img src={foto.url_foto} alt={foto.judul} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
-              <span className="absolute bottom-2 left-2 right-2 truncate text-[11px] font-semibold text-white drop-shadow">{foto.judul}</span>
-            </button>
-          ))}
-        </div>
+      <div className={`${kelasGrid(daftarFoto.length)} gap-3`}>
+        {daftarFoto.map((foto) => (
+          <button
+            type="button"
+            key={foto.id}
+            onClick={() => setFotoAktif(foto)}
+            className={`group relative overflow-hidden rounded-2xl border border-[#e4dccb] bg-slate-900 text-left ${
+              daftarFoto.length === 1 ? "aspect-[16/9] md:max-w-3xl" : "aspect-[4/3]"
+            }`}
+          >
+            <img
+              src={foto.url_foto}
+              alt={foto.judul}
+              className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-3 pt-8">
+              <span className="block text-[9px] font-bold uppercase tracking-widest text-[#E8C56A]">
+                {foto.kategori || "Kegiatan"}
+              </span>
+              <span className="mt-0.5 block truncate text-[12px] font-semibold text-white">{foto.judul}</span>
+            </span>
+          </button>
+        ))}
       </div>
 
       {fotoAktif ? (
