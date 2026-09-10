@@ -21,8 +21,8 @@ export async function POST() {
     if (!hasil.terkirim) {
       return NextResponse.json({
         success: false,
-        message: hasil.pesan === "Kunci VAPID belum diatur."
-          ? hasil.pesan
+        message: hasil.pesan === "Kunci VAPID belum diatur." || hasil.pesan === "Kunci REST OneSignal belum diatur."
+          ? "Pengiriman notifikasi belum siap di server. Atur ONESIGNAL_REST_API_KEY atau kunci VAPID."
           : "Langganan tersimpan, tetapi tes kirim belum sampai. Izinkan notifikasi di peramban lalu coba lagi.",
       });
     }

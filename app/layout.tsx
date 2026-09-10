@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import AjakanPasangAplikasi from "@/components/AjakanPasangAplikasi";
+import InisialisasiOneSignal from "@/components/InisialisasiOneSignal";
 import PesanDialogProvider from "@/components/PesanDialogProvider";
+import { ONESIGNAL_SDK_URL } from "@/lib/onesignal";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -70,6 +72,14 @@ export default function RootLayout({
     >
       <head>
         <Script
+          id="onesignal-antrian"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: "window.OneSignalDeferred=window.OneSignalDeferred||[];",
+          }}
+        />
+        <Script id="onesignal-sdk" src={ONESIGNAL_SDK_URL} strategy="afterInteractive" />
+        <Script
           id="pwa-sw"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
@@ -89,6 +99,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <main className="flex-1 flex flex-col w-full">{children}</main>
         <AjakanPasangAplikasi />
+        <InisialisasiOneSignal />
         <PesanDialogProvider />
       </body>
     </html>

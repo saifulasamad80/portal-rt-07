@@ -1,6 +1,13 @@
 import webpush from "web-push";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { kueriFallbackStatusAktif, skemaBelumSiap, type ErrorSupabase } from "@/lib/arsip-warga";
+import { idEksternalWarga } from "@/lib/onesignal";
+import {
+  kirimOneSignalKeAlias,
+  kirimOneSignalKePengurus,
+  kirimOneSignalKeWarga,
+  onesignalPengirimanSiap,
+} from "@/lib/onesignal-kirim";
 import { uuidTenantSah } from "@/lib/uuid-tenant";
 
 export type PayloadNotifikasi = {
@@ -95,7 +102,6 @@ async function kirimKeLangganan(langganan: { endpoint: string; p256dh: string; a
 }
 
 export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNotifikasi) {
-  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
   const supabase = klienAdmin();
   const { data: warga, error: errWarga } = await supabase
     .from("warga")
@@ -106,6 +112,10 @@ export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNo
   if (errWarga || !rtId) {
     return { terkirim: 0, pesan: "Wilayah penerima push belum valid." };
   }
+  if (onesignalPengirimanSiap()) {
+    return kirimOneSignalKeWarga(wargaId, payload);
+  }
+  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
   const { data, error } = await supabase
     .from("push_langganan")
     .select("endpoint, p256dh, auth")
@@ -127,7 +137,6 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rt
   if (!rtBersih) {
     return { terkirim: 0, pesan: "Siaran push ditolak: wilayah RT sesi tidak valid." };
   }
-  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
   const supabase = klienAdmin();
   const { data: wargaRt, error: errWargaRt } = await supabase
     .from("warga")
@@ -140,6 +149,26 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rt
   }
   const idWargaRt = (wargaRt || []).map((w) => String(w.id));
   if (!idWargaRt.length) return { terkirim: 0 };
+
+  if (onesignalPengirimanSiap()) {
+    const { data: daftarWarga, error: errWarga } = await kueriFallbackStatusAktif<{
+      data: { id: string; status_aktif?: boolean | null }[] | null;
+      error: ErrorSupabase;
+    }>(
+      () => supabase.from("warga").select("id, status_aktif").eq("rt_id", rtBersih).in("id", idWargaRt),
+      () => supabase.from("warga").select("id").eq("rt_id", rtBersih).in("id", idWargaRt)
+    );
+    if (errWarga) {
+      console.error("Gagal memeriksa status aktif warga, siaran OneSignal dibatalkan:", errWarga.message);
+      return { terkirim: 0, pesan: "Status penerima belum dapat diverifikasi." };
+    }
+    const idAktif = (daftarWarga || [])
+      .filter((w) => w.status_aktif !== false)
+      .map((w) => String(w.id));
+    return kirimOneSignalKeAlias(idAktif.map(idEksternalWarga), payload);
+  }
+
+  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
 
   const { data, error } = await supabase
     .from("push_langganan")
@@ -194,9 +223,35 @@ export async function kirimNotifikasiKePengurus(
   if (sasaran.pengurusId && !uuidTenantSah(pengurusId)) {
     return { terkirim: 0, pesan: "Identitas pengurus push belum valid." };
   }
-  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
 
   const supabase = klienAdmin();
+  if (onesignalPengirimanSiap()) {
+    if (pengurusId) {
+      const { data: pengurusSasaran, error: errSasaran } = await supabase
+        .from("pengurus_rt")
+        .select("id")
+        .eq("id", pengurusId)
+        .eq("rt_id", rtBersih)
+        .maybeSingle();
+      if (errSasaran) {
+        return { terkirim: 0, pesan: skemaBelumSiap(errSasaran) ? PESAN_PUSH_BELUM_SIAP : errSasaran.message };
+      }
+      if (!pengurusSasaran) return { terkirim: 0, pesan: "Pengurus sasaran tidak ada di wilayah ini." };
+      return kirimOneSignalKePengurus([pengurusId], payload);
+    }
+    const { data: daftarPengurus, error: errPengurus } = await supabase
+      .from("pengurus_rt")
+      .select("id")
+      .eq("rt_id", rtBersih);
+    if (errPengurus) {
+      return { terkirim: 0, pesan: skemaBelumSiap(errPengurus) ? PESAN_PUSH_BELUM_SIAP : errPengurus.message };
+    }
+    const idPengurus = (daftarPengurus || []).map((row) => String(row.id)).filter(Boolean);
+    if (!idPengurus.length) return { terkirim: 0 };
+    return kirimOneSignalKePengurus(idPengurus, payload);
+  }
+  if (!siapkanVapid()) return { terkirim: 0, pesan: "Kunci VAPID belum diatur." };
+
   let query = supabase
     .from("push_langganan")
     .select("endpoint, p256dh, auth, pengurus_id")

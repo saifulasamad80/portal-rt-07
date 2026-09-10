@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { daftarkanLanggananOneSignal } from "@/lib/onesignal-klien";
 import { adalahPerangkatIos, pushPerambanDidukung, sudahModeAplikasi } from "@/lib/pasang-pwa";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -34,19 +35,25 @@ export default function TombolNotifikasiPush({
     let batal = false;
     navigator.serviceWorker.ready.then(async (reg) => {
       const existing = await reg.pushManager.getSubscription();
-      if (!existing || batal) return;
-      const simpan = await fetch(urlLangganan, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(existing.toJSON()),
-      }).catch(() => null);
       if (batal) return;
-      setStatus(simpan?.ok ? "aktif" : "idle");
+      if (existing) {
+        const simpan = await fetch(urlLangganan, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(existing.toJSON()),
+        }).catch(() => null);
+        if (batal) return;
+        setStatus(simpan?.ok ? "aktif" : "idle");
+      }
+      // Izin yang diberikan sebelum OneSignal tetap dipakai; jangan minta ketuk ulang.
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        void daftarkanLanggananOneSignal(sasaran);
+      }
     }).catch(() => undefined);
     return () => {
       batal = true;
     };
-  }, [urlLangganan]);
+  }, [sasaran, urlLangganan]);
 
   const jelaskanPasang = () => {
     setPesan(
@@ -75,28 +82,32 @@ export default function TombolNotifikasiPush({
         setPesan("Izin notifikasi ditolak. Buka pengaturan peramban, izinkan notifikasi untuk situs ini, lalu coba lagi.");
         return;
       }
+      const onesignalOk = await daftarkanLanggananOneSignal(sasaran);
       const kunciRes = await fetch("/api/push/subscribe", { cache: "no-store" });
       const kunciData = await kunciRes.json().catch(() => ({}));
       const vapidPublicKey = String(kunciData.vapidPublicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
-      if (!vapidPublicKey) {
-        setStatus("idle");
-        setPesan("Kunci notifikasi belum terbaca. Muat ulang halaman, lalu aktifkan lagi.");
-        return;
+      let vapidOk = false;
+      if (vapidPublicKey) {
+        await navigator.serviceWorker.register("/sw.js");
+        const reg = await navigator.serviceWorker.ready;
+        const subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        });
+        const simpan = await fetch(urlLangganan, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(subscription.toJSON()),
+        });
+        if (!simpan.ok) {
+          const err = await simpan.json().catch(() => ({}));
+          if (!onesignalOk) throw new Error(err.error || "Gagal mendaftarkan perangkat.");
+        } else {
+          vapidOk = true;
+        }
       }
-      await navigator.serviceWorker.register("/sw.js");
-      const reg = await navigator.serviceWorker.ready;
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      });
-      const simpan = await fetch(urlLangganan, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(subscription.toJSON()),
-      });
-      if (!simpan.ok) {
-        const err = await simpan.json().catch(() => ({}));
-        throw new Error(err.error || "Gagal mendaftarkan perangkat.");
+      if (!onesignalOk && !vapidOk) {
+        throw new Error("Gagal mendaftarkan perangkat ke layanan notifikasi.");
       }
       const tes = await fetch(urlTes, { method: "POST" });
       const tesData = await tes.json().catch(() => ({}));
@@ -123,7 +134,7 @@ export default function TombolNotifikasiPush({
       <button
         type="button"
         onClick={aktifkan}
-        disabled={status === "menunggu" || status === "aktif"}
+        disabled={status === "menunggu"}
         className={`text-xs font-bold px-4 py-2.5 rounded-lg transition-all active:scale-95 ${
           status === "aktif"
             ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/40"
