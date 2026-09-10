@@ -1,4 +1,6 @@
-const CACHE_NAME = "portal-rt-v6";
+importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
+
+const CACHE_NAME = "portal-rt-v7";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -30,6 +32,8 @@ self.addEventListener("push", (event) => {
   } catch (_err) {
     data.body = event.data ? event.data.text() : data.body;
   }
+  // Muatan OneSignal ditangani worker SDK; jangan tampilkan notifikasi ganda.
+  if (data.custom || data.onesignal || data.os_data) return;
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
@@ -57,6 +61,10 @@ function tautanNotifikasiAman(mentah) {
 }
 
 self.addEventListener("notificationclick", (event) => {
+  const urlData = event.notification.data?.url;
+  if (event.notification.data?.custom || typeof urlData !== "string" || !urlData.startsWith("/")) {
+    return;
+  }
   event.notification.close();
   const tujuan = tautanNotifikasiAman(event.notification.data?.url);
   event.waitUntil(

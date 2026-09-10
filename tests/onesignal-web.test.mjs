@@ -4,20 +4,24 @@ import test from "node:test";
 
 const baca = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Service worker OneSignal terpisah dari PWA dan mengimpor SDK v16", async () => {
+test("Service worker PWA mengimpor OneSignal v16 di file yang sama", async () => {
   const worker = await baca("public/push/onesignal/OneSignalSDKWorker.js");
   const swPwa = await baca("public/sw.js");
   assert.match(worker, /cdn\.onesignal\.com\/sdks\/web\/v16\/OneSignalSDK\.sw\.js/);
-  assert.doesNotMatch(swPwa, /OneSignalSDK/);
+  assert.match(swPwa, /cdn\.onesignal\.com\/sdks\/web\/v16\/OneSignalSDK\.sw\.js/);
+  assert.match(swPwa, /data\.custom \|\| data\.onesignal \|\| data\.os_data/);
 });
 
-test("Layout memuat SDK OneSignal tanpa menelan service worker PWA", async () => {
+test("Layout memuat SDK OneSignal dan memakai worker PWA di scope root", async () => {
   const layout = await baca("app/layout.tsx");
   const klien = await baca("lib/onesignal-klien.ts");
+  const konstanta = await baca("lib/onesignal.ts");
   assert.match(layout, /ONESIGNAL_SDK_URL/);
   assert.match(layout, /<InisialisasiOneSignal \/>/);
   assert.match(layout, /<PesanDialogProvider \/>/);
   assert.match(layout, /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
+  assert.match(konstanta, /ONESIGNAL_SW_PATH = "sw\.js"/);
+  assert.match(konstanta, /ONESIGNAL_SW_SCOPE = "\/"/);
   assert.match(klien, /serviceWorkerPath: ONESIGNAL_SW_PATH/);
   assert.match(klien, /scope: ONESIGNAL_SW_SCOPE/);
   assert.match(klien, /notifyButton: \{ enable: false \}/);

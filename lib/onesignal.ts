@@ -2,8 +2,8 @@ export const ONESIGNAL_APP_ID =
   process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID?.trim()
   || "c512e2f1-6340-46b0-9678-0154ce2df051";
 
-export const ONESIGNAL_SW_PATH = "push/onesignal/OneSignalSDKWorker.js";
-export const ONESIGNAL_SW_SCOPE = "/push/onesignal/";
+export const ONESIGNAL_SW_PATH = "sw.js";
+export const ONESIGNAL_SW_SCOPE = "/";
 export const ONESIGNAL_SDK_URL = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
 
 export type PeranOneSignal = "warga" | "pengurus";

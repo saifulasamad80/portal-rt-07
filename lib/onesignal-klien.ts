@@ -57,29 +57,35 @@ export async function inisialisasiOneSignalSdk() {
       return;
     }
     window.__wargakuOneSignalInit = true;
-    await OneSignal.init({
-      appId: ONESIGNAL_APP_ID,
-      allowLocalhostAsSecureOrigin: localhost,
-      autoResubscribe: true,
-      persistNotification: false,
-      serviceWorkerPath: ONESIGNAL_SW_PATH,
-      serviceWorkerParam: { scope: ONESIGNAL_SW_SCOPE },
-      notifyButton: { enable: false },
-      welcomeNotification: { disable: true },
-      promptOptions: {
-        slidedown: {
-          prompts: [{
-            type: "push",
-            autoPrompt: false,
-            text: {
-              actionMessage: "Izinkan notifikasi agar pengumuman RT sampai ke HP Anda.",
-              acceptButton: "Izinkan",
-              cancelButton: "Nanti",
-            },
-          }],
+    try {
+      await OneSignal.init({
+        appId: ONESIGNAL_APP_ID,
+        allowLocalhostAsSecureOrigin: localhost,
+        autoResubscribe: true,
+        persistNotification: false,
+        serviceWorkerPath: ONESIGNAL_SW_PATH,
+        serviceWorkerParam: { scope: ONESIGNAL_SW_SCOPE },
+        notifyButton: { enable: false },
+        welcomeNotification: { disable: true },
+        promptOptions: {
+          slidedown: {
+            prompts: [{
+              type: "push",
+              autoPrompt: false,
+              text: {
+                actionMessage: "Izinkan notifikasi agar pengumuman RT sampai ke HP Anda.",
+                acceptButton: "Izinkan",
+                cancelButton: "Nanti",
+              },
+            }],
+          },
         },
-      },
-    });
+      });
+    } catch (err) {
+      window.__wargakuOneSignalInit = false;
+      console.error("OneSignal gagal diinisialisasi:", err);
+      return;
+    }
     await tautkanSesiOneSignal(OneSignal);
   });
 }
@@ -90,12 +96,12 @@ function permukaanDariPath(path: string): "warga" | "pengurus" | "auto" {
   return "auto";
 }
 
-async function bacaSesiOneSignal(): Promise<SesiOneSignal | null> {
+async function bacaSesiOneSignal(): Promise<SesiOneSignal | null | undefined> {
   const permukaan = permukaanDariPath(window.location.pathname);
   const res = await fetch(`/api/onesignal/sesi?p=${encodeURIComponent(permukaan)}`, {
     cache: "no-store",
   }).catch(() => null);
-  if (!res?.ok) return null;
+  if (!res?.ok) return undefined;
   const data = await res.json().catch(() => null);
   const sesi = data && typeof data === "object" ? (data as { sesi?: SesiOneSignal | null }).sesi : null;
   if (!sesi || (sesi.peran !== "warga" && sesi.peran !== "pengurus")) return null;
@@ -105,6 +111,7 @@ async function bacaSesiOneSignal(): Promise<SesiOneSignal | null> {
 
 async function tautkanSesiOneSignal(OneSignal: OneSignalSDK) {
   const sesi = await bacaSesiOneSignal();
+  if (sesi === undefined) return;
   if (!sesi) {
     await OneSignal.logout();
     return;
@@ -131,7 +138,7 @@ export function daftarkanLanggananOneSignal(peran: PeranOneSignal) {
       if (tuntas) return;
       tuntas = true;
       selesai(false);
-    }, 8000);
+    }, 15000);
 
     jalankanSetelahOneSignalSiap(async (OneSignal) => {
       if (tuntas) return;
