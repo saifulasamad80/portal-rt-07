@@ -1,5 +1,5 @@
 import { ONESIGNAL_APP_ID, idEksternalPengurus, idEksternalWarga } from "@/lib/onesignal";
-import type { PayloadNotifikasi } from "@/lib/notifikasi-push";
+import type { HasilKirimNotifikasi, PayloadNotifikasi } from "@/lib/notifikasi-push";
 
 const URL_API_ONESIGNAL = "https://api.onesignal.com/notifications";
 const BATAS_ALIAS = 20000;
@@ -38,7 +38,7 @@ function urlLuncurAman(path?: string) {
 async function kirimPesanOneSignal(
   sasaran: Record<string, unknown>,
   payload: PayloadNotifikasi
-) {
+): Promise<HasilKirimNotifikasi> {
   const kunci = kunciApiOneSignal();
   if (!kunci) return { terkirim: 0, pesan: "Kunci REST OneSignal belum diatur." };
 
@@ -77,7 +77,7 @@ async function kirimPesanOneSignal(
   return { terkirim };
 }
 
-export async function kirimOneSignalKeAlias(idEksternal: string[], payload: PayloadNotifikasi) {
+export async function kirimOneSignalKeAlias(idEksternal: string[], payload: PayloadNotifikasi): Promise<HasilKirimNotifikasi> {
   const unik = [...new Set(idEksternal.map((id) => String(id || "").trim()).filter(Boolean))];
   if (!unik.length) return { terkirim: 0 };
   let terkirim = 0;
@@ -93,10 +93,10 @@ export async function kirimOneSignalKeAlias(idEksternal: string[], payload: Payl
   return { terkirim };
 }
 
-export async function kirimOneSignalKeWarga(wargaId: string, payload: PayloadNotifikasi) {
+export async function kirimOneSignalKeWarga(wargaId: string, payload: PayloadNotifikasi): Promise<HasilKirimNotifikasi> {
   return kirimOneSignalKeAlias([idEksternalWarga(wargaId)], payload);
 }
 
-export async function kirimOneSignalKePengurus(pengurusId: string[], payload: PayloadNotifikasi) {
+export async function kirimOneSignalKePengurus(pengurusId: string[], payload: PayloadNotifikasi): Promise<HasilKirimNotifikasi> {
   return kirimOneSignalKeAlias(pengurusId.map(idEksternalPengurus), payload);
 }

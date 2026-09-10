@@ -38,6 +38,7 @@ test("Kiriman server memakai alias eksternal berperan, bukan siaran lintas RT", 
   assert.match(kirim, /include_aliases/);
   assert.match(kirim, /ONESIGNAL_REST_API_KEY/);
   assert.doesNotMatch(kirim, /included_segments/);
+  assert.match(notifikasi, /export type HasilKirimNotifikasi/);
   assert.match(notifikasi, /onesignalPengirimanSiap\(\)/);
   assert.match(notifikasi, /idEksternalWarga/);
   assert.match(notifikasi, /\.eq\("rt_id", rtBersih\)/);

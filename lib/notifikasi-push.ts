@@ -17,6 +17,12 @@ export type PayloadNotifikasi = {
   tag?: string;
 };
 
+export type HasilKirimNotifikasi = {
+  terkirim: number;
+  pesan?: string;
+  dilewati?: boolean;
+};
+
 export type LanggananPushBersih = {
   endpoint: string;
   p256dh: string;
@@ -101,7 +107,7 @@ async function kirimKeLangganan(langganan: { endpoint: string; p256dh: string; a
   }
 }
 
-export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNotifikasi) {
+export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNotifikasi): Promise<HasilKirimNotifikasi> {
   const supabase = klienAdmin();
   const { data: warga, error: errWarga } = await supabase
     .from("warga")
@@ -132,7 +138,7 @@ export async function kirimNotifikasiKeWarga(wargaId: string, payload: PayloadNo
   return { terkirim };
 }
 
-export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rtId: string) {
+export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rtId: string): Promise<HasilKirimNotifikasi> {
   const rtBersih = uuidTenantSah(rtId);
   if (!rtBersih) {
     return { terkirim: 0, pesan: "Siaran push ditolak: wilayah RT sesi tidak valid." };
@@ -214,7 +220,7 @@ export async function kirimNotifikasiKeSemuaWarga(payload: PayloadNotifikasi, rt
 export async function kirimNotifikasiKePengurus(
   payload: PayloadNotifikasi,
   sasaran: { rtId: string; pengurusId?: string }
-) {
+): Promise<HasilKirimNotifikasi> {
   const rtBersih = uuidTenantSah(sasaran.rtId);
   if (!rtBersih) {
     return { terkirim: 0, pesan: "Wilayah pengurus push belum valid." };
@@ -277,7 +283,7 @@ export async function catatDanKirimSekali(
   kunciUnik: string,
   payload: PayloadNotifikasi,
   sasaran: { semua?: boolean; wargaId?: string; rtId?: string }
-) {
+): Promise<HasilKirimNotifikasi> {
   const supabase = klienAdmin();
   const rtSasaran = uuidTenantSah(sasaran.rtId);
   let rtId = rtSasaran;
