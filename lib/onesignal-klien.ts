@@ -34,6 +34,33 @@ declare global {
   }
 }
 
+function kunciPushBentrok(err: unknown) {
+  const teks = err instanceof Error ? err.message : String(err);
+  return /applicationServerKey|gcm_sender_id/i.test(teks);
+}
+
+export async function lepasLanggananPushYangAda() {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  const daftar = await navigator.serviceWorker.getRegistrations();
+  for (const reg of daftar) {
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+  }
+}
+
+async function optInOneSignalAman(OneSignal: OneSignalSDK) {
+  if (OneSignal.User.PushSubscription.optedIn) return;
+  try {
+    await OneSignal.User.PushSubscription.optIn();
+  } catch (err) {
+    if (!kunciPushBentrok(err)) throw err;
+    // Chrome hanya izinkan satu applicationServerKey per worker.
+    // Langganan VAPID lama harus dilepas sebelum OneSignal bisa subscribe.
+    await lepasLanggananPushYangAda();
+    await OneSignal.User.PushSubscription.optIn();
+  }
+}
+
 function antrianOneSignal(): AntrianOneSignal {
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   return window.OneSignalDeferred;
@@ -53,7 +80,11 @@ export async function inisialisasiOneSignalSdk() {
 
   jalankanSetelahOneSignalSiap(async (OneSignal) => {
     if (window.__wargakuOneSignalInit) {
-      await tautkanSesiOneSignal(OneSignal);
+      try {
+        await tautkanSesiOneSignal(OneSignal);
+      } catch (err) {
+        console.error("OneSignal gagal menautkan sesi:", err);
+      }
       return;
     }
     window.__wargakuOneSignalInit = true;
@@ -86,7 +117,11 @@ export async function inisialisasiOneSignalSdk() {
       console.error("OneSignal gagal diinisialisasi:", err);
       return;
     }
-    await tautkanSesiOneSignal(OneSignal);
+    try {
+      await tautkanSesiOneSignal(OneSignal);
+    } catch (err) {
+      console.error("OneSignal gagal menautkan sesi:", err);
+    }
   });
 }
 
@@ -122,7 +157,7 @@ async function tautkanSesiOneSignal(OneSignal: OneSignalSDK) {
     rt_id: sesi.rtId,
   });
   if (OneSignal.Notifications.permission) {
-    await OneSignal.User.PushSubscription.optIn();
+    await optInOneSignalAman(OneSignal);
   }
 }
 
@@ -149,7 +184,7 @@ export function daftarkanLanggananOneSignal(peran: PeranOneSignal) {
           OneSignal.User.addTags({ peran: sesi.peran, rt_id: sesi.rtId });
         }
         await OneSignal.Notifications.requestPermission();
-        await OneSignal.User.PushSubscription.optIn();
+        await optInOneSignalAman(OneSignal);
         tuntas = true;
         window.clearTimeout(batas);
         selesai(Boolean(OneSignal.Notifications.permission || OneSignal.User.PushSubscription.optedIn));

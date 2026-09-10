@@ -51,9 +51,13 @@ test("Kiriman server memakai alias eksternal berperan, bukan siaran lintas RT", 
 
 test("Tombol notifikasi tetap menyimpan langganan VAPID dan mendaftar ke OneSignal", async () => {
   const tombol = await baca("components/TombolNotifikasiPush.tsx");
+  const klien = await baca("lib/onesignal-klien.ts");
   assert.match(tombol, /daftarkanLanggananOneSignal\(sasaran\)/);
   assert.match(tombol, /existing\.toJSON\(\)/);
   assert.match(tombol, /urlLangganan/);
   assert.match(tombol, /Notification\.permission === "granted"/);
   assert.match(tombol, /disabled=\{status === "menunggu"\}/);
+  assert.match(tombol, /if \(!onesignalOk\)/);
+  assert.match(klien, /lepasLanggananPushYangAda/);
+  assert.match(klien, /applicationServerKey/);
 });

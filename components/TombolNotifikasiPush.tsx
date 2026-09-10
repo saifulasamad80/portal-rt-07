@@ -83,26 +83,29 @@ export default function TombolNotifikasiPush({
         return;
       }
       const onesignalOk = await daftarkanLanggananOneSignal(sasaran);
-      const kunciRes = await fetch("/api/push/subscribe", { cache: "no-store" });
-      const kunciData = await kunciRes.json().catch(() => ({}));
-      const vapidPublicKey = String(kunciData.vapidPublicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
       let vapidOk = false;
-      if (vapidPublicKey) {
-        await navigator.serviceWorker.register("/sw.js");
-        const reg = await navigator.serviceWorker.ready;
-        const subscription = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
-        const simpan = await fetch(urlLangganan, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(subscription.toJSON()),
-        });
-        if (!simpan.ok) {
-          const err = await simpan.json().catch(() => ({}));
-          if (!onesignalOk) throw new Error(err.error || "Gagal mendaftarkan perangkat.");
-        } else {
+      // Satu worker hanya boleh satu applicationServerKey. Jangan subscribe VAPID
+      // jika OneSignal sudah berhasil; kunci Vercel tetap dipakai sebagai cadangan.
+      if (!onesignalOk) {
+        const kunciRes = await fetch("/api/push/subscribe", { cache: "no-store" });
+        const kunciData = await kunciRes.json().catch(() => ({}));
+        const vapidPublicKey = String(kunciData.vapidPublicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim();
+        if (vapidPublicKey) {
+          await navigator.serviceWorker.register("/sw.js");
+          const reg = await navigator.serviceWorker.ready;
+          const subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          });
+          const simpan = await fetch(urlLangganan, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(subscription.toJSON()),
+          });
+          if (!simpan.ok) {
+            const err = await simpan.json().catch(() => ({}));
+            throw new Error(err.error || "Gagal mendaftarkan perangkat.");
+          }
           vapidOk = true;
         }
       }
@@ -115,7 +118,12 @@ export default function TombolNotifikasiPush({
       setPesan(tesData.success ? "Notifikasi aktif. Cek apakah tes muncul di perangkat ini." : "Langganan tersimpan. Izinkan notifikasi sistem agar pemberitahuan masuk.");
     } catch (err: unknown) {
       setStatus("idle");
-      setPesan(err instanceof Error ? err.message : "Gagal mengaktifkan notifikasi.");
+      const teks = err instanceof Error ? err.message : "";
+      setPesan(
+        /applicationServerKey|gcm_sender_id/i.test(teks)
+          ? "Langganan notifikasi lama masih menempel. Ketuk tombol sekali lagi."
+          : teks || "Gagal mengaktifkan notifikasi."
+      );
     }
   };
 
