@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
-import KartuLayanan from "@/components/portal/KartuLayanan";
+import KartuLayanan, { KartuRingkasDasbor } from "@/components/portal/KartuLayanan";
 import TautanHalus from "@/components/TautanHalus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -162,31 +162,31 @@ export default async function PortalWarga() {
           izinKesehatan={Boolean(jejakPdp.ok && jejakPdp.data?.data_kesehatan)}
         />
         <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Siskamling</p>
-              <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">🔦</span>
-            </div>
-            <p className="text-sm font-semibold text-slate-900 leading-snug">
-              {jadwalRonda ? formatTanggalId(jadwalRonda.tanggal_tugas) : "Tidak ada jadwal terdekat"}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              {jadwalRonda?.status
+          <KartuRingkasDasbor
+            aksen="kuning"
+            ikon="🔦"
+            label="Siskamling"
+            nilai={jadwalRonda ? formatTanggalId(jadwalRonda.tanggal_tugas) : "Tidak ada jadwal terdekat"}
+            nilaiKelas="text-sm font-semibold text-slate-900"
+            catatan={
+              jadwalRonda?.status
                 || (capRumahTangga.rumah.adalahTanggungan
                   ? "Ronda milik akun Anda, bukan jadwal kepala keluarga"
-                  : "Anda sedang tidak bertugas")}
-            </p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Iuran RT</p>
-              <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">💰</span>
-            </div>
-            <p className={`text-sm font-semibold leading-snug ${aksenIuran}`}>{statusIuran}</p>
-            <TautanHalus href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
-              Lihat transparansi kas →
-            </TautanHalus>
-          </div>
+                  : "Anda sedang tidak bertugas")
+            }
+          />
+          <KartuRingkasDasbor
+            aksen="emas"
+            ikon="💰"
+            label="Iuran RT"
+            nilai={statusIuran}
+            nilaiKelas={`text-sm font-semibold ${aksenIuran}`}
+            catatan={
+              <TautanHalus href="/portal/keuangan" className="text-[11px] text-amber-800 font-semibold inline-block hover:underline">
+                Lihat transparansi kas →
+              </TautanHalus>
+            }
+          />
         </section>
 
         <section className="space-y-3">
@@ -300,11 +300,11 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Urusan surat, kas, suara, dan aset RT</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <KartuLayanan href="/portal/keluarga" ikon="👪" judul="Data keluarga" deskripsi="KK yang tercatat" />
-            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" />
-            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" />
-            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" />
-            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" />
+            <KartuLayanan href="/portal/keluarga" ikon="👪" judul="Data keluarga" deskripsi="KK yang tercatat" aksen="biru" />
+            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" aksen="nila" />
+            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" aksen="emas" />
+            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" aksen="ungu" />
+            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" aksen="toska" />
           </div>
         </section>
 
@@ -316,10 +316,10 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Sirkular ekonomi &amp; kegiatan keluarga</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="Daftar lapak & hubungi penjual" />
-            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" />
-            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" />
-            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" />
+            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="Daftar lapak & hubungi penjual" aksen="oranye" />
+            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" aksen="hijau" />
+            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" aksen="mawar" />
+            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" aksen="pink" />
           </div>
         </section>
 
@@ -331,9 +331,9 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Ronda dan pelaporan fasilitas</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" />
+            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" aksen="kuning" />
             {FITUR_LAPOR_AKTIF && (
-              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" />
+              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" aksen="merah" />
             )}
           </div>
         </section>

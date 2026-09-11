@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import PesanDialog from "@/components/PesanDialog";
-import KartuLayanan from "@/components/portal/KartuLayanan";
+import KartuLayanan, { KartuRingkasDasbor } from "@/components/portal/KartuLayanan";
 import TautanHalus from "@/components/TautanHalus";
 
 const FITUR_KTP_AKTIF = false;
@@ -167,38 +167,38 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
 
         {/* HUD STATISTIK (Merespons coretan "Di Depan" Pak RT) */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Warga Sah</span>
-              <span className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-xs shrink-0">👥</span>
-            </div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums tracking-tight">{jumlahWargaSah} KK</div>
-            <p className="text-[10px] text-slate-400 mt-1">Kepala keluarga terverifikasi</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Sampah Berkurang</span>
-              <span className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-xs shrink-0">♻️</span>
-            </div>
-            <div className="text-lg font-bold text-emerald-700 tabular-nums tracking-tight">{sampahKg.toFixed(1)} Kg</div>
-            <p className="text-[10px] text-slate-400 mt-1">Total anorganik tersetor</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Saldo Bank Sampah</span>
-              <span className="w-6 h-6 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-xs shrink-0">💸</span>
-            </div>
-            <div className="text-lg font-bold text-amber-600 tabular-nums tracking-tight">Rp {(sampahRp / 1000).toFixed(0)}k</div>
-            <p className="text-[10px] text-slate-400 mt-1">Dana tersimpan warga</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-slate-300 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Dana Qurban</span>
-              <span className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-xs shrink-0">🐄</span>
-            </div>
-            <div className="text-lg font-bold text-rose-600 tabular-nums tracking-tight">Rp {(kurbanRp / 1000000).toFixed(1)} Jt</div>
-            <p className="text-[10px] text-slate-400 mt-1">Tabungan Idul Adha</p>
-          </div>
+          <KartuRingkasDasbor
+            aksen="biru"
+            ikon="👥"
+            label="Warga Sah"
+            nilai={`${jumlahWargaSah} KK`}
+            nilaiKelas="text-lg text-slate-900"
+            catatan="Kepala keluarga terverifikasi"
+          />
+          <KartuRingkasDasbor
+            aksen="hijau"
+            ikon="♻️"
+            label="Sampah Berkurang"
+            nilai={`${sampahKg.toFixed(1)} Kg`}
+            nilaiKelas="text-lg text-emerald-700"
+            catatan="Total anorganik tersetor"
+          />
+          <KartuRingkasDasbor
+            aksen="emas"
+            ikon="💸"
+            label="Saldo Bank Sampah"
+            nilai={`Rp ${(sampahRp / 1000).toFixed(0)}k`}
+            nilaiKelas="text-lg text-amber-600"
+            catatan="Dana tersimpan warga"
+          />
+          <KartuRingkasDasbor
+            aksen="mawar"
+            ikon="🐄"
+            label="Dana Qurban"
+            nilai={`Rp ${(kurbanRp / 1000000).toFixed(1)} Jt`}
+            nilaiKelas="text-lg text-rose-600"
+            catatan="Tabungan Idul Adha"
+          />
         </section>
 
         <section>
@@ -209,14 +209,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <p className="text-[11px] text-slate-400 hidden md:block">Buku induk, edaran, dan kegiatan keluarga</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/admin/warga" ikon="👥" judul="Buku Induk Warga" deskripsi="Hanya warga yang sudah Disetujui" />
-            <KartuLayanan href="/admin/kotak-sampah" ikon="🗑️" judul="Kotak Sampah" deskripsi="Pulihkan warga yang terhapus" />
-            <KartuLayanan href="/admin/verifikasi" ikon="🪪" judul="Verifikasi Pendaftaran" deskripsi="Antrean status Menunggu" />
-            <KartuLayanan href="/admin/pengumuman" ikon="📢" judul="Pengumuman RT" deskripsi="Buat edaran ke warga" />
-            <KartuLayanan href="/admin/galeri" ikon="🖼️" judul="Galeri Kegiatan" deskripsi="Unggah foto ke portal" />
-            <KartuLayanan href="/admin/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" />
+            <KartuLayanan href="/admin/warga" ikon="👥" judul="Buku Induk Warga" deskripsi="Hanya warga yang sudah Disetujui" aksen="biru" />
+            <KartuLayanan href="/admin/kotak-sampah" ikon="🗑️" judul="Kotak Sampah" deskripsi="Pulihkan warga yang terhapus" aksen="abu" />
+            <KartuLayanan href="/admin/verifikasi" ikon="🪪" judul="Verifikasi Pendaftaran" deskripsi="Antrean status Menunggu" aksen="sian" />
+            <KartuLayanan href="/admin/pengumuman" ikon="📢" judul="Pengumuman RT" deskripsi="Buat edaran ke warga" aksen="langit" />
+            <KartuLayanan href="/admin/galeri" ikon="🖼️" judul="Galeri Kegiatan" deskripsi="Unggah foto ke portal" aksen="lime" />
+            <KartuLayanan href="/admin/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" aksen="pink" />
             {adminAktif?.role === 'webmaster' ? (
-              <KartuLayanan href="/admin/pengurus" ikon="👔" judul="Akses Pengurus" deskripsi="Tambah & Reset Akun" />
+              <KartuLayanan href="/admin/pengurus" ikon="👔" judul="Akses Pengurus" deskripsi="Tambah & Reset Akun" aksen="nila" />
             ) : (
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
                 <span className="absolute top-3 right-3 bg-rose-100 text-rose-700 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Webmaster</span>
@@ -236,11 +236,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <p className="text-[11px] text-slate-400 hidden md:block">Kas, bank sampah, kurban, dan aset RT</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/admin/kas" ikon="💰" judul="Kas & Keuangan" deskripsi="Rekap iuran bulanan" />
-            <KartuLayanan href="/admin/sampah" ikon="♻️" judul="Tabungan Sampah" deskripsi="Manajemen bank sampah" />
-            <KartuLayanan href="/admin/kurban" ikon="🐄" judul="Tabungan Kurban" deskripsi="Persiapan Idul Adha" />
-            <KartuLayanan href="/admin/lapak" ikon="🏪" judul="Pasar Warga (UMKM)" deskripsi="Validasi lapak dagangan" />
-            <KartuLayanan href="/admin/inventaris" ikon="🎪" judul="Inventaris" deskripsi="Setujui peminjaman alat" />
+            <KartuLayanan href="/admin/kas" ikon="💰" judul="Kas & Keuangan" deskripsi="Rekap iuran bulanan" aksen="emas" />
+            <KartuLayanan href="/admin/sampah" ikon="♻️" judul="Tabungan Sampah" deskripsi="Manajemen bank sampah" aksen="hijau" />
+            <KartuLayanan href="/admin/kurban" ikon="🐄" judul="Tabungan Kurban" deskripsi="Persiapan Idul Adha" aksen="mawar" />
+            <KartuLayanan href="/admin/lapak" ikon="🏪" judul="Pasar Warga (UMKM)" deskripsi="Validasi lapak dagangan" aksen="oranye" />
+            <KartuLayanan href="/admin/inventaris" ikon="🎪" judul="Inventaris" deskripsi="Setujui peminjaman alat" aksen="toska" />
           </div>
         </section>
 
@@ -252,11 +252,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <p className="text-[11px] text-slate-400 hidden md:block">Ronda, e-voting, dan log pengurus</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/admin/ronda" ikon="🔦" judul="Jadwal Siskamling" deskripsi="Atur regu ronda malam" />
-            <KartuLayanan href="/admin/voting" ikon="📊" judul="Manajemen Voting" deskripsi="Buat topik pemilihan" />
-            <KartuLayanan href="/admin/lapor" ikon="🚨" judul="Laporan Warga" deskripsi="Tiket perubahan data keluarga" />
+            <KartuLayanan href="/admin/ronda" ikon="🔦" judul="Jadwal Siskamling" deskripsi="Atur regu ronda malam" aksen="kuning" />
+            <KartuLayanan href="/admin/voting" ikon="📊" judul="Manajemen Voting" deskripsi="Buat topik pemilihan" aksen="ungu" />
+            <KartuLayanan href="/admin/lapor" ikon="🚨" judul="Laporan Warga" deskripsi="Tiket perubahan data keluarga" aksen="merah" />
             {adminAktif?.role === 'webmaster' ? (
-              <KartuLayanan href="/admin/audit" ikon="🔍" judul="Log Audit" deskripsi="Pantau pergerakan pengurus" />
+              <KartuLayanan href="/admin/audit" ikon="🔍" judul="Log Audit" deskripsi="Pantau pergerakan pengurus" aksen="abu" />
             ) : (
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
                 <span className="absolute top-3 right-3 bg-rose-100 text-rose-700 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Webmaster</span>
@@ -269,7 +269,7 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-4 md:px-5 py-3.5 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 md:px-5 py-3.5 border-b border-slate-100">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
               <span className="w-1 h-3.5 rounded-full bg-amber-500 shrink-0"></span> Validasi pendaftaran warga baru
             </h2>
@@ -277,41 +277,63 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
               Buka halaman verifikasi →
             </TautanHalus>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
-                  <th className="px-4 py-2.5 font-bold w-[20%]">Nama Kepala Keluarga</th>
-                  <th className="px-4 py-2.5 font-bold w-[25%]">NIK &amp; Kontak</th>
-                  <th className="px-4 py-2.5 font-bold w-[15%]">Status &amp; Alamat</th>
-                  <th className="px-4 py-2.5 font-bold w-[20%]">Anggota Keluarga</th>
-                  <th className="px-4 py-2.5 font-bold text-center w-[10%]">Status Saat Ini</th>
-                  <th className="px-4 py-2.5 font-bold text-center w-[10%]">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {wargaList.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[13px] text-slate-400 font-medium italic">Belum ada data pendaftaran warga terbaru.</td></tr>
-                ) : (
-                  wargaList.map((w) => (
-                    <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-[13px] text-slate-800">{w.nama_lengkap || <span className="italic font-medium text-slate-400">Tanpa nama</span>}</td>
-                      <td className="px-4 py-3"><div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik || '-'}</div><div className="text-[11px] text-slate-600 font-mono mt-0.5">WA: {w.no_whatsapp || '-'}</div></td>
-                      <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider inline-block mb-1">{w.status_tinggal || 'Tidak diisi'}</span><div className="text-[11px] text-slate-500 truncate max-w-[150px] leading-relaxed">{w.detail_alamat || '-'}</div></td>
-                      <td className="px-4 py-3">{(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? <span className="text-[11px] text-slate-400 font-medium">Sendiri</span> : <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-0.5">{w.anggota_keluarga.map((ak: any, idx: number) => <li key={idx}><span className="font-semibold">{ak.nama_lengkap}</span></li>)}</ul>}</td>
-                      <td className="px-4 py-3 text-center"><span className={`font-bold text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${w.status_verifikasi === 'Disetujui' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>{w.status_verifikasi}</span></td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex justify-center gap-1.5">
-                          <button onClick={() => handleValidasi(w.id, 'Disetujui', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors active:scale-95">{loadingId === w.id ? '...' : 'Sah'}</button>
-                          <button onClick={() => handleValidasi(w.id, 'Ditolak', w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors active:scale-95">Tolak</button>
-                        </div>
-                      </td>
+          {wargaList.length === 0 ? (
+            <p className="px-4 py-10 text-center text-[13px] text-slate-400 font-medium italic">Belum ada data pendaftaran warga terbaru.</p>
+          ) : (
+            <>
+              <div className="md:hidden divide-y divide-slate-100">
+                {wargaList.map((w) => (
+                  <article key={w.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-[13px] text-slate-800">{w.nama_lengkap || <span className="italic font-medium text-slate-400">Tanpa nama</span>}</h3>
+                      <span className={`shrink-0 font-bold text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${w.status_verifikasi === "Disetujui" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>{w.status_verifikasi}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600 font-mono space-y-0.5">
+                      <p>NIK: {w.nik || "-"}</p>
+                      <p>WA: {w.no_whatsapp || "-"}</p>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">{w.status_tinggal || "Tidak diisi"} · {w.detail_alamat || "-"}</p>
+                    <p className="text-[11px] text-slate-600">{(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? "Sendiri" : w.anggota_keluarga.map((ak: { nama_lengkap?: string }) => ak.nama_lengkap).filter(Boolean).join(", ")}</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => handleValidasi(w.id, "Disetujui", w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-2 rounded-lg disabled:opacity-50">{loadingId === w.id ? "..." : "Sah"}</button>
+                      <button type="button" onClick={() => handleValidasi(w.id, "Ditolak", w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="flex-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold px-3 py-2 rounded-lg disabled:opacity-50">Tolak</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
+                      <th className="px-4 py-2.5 font-bold w-[20%]">Nama Kepala Keluarga</th>
+                      <th className="px-4 py-2.5 font-bold w-[25%]">NIK &amp; Kontak</th>
+                      <th className="px-4 py-2.5 font-bold w-[15%]">Status &amp; Alamat</th>
+                      <th className="px-4 py-2.5 font-bold w-[20%]">Anggota Keluarga</th>
+                      <th className="px-4 py-2.5 font-bold text-center w-[10%]">Status Saat Ini</th>
+                      <th className="px-4 py-2.5 font-bold text-center w-[10%]">Aksi</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {wargaList.map((w) => (
+                      <tr key={w.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-[13px] text-slate-800">{w.nama_lengkap || <span className="italic font-medium text-slate-400">Tanpa nama</span>}</td>
+                        <td className="px-4 py-3"><div className="text-[11px] text-slate-600 font-mono">NIK: {w.nik || "-"}</div><div className="text-[11px] text-slate-600 font-mono mt-0.5">WA: {w.no_whatsapp || "-"}</div></td>
+                        <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider inline-block mb-1">{w.status_tinggal || "Tidak diisi"}</span><div className="text-[11px] text-slate-500 truncate max-w-[150px] leading-relaxed">{w.detail_alamat || "-"}</div></td>
+                        <td className="px-4 py-3">{(!w.anggota_keluarga || w.anggota_keluarga.length === 0) ? <span className="text-[11px] text-slate-400 font-medium">Sendiri</span> : <ul className="list-disc list-inside text-[11px] text-slate-600 space-y-0.5">{w.anggota_keluarga.map((ak: { nama_lengkap?: string }, idx: number) => <li key={idx}><span className="font-semibold">{ak.nama_lengkap}</span></li>)}</ul>}</td>
+                        <td className="px-4 py-3 text-center"><span className={`font-bold text-[10px] uppercase tracking-wider px-2 py-1 rounded-full ${w.status_verifikasi === "Disetujui" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>{w.status_verifikasi}</span></td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-1.5">
+                            <button type="button" onClick={() => handleValidasi(w.id, "Disetujui", w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors active:scale-95">{loadingId === w.id ? "..." : "Sah"}</button>
+                            <button type="button" onClick={() => handleValidasi(w.id, "Ditolak", w.nama_lengkap, w.ktp_path, w.kk_path)} disabled={loadingId === w.id} className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors active:scale-95">Tolak</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </section>
 
       </div>
