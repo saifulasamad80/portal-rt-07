@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/** Harus sama dengan JUDUL_PERMINTAAN_HAPUS_DATA di kebijakan-privasi.ts */
+export const JUDUL_PERMINTAAN_HAPUS_DATA = "Permintaan penghapusan data pribadi";
+
 export const BATAS_ANGGOTA_KELUARGA = 30;
 export const PESAN_TINJAUAN_PENGURUS =
   "Data salah satu anggota sudah tercatat dan perlu diperiksa pengurus RT.";
@@ -15,6 +18,10 @@ export function adalahTiketPerubahanKeluarga(judul: string | null | undefined): 
 
 export function adalahTiketPendaftaranWarga(judul: string | null | undefined): boolean {
   return String(judul || "").trim() === JUDUL_TIKET_PENDAFTARAN;
+}
+
+export function adalahTiketHapusData(judul: string | null | undefined): boolean {
+  return String(judul || "").trim() === JUDUL_PERMINTAAN_HAPUS_DATA;
 }
 
 export function statusTiketDariValidasiWarga(

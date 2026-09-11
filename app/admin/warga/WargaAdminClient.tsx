@@ -16,6 +16,7 @@ import {
   teksCari,
 } from "@/lib/cari-jiwa-warga";
 import PesanDialog from "@/components/PesanDialog";
+import TautanWhatsAppPdp from "@/components/TautanWhatsAppPdp";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -30,6 +31,7 @@ export default function WargaAdminClient({
   aksiResetPin,
   aksiSiarkanPdp,
   aksiTenggatPdp,
+  aksiJejakEkspor,
 }: {
   wargaList: any[],
   inventoriPdp: InventoriPdp | null,
@@ -39,6 +41,7 @@ export default function WargaAdminClient({
   aksiResetPin: any,
   aksiSiarkanPdp: () => Promise<{ success: boolean; message: string }>,
   aksiTenggatPdp: () => Promise<{ success: boolean; message: string }>,
+  aksiJejakEkspor: (jumlahKk: number) => Promise<{ success: boolean; message: string }>,
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -192,6 +195,12 @@ export default function WargaAdminClient({
   const handleExportPDF = async () => {
     setPdfLoading(true);
     try {
+      const jejak = await aksiJejakEkspor(filteredWarga.length);
+      if (!jejak.success) {
+        laporkan("gagal", jejak.message || "Jejak ekspor wajib sebelum unduh.");
+        setPdfLoading(false);
+        return;
+      }
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
       const doc = new jsPDF("landscape"); 
@@ -210,8 +219,13 @@ export default function WargaAdminClient({
         w.anggota_keluarga ? w.anggota_keluarga.length : 0
       ]);
 
+      doc.setFontSize(9);
+      doc.setTextColor(180, 40, 40);
+      doc.text("RAHASIA — data pribadi warga. Jangan disebar di luar pengurus.", 14, 37);
+      doc.setTextColor(0, 0, 0);
+
       autoTable(doc, {
-        startY: 40, head: [['No', 'Nama Kepala Keluarga', 'NIK', 'WhatsApp', 'Status', 'Alamat', 'Jml Tanggungan']],
+        startY: 42, head: [['No', 'Nama Kepala Keluarga', 'NIK', 'WhatsApp', 'Status', 'Alamat', 'Jml Tanggungan']],
         body: tableData, theme: 'grid', headStyles: { fillColor: [30, 41, 59] }, styles: { fontSize: 8 }, columnStyles: { 0: { cellWidth: 10 }, 2: { font: "courier" } }
       });
 
@@ -417,9 +431,9 @@ export default function WargaAdminClient({
                           </div>
                           
                           {adaWhatsApp(nomorWa) ? (
-                            <a href={`https://wa.me/${formatWA(nomorWa)}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 border border-emerald-200 w-fit">
+                            <TautanWhatsAppPdp href={`https://wa.me/${formatWA(nomorWa)}`} className="text-[10px] font-mono font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md transition-colors inline-flex items-center gap-1 border border-emerald-200 w-fit">
                               💬 {nomorWa}
-                            </a>
+                            </TautanWhatsAppPdp>
                           ) : (
                             <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 w-fit">WA: Kosong</span>
                           )}

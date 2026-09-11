@@ -4,6 +4,7 @@ import TautanHalus from "@/components/TautanHalus";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PesanDialog from "@/components/PesanDialog";
+import TautanWhatsAppPdp from "@/components/TautanWhatsAppPdp";
 import {
   PATH_SURAT_PERSETUJUAN,
   VERSI_KEBIJAKAN_PRIVASI,
@@ -150,6 +151,7 @@ export default function WargaDetailClient({
   const [setujuKeuanganKertas, setSetujuKeuanganKertas] = useState(false);
   const [setujuAnggotaKertas, setSetujuAnggotaKertas] = useState(false);
   const [setujuAnakKertas, setSetujuAnakKertas] = useState(false);
+  const [setujuKesehatanKertas, setSetujuKesehatanKertas] = useState(false);
   const [berkasSurat, setBerkasSurat] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
@@ -356,9 +358,9 @@ export default function WargaDetailClient({
                 <dt className="text-slate-500">WhatsApp</dt>
                 <dd className="col-span-2">
                   {!nilaiKosong(warga.no_whatsapp) ? (
-                    <a href={`https://wa.me/${formatWA(warga.no_whatsapp || "")}`} target="_blank" rel="noopener noreferrer" className="font-mono text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md text-xs font-semibold">
+                    <TautanWhatsAppPdp href={`https://wa.me/${formatWA(warga.no_whatsapp || "")}`} className="font-mono text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md text-xs font-semibold">
                       {warga.no_whatsapp}
-                    </a>
+                    </TautanWhatsAppPdp>
                   ) : <span className="text-slate-400">—</span>}
                 </dd>
               </div>
@@ -416,6 +418,7 @@ export default function WargaDetailClient({
             <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuKeuanganKertas} onChange={(e) => setSetujuKeuanganKertas(e.target.checked)} /><span>Izin data keuangan dicentang di surat.</span></label>
             <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuAnggotaKertas} onChange={(e) => setSetujuAnggotaKertas(e.target.checked)} /><span>Izin anggota keluarga dicentang di surat.</span></label>
             <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuAnakKertas} onChange={(e) => setSetujuAnakKertas(e.target.checked)} /><span>Izin wali anak dicentang di surat.</span></label>
+            <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuKesehatanKertas} onChange={(e) => setSetujuKesehatanKertas(e.target.checked)} /><span>Izin kesehatan/posyandu dicentang di surat.</span></label>
           </div>
           <input
             type="file"
@@ -444,6 +447,7 @@ export default function WargaDetailClient({
                   data_keuangan: setujuKeuanganKertas,
                   data_anggota: setujuAnggotaKertas,
                   data_anak: setujuAnakKertas,
+                  data_kesehatan: setujuKesehatanKertas,
                 },
               });
             })}

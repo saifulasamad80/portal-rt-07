@@ -378,3 +378,43 @@ export async function pulihkanBundelKotakSampah(
     dipulihkan,
   };
 }
+
+export async function hapusKotakSampahKedaluwarsa(
+  supabase: SupabaseClient,
+  rtId: string,
+  aktor: string,
+  hari = 30
+): Promise<HasilKotakSampah> {
+  const rtSah = uuidTenantSah(rtId);
+  if (!rtSah) return { success: false, message: "Wilayah RT tidak valid." };
+  if (!Number.isInteger(hari) || hari < 1 || hari > 365) {
+    return { success: false, message: "Jangka TTL kotak sampah tidak valid." };
+  }
+
+  const { data, error } = await supabase.rpc("hapus_kotak_sampah_kedaluwarsa", {
+    p_rt_id: rtSah,
+    p_hari: hari,
+  });
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") {
+      return { success: false, message: "Fungsi TTL belum ada. Jalankan pdp-go-live-hak-subjek.sql." };
+    }
+    return { success: false, message: `Gagal menghapus kotak sampah kedaluwarsa: ${error.message}` };
+  }
+
+  const jumlah = Number(data || 0);
+  await supabase.from("audit_log").insert({
+    aktor: teks(aktor) || "pengurus",
+    aksi: "Purge kotak sampah PDP",
+    tabel_target: "kotak_sampah",
+    detail: `Dihapus permanen ${jumlah} baris lebih dari ${hari} hari.`,
+    rt_id: rtSah,
+  });
+  return {
+    success: true,
+    message: jumlah
+      ? `${jumlah} salinan kotak sampah lebih dari ${hari} hari dihapus permanen.`
+      : `Tidak ada salinan lebih dari ${hari} hari.`,
+    dipulihkan: jumlah,
+  };
+}

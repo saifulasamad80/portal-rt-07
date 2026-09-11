@@ -74,7 +74,6 @@ export type RekapVotingPublik = VotingPublik & {
 export type JumantikPublik = {
   jumlah_rumah_diperiksa: number | null;
   ditemukan_jentik: boolean | null;
-  warga_terjangkit_dbd: boolean | null;
   created_at: string | null;
 };
 
@@ -134,7 +133,7 @@ function dataAtauKosong<T>(
 
 async function ambilDemografiSah(supabase: SupabaseClient, tenant: string) {
   const pilih =
-    "id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan, anggota_keluarga(id, rt_id, tanggal_lahir, jenis_kelamin, agama, pekerjaan)";
+    "id, rt_id, tanggal_lahir, jenis_kelamin, pekerjaan, anggota_keluarga(id, rt_id, tanggal_lahir, jenis_kelamin, pekerjaan)";
   const dasar = () =>
     supabase
       .from("warga")
@@ -283,7 +282,7 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
     ambilDemografiSah(supabase, tenant),
     supabase
       .from("laporan_jumantik")
-      .select("jumlah_rumah_diperiksa, ditemukan_jentik, warga_terjangkit_dbd, created_at")
+      .select("jumlah_rumah_diperiksa, ditemukan_jentik, created_at")
       .eq("rt_id", tenant)
       .order("created_at", { ascending: false })
       .limit(1)

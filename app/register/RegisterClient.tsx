@@ -28,55 +28,13 @@ type AnggotaKeluarga = {
   fileKtp: File | null; ktpMenyusul: boolean;
 };
 
-type AnggotaKeluargaDraft = Omit<AnggotaKeluarga, "fileKtp">;
-
 type DraftRegister = {
-  nik: string;
-  nama: string;
-  wa: string;
-  statusTinggal: string;
-  detailAlamat: string;
-  tglLahir: string;
-  tempatLahir: string;
-  gender: string;
-  agama: string;
-  pekerjaan: string;
-  pendidikan: string;
-  noKk: string;
-  pendapatan: string;
-  listrik: string;
   dokumenMenyusul: boolean;
-  anggota: AnggotaKeluargaDraft[];
+  jumlahAnggota: number;
 };
 
 type HasilRegister = { success: boolean; message: string };
 type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown, persetujuan: unknown) => Promise<HasilRegister>;
-
-function anggotaKeDraft(item: AnggotaKeluarga): AnggotaKeluargaDraft {
-  const { fileKtp: _fileKtp, ...sisa } = item;
-  void _fileKtp;
-  return sisa;
-}
-
-function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaKeluarga[]): AnggotaKeluarga[] {
-  if (!Array.isArray(mentah) || mentah.length === 0) return fallback;
-  return mentah
-    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
-    .map((item) => ({
-      nama: String(item.nama ?? ""),
-      nik: String(item.nik ?? ""),
-      hubungan: String(item.hubungan ?? ""),
-      hubunganDetail: String(item.hubunganDetail ?? ""),
-      tglLahir: String(item.tglLahir ?? ""),
-      tempatLahir: String(item.tempatLahir ?? ""),
-      gender: String(item.gender ?? ""),
-      agama: String(item.agama ?? ""),
-      pekerjaan: String(item.pekerjaan ?? ""),
-      pendidikan: String(item.pendidikan ?? ""),
-      fileKtp: null,
-      ktpMenyusul: Boolean(item.ktpMenyusul),
-    }));
-}
 
 export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { aksiRegister: AksiRegister; alasan?: string; namaWilayah: string }) {
   const router = useRouter();
@@ -100,30 +58,28 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
   const [setujuAnggota, setSetujuAnggota] = useState(false);
   const [setujuAnak, setSetujuAnak] = useState(false);
   const [setujuKeuangan, setSetujuKeuangan] = useState(false);
+  const [setujuKesehatan, setSetujuKesehatan] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const mentah = window.localStorage.getItem(kunciDraft);
       if (mentah) {
-        const parsed = JSON.parse(mentah) as Partial<DraftRegister> | null;
+        const parsed = JSON.parse(mentah) as Record<string, unknown> | null;
         if (parsed && typeof parsed === "object") {
-          setNik(String(parsed.nik ?? ""));
-          setNama(String(parsed.nama ?? ""));
-          setWa(String(parsed.wa ?? ""));
-          setStatusTinggal(String(parsed.statusTinggal ?? ""));
-          setDetailAlamat(String(parsed.detailAlamat ?? ""));
-          setTglLahir(String(parsed.tglLahir ?? ""));
-          setTempatLahir(String(parsed.tempatLahir ?? ""));
-          setGender(String(parsed.gender ?? ""));
-          setAgama(String(parsed.agama ?? ""));
-          setPekerjaan(String(parsed.pekerjaan ?? ""));
-          setPendidikan(String(parsed.pendidikan ?? ""));
-          setNoKk(String(parsed.noKk ?? "").replace(/\D/g, "").slice(0, 16));
-          setPendapatan(String(parsed.pendapatan ?? ""));
-          setListrik(String(parsed.listrik ?? ""));
-          setDokumenMenyusul(Boolean(parsed.dokumenMenyusul));
-          setAnggota(normalisasiAnggotaDraft(parsed.anggota, []));
+          if (typeof parsed.nik === "string" && parsed.nik) {
+            window.localStorage.removeItem(kunciDraft);
+          } else {
+            setDokumenMenyusul(Boolean(parsed.dokumenMenyusul));
+            const jumlah = Number(parsed.jumlahAnggota);
+            if (Number.isInteger(jumlah) && jumlah > 0) {
+              setAnggota(Array.from({ length: Math.min(jumlah, MAKS_ANGGOTA) }, () => ({
+                nama: "", nik: "", hubungan: "", hubunganDetail: "", tglLahir: "",
+                tempatLahir: "", gender: "", agama: "", pekerjaan: "", pendidikan: "",
+                fileKtp: null, ktpMenyusul: false,
+              })));
+            }
+          }
         }
       }
     } catch {
@@ -138,47 +94,14 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     if (!draftSiap) return;
     try {
       const draft: DraftRegister = {
-        nik,
-        nama,
-        wa,
-        statusTinggal,
-        detailAlamat,
-        tglLahir,
-        tempatLahir,
-        gender,
-        agama,
-        pekerjaan,
-        pendidikan,
-        noKk,
-        pendapatan,
-        listrik,
         dokumenMenyusul,
-        anggota: anggota.map(anggotaKeDraft),
+        jumlahAnggota: anggota.length,
       };
       window.localStorage.setItem(kunciDraft, JSON.stringify(draft));
     } catch {
       // Abaikan kuota atau mode privat.
     }
-  }, [
-    draftSiap,
-    kunciDraft,
-    nik,
-    nama,
-    wa,
-    statusTinggal,
-    detailAlamat,
-    tglLahir,
-    tempatLahir,
-    gender,
-    agama,
-    pekerjaan,
-    pendidikan,
-    noKk,
-    pendapatan,
-    listrik,
-    dokumenMenyusul,
-    anggota,
-  ]);
+  }, [draftSiap, kunciDraft, dokumenMenyusul, anggota.length]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, tipe: 'ktp' | 'kk') => {
     const file = e.target.files?.[0];
@@ -287,6 +210,9 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     if (adaAnak && !setujuAnak) {
       return alert("Data anak di bawah 18 tahun membutuhkan persetujuan orang tua atau wali.");
     }
+    if ((pendapatan || listrik) && !setujuKeuangan) {
+      return alert("Kisaran pendapatan hanya disimpan jika Anda mencentang izin data keuangan. Kosongkan isian itu atau beri izin.");
+    }
 
     setLoading(true);
     try {
@@ -331,6 +257,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
         data_anggota: anggota.length > 0 && setujuAnggota,
         data_anak: adaAnak && setujuAnak,
         data_keuangan: setujuKeuangan,
+        data_kesehatan: setujuKesehatan,
       });
       if (!hasil?.success) {
         alert(hasil?.message || "Pendaftaran belum dapat diproses saat ini.");
@@ -419,7 +346,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
                 <label className="block text-[10px] font-black uppercase text-amber-800 mb-1 text-center">Buat PIN Portal (6 Angka)</label>
                 <input type="password" maxLength={6} minLength={6} required className="w-full border border-amber-300 bg-white text-slate-900 rounded p-2 font-mono tracking-widest text-center text-xl shadow-inner" value={pin} onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))} autoComplete="new-password" />
-                <p className="text-[10px] text-amber-800 mt-1.5 leading-relaxed">PIN tidak disimpan di draf peramban. Ketik ulang sebelum kirim.</p>
+                <p className="text-[10px] text-amber-800 mt-1.5 leading-relaxed">Draf peramban tidak menyimpan PIN, NIK, WhatsApp, nomor KK, atau data keuangan.</p>
               </div>
             </div>
 
@@ -452,9 +379,9 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
             <p className="text-[11px] text-slate-500 leading-relaxed">Kisaran pendapatan dan daya listrik untuk program RT (santunan, pendataan lingkungan). Bukan data DTKS dan bukan penyaluran bansos pemerintah. Termasuk data keuangan pribadi — persetujuan khusus di bagian bawah.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Rata-rata Pendapatan / Bulan</label>
-                <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold text-sm" value={pendapatan} onChange={(e) => setPendapatan(e.target.value)}>
-                  <option value="" disabled>Pilih Skala Pendapatan...</option>
+                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Rata-rata Pendapatan / Bulan (opsional)</label>
+                <select className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold text-sm" value={pendapatan} onChange={(e) => setPendapatan(e.target.value)}>
+                  <option value="">Tidak diisi</option>
                   <option value="< 1 Juta">Kurang dari Rp 1.000.000</option>
                   <option value="1 - 3 Juta">Rp 1.000.000 - Rp 3.000.000</option>
                   <option value="3 - 5 Juta">Rp 3.000.000 - Rp 5.000.000</option>
@@ -463,9 +390,9 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Daya Listrik Terpasang</label>
-                <select required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold text-sm" value={listrik} onChange={(e) => setListrik(e.target.value)}>
-                  <option value="" disabled>Pilih Daya Listrik...</option>
+                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Daya Listrik Terpasang (opsional)</label>
+                <select className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-bold text-sm" value={listrik} onChange={(e) => setListrik(e.target.value)}>
+                  <option value="">Tidak diisi</option>
                   <option value="450 VA (Subsidi)">450 VA (Subsidi)</option>
                   <option value="900 VA (Subsidi)">900 VA (Subsidi)</option>
                   <option value="900 VA (Non-Subsidi)">900 VA (Non-Subsidi)</option>
@@ -586,6 +513,12 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
               <input type="checkbox" className="mt-1" checked={setujuKeuangan} onChange={(e) => setSetujuKeuangan(e.target.checked)} />
               <span className="text-sm text-slate-700 leading-relaxed">
                 Saya menyetujui pemrosesan kisaran pendapatan dan daya listrik rumah tangga untuk program RT, bukan untuk DTKS/bansos pemerintah.
+              </span>
+            </label>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={setujuKesehatan} onChange={(e) => setSetujuKesehatan(e.target.checked)} />
+              <span className="text-sm text-slate-700 leading-relaxed">
+                Saya menyetujui pencatatan kunjungan posyandu individu (berat, tinggi, imunisasi, atau tensi) bila pengurus menimbangnya. Tanpa centang ini, rekam kesehatan individu tidak disimpan.
               </span>
             </label>
             {anggota.length > 0 ? (

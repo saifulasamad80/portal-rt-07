@@ -10,6 +10,7 @@ import { ambilCapCarikRumahTangga, ambilCerminRumahTangga } from "@/lib/rumah-ta
 import { jumlahAnakDariTanggal } from "@/lib/kebijakan-privasi";
 import { ambilPersetujuanTerbaru } from "@/lib/persetujuan-data";
 import PemberitahuanPdpPortal from "@/components/PemberitahuanPdpPortal";
+import HakSubjekPortal from "@/components/HakSubjekPortal";
 
 const FITUR_LAPOR_AKTIF = false;
 
@@ -155,6 +156,11 @@ export default async function PortalWarga() {
           jumlahAnggota={tanggalAnggota.length}
           jumlahAnak={jumlahAnakDariTanggal(tanggalAnggota)}
           sudahAdaJejak={Boolean(jejakPdp.ok && jejakPdp.data)}
+        />
+        <HakSubjekPortal
+          bolehIsiIzin={!capRumahTangga.rumah.adalahTanggungan}
+          izinKeuangan={Boolean(jejakPdp.ok && jejakPdp.data?.data_keuangan)}
+          izinKesehatan={Boolean(jejakPdp.ok && jejakPdp.data?.data_kesehatan)}
         />
         <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">

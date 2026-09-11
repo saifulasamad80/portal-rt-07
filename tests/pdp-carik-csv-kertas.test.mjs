@@ -18,7 +18,7 @@ test("Tenggat data spesifik 60 hari setelah pemberitahuan 11 September 2026", ()
   assert.equal(tenggatPdpSudahLewat(new Date("2026-11-10T00:00:00.000Z")), true);
 });
 
-test("Carik boleh menolak keuangan; register tetap mewajibkannya", () => {
+test("Keuangan wajib hanya jika isian diisi", () => {
   const dasar = {
     versi_naskah: VERSI_KEBIJAKAN_PRIVASI,
     baca_kebijakan: true,
@@ -26,14 +26,17 @@ test("Carik boleh menolak keuangan; register tetap mewajibkannya", () => {
     data_anggota: false,
     data_anak: false,
     data_keuangan: false,
+    data_kesehatan: false,
   };
   const carik = normalisasiPersetujuanLaporDiri(dasar, 0, 0, {
     wajibKeuangan: false,
     pesanWajib: PESAN_PERSETUJUAN_CARIK,
   });
   assert.equal(carik.ok, true);
-  const daftar = normalisasiPersetujuanLaporDiri(dasar, 0, 0);
-  assert.equal(daftar.ok, false);
+  const daftarKosong = normalisasiPersetujuanLaporDiri(dasar, 0, 0, { wajibKeuangan: false });
+  assert.equal(daftarKosong.ok, true);
+  const daftarWajib = normalisasiPersetujuanLaporDiri(dasar, 0, 0, { wajibKeuangan: true });
+  assert.equal(daftarWajib.ok, false);
 });
 
 test("Carik, CSV, surat kertas, dan tenggat menempel di naskah yang sama", async () => {

@@ -71,6 +71,10 @@ export default function TombolNotifikasiPush({
     setStatus("menunggu");
     setPesan("");
     try {
+      if (!confirm("Notifikasi memakai OneSignal di Amerika Serikat. Alias akun dan token perangkat dikirim ke sana, bukan NIK. Izinkan?")) {
+        setStatus("idle");
+        return;
+      }
       if (typeof Notification === "undefined") {
         setStatus("tidak-didukung");
         setPesan("Peramban ini tidak menyediakan izin notifikasi.");

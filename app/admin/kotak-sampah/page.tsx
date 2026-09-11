@@ -5,10 +5,12 @@ import { otentikasiAdminAktif } from "@/lib/session-security";
 import { getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
 import {
   daftarKotakSampah,
+  hapusKotakSampahKedaluwarsa,
   kelompokkanBundel,
   pulihkanBundelKotakSampah,
   pulihkanItemKotakSampah,
 } from "@/lib/kotak-sampah";
+import { HARI_TTL_KOTAK_SAMPAH } from "@/lib/kebijakan-privasi";
 import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function HalamanKotakSampah() {
@@ -16,6 +18,12 @@ export default async function HalamanKotakSampah() {
   if (!otentikasi.ok) redirect("/admin");
 
   const privileged = getSupabaseAdminClientDariSesi(otentikasi.sesi);
+  await hapusKotakSampahKedaluwarsa(
+    privileged,
+    otentikasi.sesi.rtId,
+    otentikasi.sesi.nama,
+    HARI_TTL_KOTAK_SAMPAH
+  );
   const daftar = await daftarKotakSampah(privileged, otentikasi.sesi.rtId);
   const bundel = daftar.ok ? kelompokkanBundel(daftar.data) : [];
 

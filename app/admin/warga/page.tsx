@@ -21,7 +21,7 @@ import {
   JUDUL_PENGUMUMAN_PDP,
   PESAN_IMPOR_CSV_DITOLAK,
 } from "@/lib/kebijakan-privasi";
-import { hitungInventoriPdp, kosongkanDataSpesifikLewatTenggat } from "@/lib/persetujuan-data";
+import { hitungInventoriPdp, kosongkanDataSpesifikLewatTenggat, catatJejakEksporBukuInduk } from "@/lib/persetujuan-data";
 
 function validasiIdWarga(id: unknown): { ok: true; id: string } | { ok: false; message: string } {
   const bersih = String(id ?? "").trim();
@@ -279,6 +279,24 @@ export default async function WargaAdminPage() {
     }
   }
 
+  async function jejakEksporBukuInduk(jumlahKk: number) {
+    "use server";
+    try {
+      const otentikasi = await otentikasiAdmin();
+      if (!otentikasi.ok) return { success: false, message: otentikasi.message };
+      const jumlah = Math.max(0, Math.floor(Number(jumlahKk) || 0));
+      const hasil = await catatJejakEksporBukuInduk(
+        getSupabaseAdminClientDariSesi(otentikasi.sesi),
+        { rtId: otentikasi.sesi.rtId, aktor: otentikasi.sesi.nama, jumlahKk: jumlah }
+      );
+      if (!hasil.ok) return { success: false, message: hasil.message };
+      return { success: true, message: "Jejak ekspor tercatat." };
+    } catch (err: unknown) {
+      const pesan = err instanceof Error ? err.message : "Jejak ekspor belum tercatat.";
+      return { success: false, message: pesan };
+    }
+  }
+
   return (
     <WargaAdminClient
       wargaList={wargaListAman}
@@ -289,6 +307,7 @@ export default async function WargaAdminPage() {
       aksiResetPin={resetPinWarga}
       aksiSiarkanPdp={siarkanPemberitahuanPdp}
       aksiTenggatPdp={jalankanTenggatPdp}
+      aksiJejakEkspor={jejakEksporBukuInduk}
     />
   );
 }

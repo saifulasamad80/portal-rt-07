@@ -27,6 +27,7 @@ export default function PemberitahuanPdpPortal({
   const [keuangan, setKeuangan] = useState(false);
   const [anggota, setAnggota] = useState(false);
   const [anak, setAnak] = useState(false);
+  const [kesehatan, setKesehatan] = useState(false);
   const [pesan, setPesan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +42,7 @@ export default function PemberitahuanPdpPortal({
         data_keuangan: keuangan,
         data_anggota: jumlahAnggota > 0 && anggota,
         data_anak: jumlahAnak > 0 && anak,
+        data_kesehatan: kesehatan,
       });
       setPesan(hasil.message);
     } catch {
@@ -86,6 +88,10 @@ export default function PemberitahuanPdpPortal({
               <span>Saya wali anak di bawah {USIA_ANAK_PDP} tahun yang tercatat.</span>
             </label>
           ) : null}
+          <label className="flex items-start gap-2 text-[13px] text-slate-700">
+            <input type="checkbox" className="mt-1" checked={kesehatan} onChange={(e) => setKesehatan(e.target.checked)} />
+            <span>Saya setuju pengurus mencatat kunjungan posyandu individu rumah tangga ini.</span>
+          </label>
           <button type="button" disabled={loading} onClick={kirim} className="rounded-lg bg-slate-900 text-white text-xs font-bold px-4 py-2 disabled:opacity-50">
             {loading ? "Menyimpan..." : "Catat izin"}
           </button>

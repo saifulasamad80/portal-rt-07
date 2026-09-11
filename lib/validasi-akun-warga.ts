@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { tutupTiketPendaftaranWarga } from "@/lib/kebijakan-sensus";
+import { tutupTiketPendaftaranWarga, samarkanNik } from "@/lib/kebijakan-sensus";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   otorisasiWargaUntukAdmin,
@@ -59,7 +59,7 @@ export async function prosesValidasiAkunWarga(
       aktor: sesi.nama,
       aksi: `${labelAksi}: ${statusBersih}`,
       tabel_target: "warga",
-      detail: `Warga: ${target.sesi.nama} (NIK ${target.sesi.nik}) menjadi ${statusBersih}`,
+      detail: `Warga: ${target.sesi.nama} (${samarkanNik(target.sesi.nik)}) menjadi ${statusBersih}`,
       rt_id: wilayah.rtIdTulis,
     },
   ]);

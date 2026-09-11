@@ -4,6 +4,7 @@ import Script from "next/script";
 import AjakanPasangAplikasi from "@/components/AjakanPasangAplikasi";
 import InisialisasiOneSignal from "@/components/InisialisasiOneSignal";
 import PesanDialogProvider from "@/components/PesanDialogProvider";
+import PemberitahuanCookie from "@/components/PemberitahuanCookie";
 import { ONESIGNAL_SDK_URL } from "@/lib/onesignal";
 import "./globals.css";
 
@@ -102,6 +103,7 @@ export default function RootLayout({
         <AjakanPasangAplikasi />
         <InisialisasiOneSignal />
         <PesanDialogProvider />
+        <PemberitahuanCookie />
       </body>
     </html>
   );

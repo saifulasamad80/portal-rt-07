@@ -3,13 +3,17 @@
  * server-only) agar halaman publik, formulir register, dan Server Action
  * memakai teks serta nomor versi yang sama.
  */
-export const VERSI_KEBIJAKAN_PRIVASI = "2026-09-11";
+export const VERSI_KEBIJAKAN_PRIVASI = "2026-09-12";
 export const PATH_KEBIJAKAN_PRIVASI = "/kebijakan-privasi";
 export const PATH_SURAT_PERSETUJUAN = "/kebijakan-privasi/surat";
 export const USIA_ANAK_PDP = 18;
 export const TANGGAL_PEMBERITAHUAN_PDP = "2026-09-11";
 export const HARI_TENGGAT_DATA_SPESIFIK = 60;
+export const HARI_TTL_KOTAK_SAMPAH = 30;
 export const JUDUL_PENGUMUMAN_PDP = "Pemberitahuan pelindungan data pribadi";
+export const JUDUL_PERMINTAAN_HAPUS_DATA = "Permintaan penghapusan data pribadi";
+export const KONTAK_PELINDUGAN_DATA =
+  "Pengurus RT Anda adalah kontak pelindungan data untuk wilayahnya. Pengaduan ke lembaga pengawas tetap terbuka sesuai UU 27/2022.";
 
 export const PESAN_PERSETUJUAN_WAJIB =
   "Pendaftaran ditolak: baca dan setujui Kebijakan Privasi terlebih dahulu.";
@@ -18,7 +22,7 @@ export const PESAN_PERSETUJUAN_CARIK =
 export const PESAN_IMPOR_CSV_DITOLAK =
   "Impor CSV NIK dimatikan. Pendaftaran warga baru lewat Lapor Diri atau surat pernyataan kertas yang naskahnya sama dengan Kebijakan Privasi. Impor massal tanpa dasar dan tanpa pemberitahuan ke subjek tidak diperbolehkan.";
 
-export type SumberPersetujuan = "lapor_diri" | "carik" | "kertas" | "portal";
+export type SumberPersetujuan = "lapor_diri" | "carik" | "kertas" | "portal" | "penarikan";
 
 export type PersetujuanLaporDiri = {
   versi_naskah: string;
@@ -27,6 +31,7 @@ export type PersetujuanLaporDiri = {
   data_anggota: boolean;
   data_anak: boolean;
   data_keuangan: boolean;
+  data_kesehatan: boolean;
 };
 
 export type JejakPersetujuan = {
@@ -38,6 +43,7 @@ export type JejakPersetujuan = {
   data_keuangan: boolean;
   data_anggota: boolean;
   data_anak: boolean;
+  data_kesehatan: boolean;
   berkas_path: string | null;
   dicatat_pada: string;
 };
@@ -102,10 +108,11 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
       "Identitas: NIK, nomor KK, nama lengkap, tempat dan tanggal lahir, jenis kelamin, agama, pekerjaan, pendidikan, status tinggal, dan alamat.",
       "Kontak: nomor WhatsApp, supaya pengurus bisa menghubungi Anda untuk verifikasi, pengumuman, atau keperluan lingkungan.",
       "Dokumen: foto Kartu Keluarga, jika Anda mengunggahnya. Unggah foto KTP sedang dimatikan.",
-      "Gambaran rumah tangga: kisaran pendapatan bulanan dan daya listrik. Ini untuk program lingkungan (misalnya santunan atau pendataan), bukan data DTKS Kemensos, dan bukan untuk menyalurkan bansos pemerintah. Kalau suatu saat pengurus ingin memakainya untuk itu, kami akan minta izin baru.",
+      "Gambaran rumah tangga: kisaran pendapatan bulanan dan daya listrik — opsional. Ini untuk program lingkungan (misalnya santunan atau pendataan), bukan data DTKS Kemensos, dan bukan untuk menyalurkan bansos pemerintah. Kalau suatu saat pengurus ingin memakainya untuk itu, kami akan minta izin baru.",
       "Anggota keluarga: data serupa untuk orang yang Anda daftarkan, termasuk anak di bawah 18 tahun jika Anda mengisinya sebagai orang tua atau wali.",
-      "Kunci masuk portal: PIN Anda tidak disimpan apa adanya. Kami hanya menyimpan jejak acaknya, sehingga angka asli tidak terbaca. Saat Anda masuk, portal memakai cookie yang tidak bisa dibaca sembarang situs.",
-      "Pemberitahuan di HP atau komputer: hanya jika Anda menyalakan notifikasi. Penyedia notifikasi menerima alias akun, bukan NIK.",
+      "Kesehatan: catatan posyandu (berat, tinggi, imunisasi, tensi, gula darah) hanya jika pengurus mencatat kunjungan dan rumah tangga memberi izin kesehatan. Tanpa izin itu, kunjungan individu tidak boleh disimpan.",
+      "Kunci masuk portal: PIN Anda tidak disimpan apa adanya. Kami hanya menyimpan jejak acaknya, sehingga angka asli tidak terbaca. Saat Anda masuk, portal memakai cookie sesi HttpOnly yang tidak bisa dibaca sembarang situs. Cookie itu wajib agar login jalan, bukan untuk iklan.",
+      "Pemberitahuan di HP atau komputer: hanya jika Anda menyalakan notifikasi setelah membaca risiko transfer ke luar negeri. Penyedia notifikasi (OneSignal, Amerika Serikat) menerima alias akun dan token perangkat, bukan NIK.",
     ],
   },
   {
@@ -125,8 +132,8 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     paragraf: [
       "Pengurus RT Anda: biodata, dokumen KK, dan data keluarga, untuk verifikasi dan administrasi.",
       "Anda sendiri, setelah akun disetujui: data rumah tangga Anda di portal.",
-      "Tempat penyimpanan digital (Supabase) dan tempat aplikasi dijalankan (Vercel): mereka menyimpan dan menampilkan data atas instruksi kami. Server mereka bisa berada di luar Indonesia — seperti menitipkan brankas di gedung yang terjaga, bukan di rumah ketua RT.",
-      "Penyedia notifikasi (OneSignal), hanya jika Anda menyalakan notifikasi: alias akun dan isi pemberitahuan, bukan NIK.",
+      "Tempat penyimpanan digital (Supabase, wilayah Singapore) dan tempat aplikasi dijalankan (Vercel): mereka menyimpan dan menampilkan data atas instruksi kami. Server Vercel dan CDN-nya bisa berada di luar Indonesia. Dengan memakai portal, Anda memahami risiko itu: hukum pelindungan data di negara tujuan bisa berbeda.",
+      "Penyedia notifikasi (OneSignal, Amerika Serikat), hanya jika Anda menyalakan notifikasi setelah konfirmasi terpisah: alias akun, token perangkat, dan isi pemberitahuan, bukan NIK.",
       "WhatsApp/Meta, hanya jika pengurus mengetuk tautan chat ke nomor Anda (misalnya menagih iuran): nomor dan teks yang diketik pengurus.",
       "Kami tidak menjual data. Kami tidak membagikannya ke RT lain.",
     ],
@@ -136,8 +143,8 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     judul: "6. Berapa lama data disimpan",
     paragraf: [
       "Selama Anda tercatat sebagai warga RT dan akun masih dibutuhkan untuk layanan portal.",
-      "Jika pengurus menghapus data, salinan sementara bisa masuk kotak sampah internal. Saat ini kotak itu belum dikosongkan otomatis. Untuk hapus permanen, sampaikan ke pengurus.",
-      "Salinan pengaman (cadangan) bisa bertahan lebih lama, sesuai jadwal harian, mingguan, atau tahunan. Cadangan tidak boleh dipakai untuk menghidupkan kembali data yang sudah sah dihapus, kecuali ada kewajiban hukum.",
+      "Jika pengurus menghapus data, salinan sementara masuk kotak sampah internal selama 30 hari, lalu dihapus permanen dari sistem operasional.",
+      "Salinan pengaman (cadangan) bisa bertahan lebih lama, sesuai jadwal harian, mingguan, atau tahunan. Setelah hapus sah, cadangan tidak boleh dipakai untuk menghidupkan data kembali, kecuali ada kewajiban hukum. Permintaan hapus di cadangan diteruskan operator hosting.",
     ],
   },
   {
@@ -146,8 +153,8 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     paragraf: [
       "Hak tahu: dokumen ini, plus penjelasan di formulir lapor diri.",
       "Hak melihat dan membetulkan: lewat portal (menu Carik / keluarga) setelah akun disetujui, atau lewat pengurus RT.",
-      "Hak menarik izin, membatasi pemakaian, dan meminta penghapusan: sampaikan ke pengurus RT. Portal belum punya tombol hapus akun atau unduh salinan sendiri. Itu keterbatasan sistem, bukan berarti hak Anda hilang.",
-      "Hak mengadu ke lembaga pengawas pelindungan data pribadi, sesuai peraturan yang berlaku.",
+      "Hak unduh salinan rumah tangga, menarik izin keuangan atau kesehatan, dan mengajukan penghapusan akun: lewat beranda portal (kepala keluarga). Penghapusan diproses pengurus; data operasional masuk kotak sampah 30 hari. Indeks pemilu yang sudah tercatat bisa diarsipkan, bukan dihapus, demi integritas surat suara.",
+      "Hak mengadu ke lembaga pengawas pelindungan data pribadi, sesuai peraturan yang berlaku. Kontak pelindungan data: pengurus RT Anda.",
     ],
   },
   {
@@ -155,8 +162,8 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     judul: "8. Cara kami menjaga data",
     paragraf: [
       "PIN disimpan dalam bentuk yang tidak bisa dibaca balik. Cookie sesi dikunci agar tidak bisa disalin sembarangan. Foto KK disimpan di ruang privat, bukan tautan yang bisa dibuka siapa pun.",
-      "Draf formulir di peramban tidak menyimpan PIN. Anda harus mengetik ulang PIN sebelum mengirim.",
-      "Tidak ada sistem yang benar-benar kebal. Kalau terjadi insiden yang berisiko terhadap data Anda, kami akan berupaya memberitahu sesuai kewajiban hukum.",
+      "Draf formulir di peramban tidak menyimpan PIN, NIK, WhatsApp, nomor KK, atau data keuangan.",
+      "Tidak ada sistem yang benar-benar kebal. Kalau terjadi insiden yang berisiko terhadap data Anda, pengurus atau operator akan memberitahu subjek dan Menteri sesuai Pasal 46 (3×24 jam setelah diketahui) lewat prosedur tertulis di repositori.",
     ],
   },
   {
@@ -165,6 +172,7 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     paragraf: [
       "Anak di sini artinya belum berusia 18 tahun. Data anak hanya boleh diisi oleh orang tua atau wali yang berwenang.",
       "Jika Anda mendaftarkan anak, Anda wajib mencentang izin khusus data anak. Mengisi data anak orang lain tanpa wewenang tidak diperbolehkan.",
+      "Catatan posyandu anak hanya boleh dibuat jika rumah tangga juga memberi izin kesehatan.",
     ],
   },
   {
@@ -251,6 +259,7 @@ export function normalisasiPersetujuanLaporDiri(
     data_anggota: booleanWajib(sumber.data_anggota),
     data_anak: booleanWajib(sumber.data_anak),
     data_keuangan: booleanWajib(sumber.data_keuangan),
+    data_kesehatan: booleanWajib(sumber.data_kesehatan),
   };
 
   if (!data.baca_kebijakan || !data.data_pribadi || (wajibKeuangan && !data.data_keuangan)) {
@@ -282,5 +291,6 @@ export function ringkasanAuditPersetujuan(
     `keluarga=${persetujuan.data_anggota ? "ya" : "tidak"}`,
     `anak_ok=${persetujuan.data_anak ? "ya" : "tidak"}`,
     `keuangan=${persetujuan.data_keuangan ? "ya" : "tidak"}`,
+    `kesehatan=${persetujuan.data_kesehatan ? "ya" : "tidak"}`,
   ].join("; ");
 }

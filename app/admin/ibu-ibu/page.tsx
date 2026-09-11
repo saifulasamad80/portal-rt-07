@@ -9,7 +9,8 @@ import {
   wajibOtentikasiAdmin,
   wajibWebmaster,
 } from "@/lib/session-security";
-import { uuidTenantSah } from "@/lib/uuid-tenant";
+import { izinKesehatanRumahTangga } from "@/lib/persetujuan-data";
+import { POLA_UUID, uuidTenantSah } from "@/lib/uuid-tenant";
 
 // Tabel kunjungan_* adalah tabel legacy yang hanya boleh dibuka setelah
 // operator memetakan seluruh baris ke satu tenant. Jangan pernah menerima
@@ -34,7 +35,7 @@ export default async function AdminIbuIbuPage() {
   // server. Tanpa konfigurasi, semua akses ditahan (fail closed), termasuk
   // webmaster; ini mencegah query service-role global.
   const kunjunganKosong = Promise.resolve({ data: [], error: null });
-  const [lansiaRes, balitaRes, arisanRes, jumantikRes] = await Promise.all([
+  const [lansiaRes, balitaRes, arisanRes, jumantikRes, kkRes] = await Promise.all([
     supabaseKunjungan
       ? supabaseKunjungan.from("kunjungan_lansia").select("id, created_at, nama_peserta, tanggal_kunjungan, tensi_darah, gula_darah, berat_kg, catatan").eq("rt_id", LEGACY_POSYANDU_RT_ID).order("tanggal_kunjungan", { ascending: false }).limit(200)
       : kunjunganKosong,
@@ -49,6 +50,9 @@ export default async function AdminIbuIbuPage() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabaseKunjungan
+      ? supabaseKunjungan.from("warga").select("id, nama_lengkap").eq("rt_id", LEGACY_POSYANDU_RT_ID).neq("status_aktif", false).order("nama_lengkap").limit(500)
+      : kunjunganKosong,
   ]);
   const arisanIds = (arisanRes.data || []).map((row) => String(row.id)).filter(Boolean);
   const transaksiRes = arisanIds.length
@@ -84,13 +88,23 @@ export default async function AdminIbuIbuPage() {
       const input = payload as Record<string, unknown>;
       const namaAnak = String(input.nama_anak ?? "").trim().slice(0, 150);
       const namaIbu = String(input.nama_ibu ?? "").trim().slice(0, 150);
+      const wargaId = String(input.warga_id ?? "").trim();
       const tanggal = tanggalValid(input.tanggal_kunjungan);
       const berat = angkaOpsional(input.berat_kg, 500);
       const tinggi = angkaOpsional(input.tinggi_cm, 300);
-      if (!namaAnak || !namaIbu || !tanggal || Number.isNaN(berat) || Number.isNaN(tinggi)) {
-        return { success: false, message: "Data kunjungan balita tidak valid." };
+      if (!POLA_UUID.test(wargaId) || !namaAnak || !namaIbu || !tanggal || Number.isNaN(berat) || Number.isNaN(tinggi)) {
+        return { success: false, message: "Data kunjungan balita tidak valid. Pilih kartu keluarga yang punya izin kesehatan." };
       }
       const db = klienPrivileged(sesi);
+      const { data: kk, error: errKk } = await db
+        .from("warga")
+        .select("id")
+        .eq("id", wargaId)
+        .eq("rt_id", LEGACY_POSYANDU_RT_ID)
+        .maybeSingle();
+      if (errKk || !kk) return { success: false, message: "Kartu keluarga tidak berada di RT posyandu ini." };
+      const izin = await izinKesehatanRumahTangga(db, wargaId, LEGACY_POSYANDU_RT_ID, { wajibAnak: true });
+      if (!izin.ok) return { success: false, message: izin.message };
       const { data, error } = await db
         .from("kunjungan_balita")
         .insert([{
@@ -124,13 +138,23 @@ export default async function AdminIbuIbuPage() {
       }
       const input = payload as Record<string, unknown>;
       const namaPeserta = String(input.nama_peserta ?? "").trim().slice(0, 150);
+      const wargaId = String(input.warga_id ?? "").trim();
       const tanggal = tanggalValid(input.tanggal_kunjungan);
       const gula = angkaOpsional(input.gula_darah, 3000);
       const berat = angkaOpsional(input.berat_kg, 500);
-      if (!namaPeserta || !tanggal || Number.isNaN(gula) || Number.isNaN(berat)) {
-        return { success: false, message: "Data kunjungan lansia tidak valid." };
+      if (!POLA_UUID.test(wargaId) || !namaPeserta || !tanggal || Number.isNaN(gula) || Number.isNaN(berat)) {
+        return { success: false, message: "Data kunjungan lansia tidak valid. Pilih kartu keluarga yang punya izin kesehatan." };
       }
       const db = klienPrivileged(sesi);
+      const { data: kk, error: errKk } = await db
+        .from("warga")
+        .select("id")
+        .eq("id", wargaId)
+        .eq("rt_id", LEGACY_POSYANDU_RT_ID)
+        .maybeSingle();
+      if (errKk || !kk) return { success: false, message: "Kartu keluarga tidak berada di RT posyandu ini." };
+      const izin = await izinKesehatanRumahTangga(db, wargaId, LEGACY_POSYANDU_RT_ID);
+      if (!izin.ok) return { success: false, message: izin.message };
       const { data, error } = await db
         .from("kunjungan_lansia")
         .insert([{
@@ -311,6 +335,10 @@ export default async function AdminIbuIbuPage() {
       bolehKelolaKunjungan={bolehKelolaKunjungan}
       laporanJumantik={jumantikRes.error ? null : jumantikRes.data}
       aksiCatatJumantik={catatLaporanJumantik}
+      kartuKeluarga={(kkRes.data || []).map((baris) => ({
+        id: String((baris as { id?: unknown }).id || ""),
+        nama: String((baris as { nama_lengkap?: unknown }).nama_lengkap || "Tanpa nama"),
+      })).filter((baris) => baris.id)}
     />
   );
 }

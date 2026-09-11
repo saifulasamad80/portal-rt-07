@@ -94,12 +94,6 @@ type BiodataSensus = {
 };
 
 type DraftSensus = {
-  biodata: BiodataSensus;
-  anggota: AnggotaInput[];
-  catatan: string;
-  nikDikonfirmasi: boolean;
-  setujuData: boolean;
-  setujuTanggungJawab: boolean;
   langkah: number;
 };
 
@@ -177,46 +171,6 @@ function buatBiodataAwal(warga: ProfilSensus): BiodataSensus {
   };
 }
 
-function normalisasiBiodataDraft(mentah: unknown, fallback: BiodataSensus): BiodataSensus {
-  if (!mentah || typeof mentah !== "object" || Array.isArray(mentah)) return fallback;
-  const data = mentah as Record<string, unknown>;
-  return {
-    nama_lengkap: String(data.nama_lengkap ?? fallback.nama_lengkap),
-    tempat_lahir: String(data.tempat_lahir ?? fallback.tempat_lahir),
-    tanggal_lahir: String(data.tanggal_lahir ?? fallback.tanggal_lahir).slice(0, 10),
-    jenis_kelamin: String(data.jenis_kelamin ?? fallback.jenis_kelamin),
-    agama: String(data.agama ?? fallback.agama),
-    pekerjaan: String(data.pekerjaan ?? fallback.pekerjaan),
-    pendidikan: String(data.pendidikan ?? fallback.pendidikan),
-    no_whatsapp: String(data.no_whatsapp ?? fallback.no_whatsapp),
-    status_tinggal: String(data.status_tinggal ?? fallback.status_tinggal),
-    detail_alamat: String(data.detail_alamat ?? fallback.detail_alamat),
-    no_kk: String(data.no_kk ?? fallback.no_kk).replace(/\D/g, ""),
-    hubungan_kk: String(data.hubungan_kk ?? fallback.hubungan_kk),
-    pendapatan_bulanan: String(data.pendapatan_bulanan ?? fallback.pendapatan_bulanan),
-    daya_listrik: String(data.daya_listrik ?? fallback.daya_listrik),
-  };
-}
-
-function normalisasiAnggotaDraft(mentah: unknown, fallback: AnggotaInput[]): AnggotaInput[] {
-  if (!Array.isArray(mentah) || mentah.length === 0) return fallback;
-  return mentah
-    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
-    .map((item) => ({
-      id: typeof item.id === "string" ? item.id : undefined,
-      nama_lengkap: String(item.nama_lengkap ?? ""),
-      nik: String(item.nik ?? ""),
-      hubungan_keluarga: String(item.hubungan_keluarga ?? ""),
-      hubungan_detail: String(item.hubungan_detail ?? ""),
-      tanggal_lahir: String(item.tanggal_lahir ?? ""),
-      tempat_lahir: String(item.tempat_lahir ?? ""),
-      jenis_kelamin: String(item.jenis_kelamin ?? ""),
-      agama: String(item.agama ?? ""),
-      pekerjaan: String(item.pekerjaan ?? ""),
-      pendidikan: String(item.pendidikan ?? ""),
-    }));
-}
-
 export default function SensusClient({
   warga,
   modeRevisi = false,
@@ -239,6 +193,7 @@ export default function SensusClient({
   const [setujuKeuangan, setSetujuKeuangan] = useState(false);
   const [setujuAnggota, setSetujuAnggota] = useState(false);
   const [setujuAnak, setSetujuAnak] = useState(false);
+  const [setujuKesehatan, setSetujuKesehatan] = useState(false);
   const [catatan, setCatatan] = useState("");
   const [biodata, setBiodata] = useState<BiodataSensus>(() => buatBiodataAwal(warga));
   const [anggota, setAnggota] = useState<AnggotaInput[]>(() => dariWarga(warga));
@@ -251,16 +206,13 @@ export default function SensusClient({
     try {
       const mentah = window.localStorage.getItem(kunciDraft);
       if (mentah) {
-        const parsed = JSON.parse(mentah) as Partial<DraftSensus> | null;
+        const parsed = JSON.parse(mentah) as Record<string, unknown> | null;
         if (parsed && typeof parsed === "object") {
-          const biodataFallback = buatBiodataAwal(warga);
-          setBiodata(normalisasiBiodataDraft(parsed.biodata, biodataFallback));
-          setAnggota(normalisasiAnggotaDraft(parsed.anggota, dariWarga(warga)));
-          setCatatan(typeof parsed.catatan === "string" ? parsed.catatan : "");
-          setNikDikonfirmasi(Boolean(parsed.nikDikonfirmasi));
-          setSetujuData(Boolean(parsed.setujuData));
-          setSetujuTanggungJawab(Boolean(parsed.setujuTanggungJawab));
-          setLangkah(Number.isInteger(parsed.langkah) ? Math.max(0, Math.min(parsed.langkah as number, LANGKAH.length - 1)) : 0);
+          if (parsed.biodata) {
+            window.localStorage.removeItem(kunciDraft);
+          } else if (Number.isInteger(parsed.langkah)) {
+            setLangkah(Math.max(0, Math.min(parsed.langkah as number, LANGKAH.length - 1)));
+          }
         }
       }
     } catch {
@@ -269,25 +221,17 @@ export default function SensusClient({
       setDraftSiap(true);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [kunciDraft, warga]);
+  }, [kunciDraft]);
 
   useEffect(() => {
     if (!draftSiap) return;
     try {
-      const draft: DraftSensus = {
-        biodata,
-        anggota,
-        catatan,
-        nikDikonfirmasi,
-        setujuData,
-        setujuTanggungJawab,
-        langkah,
-      };
+      const draft: DraftSensus = { langkah };
       window.localStorage.setItem(kunciDraft, JSON.stringify(draft));
     } catch {
       // Abaikan kuota atau mode privat.
     }
-  }, [draftSiap, kunciDraft, biodata, anggota, catatan, nikDikonfirmasi, setujuData, setujuTanggungJawab, langkah]);
+  }, [draftSiap, kunciDraft, langkah]);
 
   const ubahBiodata = (nama: keyof typeof biodata, nilai: string) => {
     setBiodata((sebelum) => ({ ...sebelum, [nama]: nilai }));
@@ -394,6 +338,7 @@ export default function SensusClient({
         data_keuangan: setujuKeuangan,
         data_anggota: anggota.length > 0 && setujuAnggota,
         data_anak: adaAnak && setujuAnak,
+        data_kesehatan: setujuKesehatan,
       });
       if (hasil.success) {
         try {
@@ -827,6 +772,12 @@ export default function SensusClient({
                   </span>
                 </label>
               ) : null}
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={setujuKesehatan} onChange={(e) => setSetujuKesehatan(e.target.checked)} />
+                <span className="text-sm text-slate-700 leading-relaxed">
+                  Saya menyetujui pencatatan kunjungan posyandu individu rumah tangga ini. Tanpa izin ini, rekam kesehatan individu tidak disimpan.
+                </span>
+              </label>
             </div>
           </section>
         )}

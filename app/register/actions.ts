@@ -93,8 +93,8 @@ type KepalaTernormalisasi = {
   pendidikan: (typeof PILIHAN_PENDIDIKAN)[number];
   no_kk: string;
   hubungan_kk: "KK";
-  pendapatan_bulanan: (typeof PENDAPATAN_SAH)[number];
-  daya_listrik: (typeof LISTRIK_SAH)[number];
+  pendapatan_bulanan: (typeof PENDAPATAN_SAH)[number] | null;
+  daya_listrik: (typeof LISTRIK_SAH)[number] | null;
   ktp: DokumenInput;
   kk: DokumenInput;
 };
@@ -157,6 +157,13 @@ function teks(
 
 function pilih<T extends readonly string[]>(source: Rekaman, key: string, choices: T): T[number] {
   const value = teks(source, key, 80);
+  if (!choices.includes(value)) throw new RegistrasiAmanError(PESAN_VALIDASI);
+  return value as T[number];
+}
+
+function pilihOpsional<T extends readonly string[]>(source: Rekaman, key: string, choices: T): T[number] | null {
+  const value = teks(source, key, 80, false);
+  if (!value) return null;
   if (!choices.includes(value)) throw new RegistrasiAmanError(PESAN_VALIDASI);
   return value as T[number];
 }
@@ -242,8 +249,8 @@ function normalisasiKepala(value: unknown): KepalaTernormalisasi {
     pendidikan: pilih(source, "pendidikan", PILIHAN_PENDIDIKAN),
     no_kk: nik(source, "no_kk"),
     hubungan_kk: "KK",
-    pendapatan_bulanan: pilih(source, "pendapatan_bulanan", PENDAPATAN_SAH),
-    daya_listrik: pilih(source, "daya_listrik", LISTRIK_SAH),
+    pendapatan_bulanan: pilihOpsional(source, "pendapatan_bulanan", PENDAPATAN_SAH),
+    daya_listrik: pilihOpsional(source, "daya_listrik", LISTRIK_SAH),
     ktp: dokumen(source.ktp_path),
     kk: dokumen(source.kk_path),
   };
@@ -365,8 +372,15 @@ export async function aksiRegister(
       );
     }
     const jumlahAnak = jumlahAnakDariTanggal(anggota.map((item) => item.tanggal_lahir));
-    const persetujuan = normalisasiPersetujuanLaporDiri(persetujuanPayload, anggota.length, jumlahAnak);
+    const adaKeuangan = Boolean(kepala.pendapatan_bulanan || kepala.daya_listrik);
+    const persetujuan = normalisasiPersetujuanLaporDiri(persetujuanPayload, anggota.length, jumlahAnak, {
+      wajibKeuangan: adaKeuangan,
+    });
     if (!persetujuan.ok) throw new RegistrasiAmanError(persetujuan.message);
+    if (!persetujuan.data.data_keuangan) {
+      kepala.pendapatan_bulanan = null;
+      kepala.daya_listrik = null;
+    }
     const semuaNik = semuaNikUnik(kepala, anggota);
     if (jumlahByteDokumen(kepala, anggota) > MAKS_TOTAL_BYTE_DOKUMEN) {
       throw new RegistrasiAmanError(PESAN_VALIDASI);

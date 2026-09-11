@@ -32,6 +32,7 @@ type BarisKunjunganLansia = {
 };
 
 const FORM_BALITA_KOSONG = {
+  warga_id: "",
   nama_anak: "",
   nama_ibu: "",
   tanggal_kunjungan: "",
@@ -42,6 +43,7 @@ const FORM_BALITA_KOSONG = {
 };
 
 const FORM_LANSIA_KOSONG = {
+  warga_id: "",
   nama_peserta: "",
   tanggal_kunjungan: "",
   tensi_darah: "",
@@ -93,6 +95,7 @@ export default function IbuIbuAdminClient({
       bolehKelolaKunjungan,
       laporanJumantik,
       aksiCatatJumantik,
+      kartuKeluarga = [],
     }: {
       kunjunganLansia: BarisKunjunganLansia[];
       kunjunganBalita: BarisKunjunganBalita[];
@@ -114,6 +117,7 @@ export default function IbuIbuAdminClient({
         warga_terjangkit_dbd: boolean;
         ditemukan_jentik: boolean;
       }) => Promise<{ success: boolean; message?: string }>;
+      kartuKeluarga?: Array<{ id: string; nama: string }>;
     }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabId>("balita");
@@ -182,6 +186,7 @@ export default function IbuIbuAdminClient({
     setPesanBalita(null);
 
     const hasil = await aksiSimpanKunjunganBalita({
+      warga_id: formBalita.warga_id,
       nama_anak: formBalita.nama_anak.trim(),
       nama_ibu: formBalita.nama_ibu.trim(),
       tanggal_kunjungan: formBalita.tanggal_kunjungan,
@@ -220,6 +225,7 @@ export default function IbuIbuAdminClient({
     setPesanLansia(null);
 
     const hasil = await aksiSimpanKunjunganLansia({
+      warga_id: formLansia.warga_id,
       nama_peserta: formLansia.nama_peserta.trim(),
       tanggal_kunjungan: formLansia.tanggal_kunjungan,
       tensi_darah: teksOpsional(formLansia.tensi_darah),
@@ -308,9 +314,18 @@ export default function IbuIbuAdminClient({
                 <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-base shrink-0">👶</div>
                 <div>
                   <h2 className="font-black text-slate-900">Catat Kunjungan Balita</h2>
-                  <p className="text-[11px] text-slate-400">Rekam medis per anak</p>
+                  <p className="text-[11px] text-slate-400">Rekam medis per anak. Wajib kartu keluarga yang sudah izin kesehatan dan wali anak.</p>
                 </div>
               </div>
+              <label className="block">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Kartu keluarga</span>
+                <select required className={kelasIsian} value={formBalita.warga_id} onChange={(e) => setFormBalita({ ...formBalita, warga_id: e.target.value })}>
+                  <option value="">Pilih KK yang punya izin kesehatan</option>
+                  {kartuKeluarga.map((kk) => (
+                    <option key={kk.id} value={kk.id}>{kk.nama}</option>
+                  ))}
+                </select>
+              </label>
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Nama anak</span>
                 <input required placeholder="Nama lengkap anak" className={kelasIsian} value={formBalita.nama_anak} onChange={(e) => setFormBalita({ ...formBalita, nama_anak: e.target.value })} />
@@ -376,9 +391,18 @@ export default function IbuIbuAdminClient({
                 <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center text-base shrink-0">🧓</div>
                 <div>
                   <h2 className="font-black text-slate-900">Catat Kunjungan Lansia</h2>
-                  <p className="text-[11px] text-slate-400">Rekam medis per peserta</p>
+                  <p className="text-[11px] text-slate-400">Rekam medis per peserta. Wajib kartu keluarga yang sudah izin kesehatan.</p>
                 </div>
               </div>
+              <label className="block">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Kartu keluarga</span>
+                <select required className={kelasIsian} value={formLansia.warga_id} onChange={(e) => setFormLansia({ ...formLansia, warga_id: e.target.value })}>
+                  <option value="">Pilih KK yang punya izin kesehatan</option>
+                  {kartuKeluarga.map((kk) => (
+                    <option key={kk.id} value={kk.id}>{kk.nama}</option>
+                  ))}
+                </select>
+              </label>
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Nama peserta</span>
                 <input required placeholder="Nama lengkap peserta" className={kelasIsian} value={formLansia.nama_peserta} onChange={(e) => setFormLansia({ ...formLansia, nama_peserta: e.target.value })} />

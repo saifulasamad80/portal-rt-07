@@ -198,8 +198,6 @@ export async function POST(req: Request) {
 
     const token = await new SignJWT({
       id: warga.id,
-      nik: warga.nik,
-      nama: warga.nama_lengkap,
       rt_id: warga.rt_id,
       token_use: "warga",
       [KLAIM_VERSI_SESI]: versiSesi,

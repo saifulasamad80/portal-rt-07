@@ -4,6 +4,7 @@ import { useState } from "react";
 import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import {
+  adalahTiketHapusData,
   adalahTiketPerubahanKeluarga,
   tiketKeluargaMasihTerbuka,
 } from "@/lib/kebijakan-sensus";
@@ -177,6 +178,11 @@ export default function LaporAdminClient({
                         {adalahTiketPerubahanKeluarga(l.judul_laporan) && (
                           <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                             Data keluarga
+                          </span>
+                        )}
+                        {adalahTiketHapusData(l.judul_laporan) && (
+                          <span className="inline-block mt-1 ml-1 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                            Hapus data PDP
                           </span>
                         )}
                         <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">

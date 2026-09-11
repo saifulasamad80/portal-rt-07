@@ -54,7 +54,7 @@ export default function KotakSampahClient({
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">Kotak Sampah Warga</h1>
               <p className="text-sm text-slate-500 mt-1 leading-relaxed">
                 Data yang dihapus dari buku induk masuk ke sini dulu, bukan hilang permanen.
-                Pulihkan akun kepala keluarga beserta tanggungan yang terhapus bersamanya.
+                Salinan lebih dari 30 hari dihapus permanen otomatis. Pulihkan akun kepala keluarga beserta tanggungan yang terhapus bersamanya.
               </p>
             </div>
           </div>

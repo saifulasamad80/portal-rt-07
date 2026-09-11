@@ -74,7 +74,7 @@ export default async function LandingPage() {
 
   const rumahDiperiksa = Number(jumantik?.jumlah_rumah_diperiksa || 0);
   const persenJumantik = rumahDiperiksa <= 0 ? 0 : Math.min(100, (rumahDiperiksa / TARGET_JUMANTIK) * 100);
-  const jumantikAman = Boolean(jumantik) && !jumantik?.ditemukan_jentik && !jumantik?.warga_terjangkit_dbd;
+  const jumantikAman = Boolean(jumantik) && !jumantik?.ditemukan_jentik;
 
   const totalKgSampah = sampahGlobal.reduce((sum: number, t: { berat_kg?: number | null }) => sum + Number(t.berat_kg || 0), 0);
 
@@ -243,18 +243,12 @@ export default async function LandingPage() {
               <div className={`h-full rounded-full ${persenJumantik >= 100 ? "bg-emerald-600" : persenJumantik >= 50 ? "bg-amber-500" : "bg-rose-400"}`} style={{ width: `${persenJumantik}%` }} />
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <div className="mt-5 grid grid-cols-1 gap-2">
               <LencanaStatus
                 ok={jumantik ? !jumantik.ditemukan_jentik : null}
                 ya="Bebas jentik"
                 tidak="Jentik ditemukan"
                 kosong="Belum diperiksa"
-              />
-              <LencanaStatus
-                ok={jumantik ? !jumantik.warga_terjangkit_dbd : null}
-                ya="Tanpa DBD"
-                tidak="Ada warga terjangkit"
-                kosong="Belum dilaporkan"
               />
             </div>
             <p className="mt-4 text-[11px] text-slate-400">Dicatat {formatTanggal(jumantik?.created_at)}</p>

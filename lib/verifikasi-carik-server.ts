@@ -10,6 +10,7 @@ import {
 import {
   PESAN_TINJAUAN_PENGURUS,
   periksaKepemilikanAnggota,
+  samarkanNik,
   type IdentitasAnggotaTersimpan,
 } from "@/lib/kebijakan-sensus";
 import { catatPersetujuanData } from "@/lib/persetujuan-data";
@@ -459,7 +460,7 @@ async function simpanVerifikasiCarikInternal(
     supabasePrivileged,
     aktor,
     opsi.capCarik ? "Verifikasi Data Carik" : "Edit Data Warga",
-    `NIK ${warga.nik} (${biodata.data.nama_lengkap}) ${
+    `Warga ${biodata.data.nama_lengkap} (${samarkanNik(warga.nik)}) ${
       opsi.capCarik ? "mengonfirmasi data warisan tanpa resolusi duplikat otomatis." : "diperbarui tanpa mengubah NIK."
     }`,
     rtId

@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { prosesHapusAtauArsipWarga } from "@/lib/arsip-warga";
 import { adalahArsipPemilu, type HasilCarik } from "@/lib/verifikasi-carik";
+import { samarkanNik } from "@/lib/kebijakan-sensus";
 
 import { POLA_UUID } from "@/lib/uuid-tenant";
 export type SumberDuplikat = "warga" | "anggota_keluarga";
@@ -61,7 +62,7 @@ export async function hapusKarenaNikTidakSesuai(
     supabase,
     aktor,
     "Hapus Warga karena NIK Tidak Sesuai",
-    `NIK ${warga.nik} (${warga.nama_lengkap}) dihapus/diarsipkan. Warga wajib lapor diri ulang dengan NIK yang benar.`,
+    `Warga ${warga.nama_lengkap} (${samarkanNik(warga.nik)}) dihapus/diarsipkan. Warga wajib lapor diri ulang dengan NIK yang benar.`,
     rtIdWarga
   );
 

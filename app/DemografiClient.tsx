@@ -115,17 +115,6 @@ export default function DemografiClient({ rekap }: { rekap: RekapDemografi }) {
           ]}
         />
       </div>
-
-      <KartuDemografi
-        ikon="🕌"
-        judul="Agama"
-        total={rekap.jiwa}
-        segmen={[
-          { label: "Islam", nilai: rekap.islam_c, persen: rekap.islam_p, warna: "#059669" },
-          { label: "Kristen/Katolik", nilai: rekap.kristen_c, persen: rekap.kristen_p, warna: "#818cf8" },
-          { label: "Lainnya", nilai: rekap.lainAgama_c, persen: rekap.lainAgama_p, warna: "#fbbf24" },
-        ]}
-      />
     </div>
   );
 }

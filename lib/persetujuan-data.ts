@@ -8,6 +8,7 @@ import {
   type PersetujuanLaporDiri,
   type SumberPersetujuan,
   TANGGAL_PEMBERITAHUAN_PDP,
+  VERSI_KEBIJAKAN_PRIVASI,
   ringkasanAuditPersetujuan,
   tanggalTenggatDataSpesifik,
   tenggatPdpSudahLewat,
@@ -64,6 +65,7 @@ export async function catatPersetujuanData(
     data_anggota: input.persetujuan.data_anggota,
     data_anak: input.persetujuan.data_anak,
     data_keuangan: input.persetujuan.data_keuangan,
+    data_kesehatan: input.persetujuan.data_kesehatan,
     berkas_path: input.berkasPath || null,
   }]).select("id").single();
   if (errTabel) {
@@ -110,7 +112,7 @@ export async function ambilPersetujuanTerbaru(
 ): Promise<{ ok: true; data: JejakPersetujuan | null } | { ok: false; message: string }> {
   const { data, error } = await supabase
     .from(TABEL_PERSETUJUAN)
-    .select("id, warga_id, sumber, versi_naskah, data_pribadi, data_keuangan, data_anggota, data_anak, berkas_path, dicatat_pada")
+    .select("id, warga_id, sumber, versi_naskah, data_pribadi, data_keuangan, data_anggota, data_anak, data_kesehatan, berkas_path, dicatat_pada")
     .eq("warga_id", wargaId)
     .eq("rt_id", rtId)
     .order("dicatat_pada", { ascending: false })
@@ -266,4 +268,102 @@ export async function kosongkanDataSpesifikLewatTenggat(
   if (errAudit) console.error("Audit tenggat PDP gagal:", errAudit.message);
 
   return { ok: true, pendapatan: hapusPendapatan.length, fotoKk: hapusFoto.length };
+}
+
+export async function izinKesehatanRumahTangga(
+  supabase: SupabaseClient,
+  wargaId: string,
+  rtId: string,
+  opsi?: { wajibAnak?: boolean }
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const jejak = await ambilPersetujuanTerbaru(supabase, wargaId, rtId);
+  if (!jejak.ok) return jejak;
+  if (!jejak.data || !jejak.data.data_kesehatan) {
+    return {
+      ok: false,
+      message: "Kunjungan posyandu individu ditolak: rumah tangga belum memberi izin data kesehatan.",
+    };
+  }
+  if (opsi?.wajibAnak && !jejak.data.data_anak) {
+    return {
+      ok: false,
+      message: "Kunjungan balita ditolak: izin wali data anak belum tercatat.",
+    };
+  }
+  return { ok: true };
+}
+
+export async function terapkanPenarikanIzin(
+  supabase: SupabaseClient,
+  input: {
+    wargaId: string;
+    rtId: string;
+    tarikKeuangan: boolean;
+    tarikKesehatan: boolean;
+    aktor: string;
+  }
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  if (!input.tarikKeuangan && !input.tarikKesehatan) {
+    return { ok: false, message: "Pilih izin keuangan atau kesehatan yang ingin ditarik." };
+  }
+
+  const jejak = await ambilPersetujuanTerbaru(supabase, input.wargaId, input.rtId);
+  if (!jejak.ok) return jejak;
+  const terakhir = jejak.data;
+  const persetujuan: PersetujuanLaporDiri = {
+    versi_naskah: VERSI_KEBIJAKAN_PRIVASI,
+    baca_kebijakan: true,
+    data_pribadi: terakhir?.data_pribadi !== false,
+    data_anggota: Boolean(terakhir?.data_anggota),
+    data_anak: Boolean(terakhir?.data_anak),
+    data_keuangan: input.tarikKeuangan ? false : Boolean(terakhir?.data_keuangan),
+    data_kesehatan: input.tarikKesehatan ? false : Boolean(terakhir?.data_kesehatan),
+  };
+
+  const catat = await catatPersetujuanData(supabase, {
+    wargaId: input.wargaId,
+    rtId: input.rtId,
+    sumber: "penarikan",
+    persetujuan,
+    jumlahAnggota: 0,
+    jumlahAnak: 0,
+    aktorAudit: input.aktor,
+  });
+  if (!catat.ok) return catat;
+
+  if (input.tarikKeuangan) {
+    const { error } = await supabase
+      .from("warga")
+      .update({ pendapatan_bulanan: null, daya_listrik: null })
+      .eq("id", input.wargaId)
+      .eq("rt_id", input.rtId);
+    if (error) return { ok: false, message: "Izin tercatat, tetapi pendapatan belum dapat dikosongkan." };
+  }
+
+  return {
+    ok: true,
+    message: input.tarikKeuangan && input.tarikKesehatan
+      ? "Izin keuangan dan kesehatan ditarik. Pendapatan dikosongkan; kunjungan posyandu baru ditolak."
+      : input.tarikKeuangan
+        ? "Izin keuangan ditarik. Kisaran pendapatan dan daya listrik dikosongkan."
+        : "Izin kesehatan ditarik. Kunjungan posyandu individu baru ditolak.",
+  };
+}
+
+export async function catatJejakEksporBukuInduk(
+  supabase: SupabaseClient,
+  input: { rtId: string; aktor: string; jumlahKk: number }
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { error } = await supabase.from("audit_log").insert([{
+    aktor: teks(input.aktor).slice(0, 150) || "Pengurus",
+    aksi: "Ekspor PDF buku induk",
+    tabel_target: "warga",
+    detail: `Mengunduh PDF buku induk ${input.jumlahKk} KK. Berkas rahasia, jangan disebar.`,
+    rt_id: input.rtId,
+  }]);
+  if (error) {
+    console.error("Jejak ekspor PDF gagal:", error.message);
+    return { ok: false, message: "Jejak ekspor belum tercatat. Unduhan dibatalkan." };
+  }
+  return { ok: true };
 }

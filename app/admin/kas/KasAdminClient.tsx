@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
+import TautanWhatsAppPdp from "@/components/TautanWhatsAppPdp";
 
 export default function KasAdminClient({ adminAktif, transaksiList, wargaList, aksiSimpan }: { adminAktif: any, transaksiList: any[], wargaList: any[], aksiSimpan: any }) {
   const router = useRouter();
@@ -253,7 +254,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
                       </div>
                     </div>
                     {w.no_whatsapp ? (
-                      <a href={waLink} target="_blank" rel="noopener noreferrer" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm active:scale-95"><span>💬</span> Tagih via WA</a>
+                      <TautanWhatsAppPdp href={waLink} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs py-3 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm active:scale-95"><span>💬</span> Tagih via WA</TautanWhatsAppPdp>
                     ) : (
                       <button disabled className="w-full bg-slate-200 text-slate-400 font-black text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed">🚫 Nomor WA Kosong</button>
                     )}

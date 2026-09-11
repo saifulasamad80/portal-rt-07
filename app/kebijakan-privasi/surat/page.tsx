@@ -59,6 +59,7 @@ export default function HalamanSuratPersetujuan() {
             <p>☐ Saya menyetujui pemrosesan kisaran pendapatan dan daya listrik rumah tangga untuk program RT, bukan DTKS/bansos pemerintah.</p>
             <p>☐ Saya penanggung jawab rumah tangga dan berwenang mendaftarkan data anggota keluarga dewasa.</p>
             <p>☐ Saya orang tua atau wali dari anak di bawah 18 tahun yang didaftarkan, dan menyetujui pemrosesan data anak itu.</p>
+            <p>☐ Saya menyetujui pencatatan kunjungan posyandu individu rumah tangga ini.</p>
           </div>
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
             <p className="text-sm">Nama: ________________________________</p>
