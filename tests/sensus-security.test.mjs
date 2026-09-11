@@ -158,13 +158,35 @@ test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () 
   assert.match(rpc, /Verifikasi sensus sudah diselesaikan/);
 });
 
-test("kartu layanan portal tergembok tanpa tautan saat cap belum Disetujui", async () => {
+test("status Carik tidak menggembok layanan umum portal", async () => {
   const kartu = await readFile(new URL("../components/portal/KartuLayanan.tsx", import.meta.url), "utf8");
   const dasbor = await readFile(new URL("../app/portal/page.tsx", import.meta.url), "utf8");
+  const layout = await readFile(new URL("../app/portal/(terkunci)/layout.tsx", import.meta.url), "utf8");
   assert.match(kartu, /terkunci \?/);
   assert.match(kartu, /cursor-not-allowed/);
   assert.match(kartu, /aria-disabled/);
-  assert.match(dasbor, /terkunci=\{layananTerkunci\}/);
+  assert.doesNotMatch(dasbor, /layananTerkunci/);
+  assert.doesNotMatch(layout, /ambilCapCarikRumahTangga/);
+  assert.match(layout, /otentikasiWargaAktif/);
+  assert.match(layout, /redirect\("\/login"\)/);
+});
+
+test("submit Carik memvalidasi consent sebelum RPC dan mencatatnya sesudah RPC", async () => {
+  const domain = await readFile(new URL("../lib/verifikasi-carik-server.ts", import.meta.url), "utf8");
+  const persetujuan = await readFile(new URL("../lib/persetujuan-data.ts", import.meta.url), "utf8");
+  const bagian = domain.slice(domain.indexOf("export async function simpanVerifikasiCarikMandiri"));
+  const posisiValidasi = bagian.indexOf("normalisasiPersetujuanLaporDiri");
+  const posisiRpc = bagian.indexOf('rpc("simpan_sensus_mandiri"');
+  const posisiJejak = bagian.indexOf("catatPersetujuanData");
+  assert.ok(posisiValidasi >= 0 && posisiValidasi < posisiRpc);
+  assert.ok(posisiRpc >= 0 && posisiRpc < posisiJejak);
+  assert.match(bagian, /jumlahAnakDariTanggal/);
+  assert.match(bagian, /wajibKeuangan: false/);
+  assert.match(bagian, /p_warga_id:[\s\S]*p_nik:[\s\S]*p_rt_id:[\s\S]*p_biodata:[\s\S]*p_anggota:[\s\S]*p_catatan:/);
+  assert.match(persetujuan, /\.insert\(\[\{/);
+  assert.match(persetujuan, /select\("id"\)\.single\(\)/);
+  assert.match(persetujuan, /\.delete\(\)/);
+  assert.match(persetujuan, /\.eq\("id", jejakBaru\.id\)/);
 });
 
 test("modul sensus mandiri tidak memiliki kapabilitas penghapus warga", async () => {

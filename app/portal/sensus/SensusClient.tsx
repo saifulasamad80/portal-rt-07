@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  PATH_KEBIJAKAN_PRIVASI,
+  PESAN_PERSETUJUAN_CARIK,
+  USIA_ANAK_PDP,
+  VERSI_KEBIJAKAN_PRIVASI,
+  umurDariTanggalIso,
+} from "@/lib/kebijakan-privasi";
 import {
   hitungKelengkapan,
   nilaiKosong,
@@ -226,6 +234,11 @@ export default function SensusClient({
   const [modalLanjutKeluarga, setModalLanjutKeluarga] = useState(false);
   const [setujuData, setSetujuData] = useState(false);
   const [setujuTanggungJawab, setSetujuTanggungJawab] = useState(false);
+  const [bacaKebijakan, setBacaKebijakan] = useState(false);
+  const [setujuPribadi, setSetujuPribadi] = useState(false);
+  const [setujuKeuangan, setSetujuKeuangan] = useState(false);
+  const [setujuAnggota, setSetujuAnggota] = useState(false);
+  const [setujuAnak, setSetujuAnak] = useState(false);
   const [catatan, setCatatan] = useState("");
   const [biodata, setBiodata] = useState<BiodataSensus>(() => buatBiodataAwal(warga));
   const [anggota, setAnggota] = useState<AnggotaInput[]>(() => dariWarga(warga));
@@ -312,8 +325,12 @@ export default function SensusClient({
         if (a.hubungan_keluarga === "Lainnya" && !a.hubungan_detail) return `Jelaskan hubungan keluarga untuk ${label}.`;
       }
     }
-    if (index === 3 && (!biodata.pendapatan_bulanan || !biodata.daya_listrik)) {
-      return "Pilih pendapatan bulanan dan daya listrik terpasang.";
+    if (index === 3) {
+      const adaPendapatan = Boolean(biodata.pendapatan_bulanan);
+      const adaListrik = Boolean(biodata.daya_listrik);
+      if (adaPendapatan !== adaListrik) {
+        return "Isi pendapatan dan daya listrik bersama, atau kosongkan keduanya jika tidak memberi izin data keuangan.";
+      }
     }
     return null;
   };
@@ -341,6 +358,26 @@ export default function SensusClient({
       tampilkanGagal("Centang kedua pernyataan verifikasi sebelum mengirim.", "kirim");
       return;
     }
+    if (!bacaKebijakan || !setujuPribadi) {
+      tampilkanGagal(PESAN_PERSETUJUAN_CARIK, "kirim");
+      return;
+    }
+    const adaAnak = anggota.some((item) => {
+      const umur = umurDariTanggalIso(item.tanggal_lahir);
+      return umur != null && umur < USIA_ANAK_PDP;
+    });
+    if (anggota.length > 0 && !setujuAnggota) {
+      tampilkanGagal("Pendaftaran anggota keluarga membutuhkan persetujuan tersendiri dari penanggung jawab.", "kirim");
+      return;
+    }
+    if (adaAnak && !setujuAnak) {
+      tampilkanGagal("Data anak di bawah 18 tahun membutuhkan persetujuan orang tua atau wali.", "kirim");
+      return;
+    }
+    if ((biodata.pendapatan_bulanan || biodata.daya_listrik) && !setujuKeuangan) {
+      tampilkanGagal("Kisaran pendapatan hanya disimpan jika Anda mencentang izin data keuangan. Kosongkan isian itu atau beri izin.", "kirim");
+      return;
+    }
     const gagal = validasiLangkah(1) || validasiLangkah(2) || validasiLangkah(3);
     if (gagal) {
       tampilkanGagal(gagal, "kirim");
@@ -350,7 +387,14 @@ export default function SensusClient({
     setLoading(true);
     setPesan(null);
     try {
-      const hasil = await aksiSimpanCarik(biodata, anggota, catatan);
+      const hasil = await aksiSimpanCarik(biodata, anggota, catatan, {
+        versi_naskah: VERSI_KEBIJAKAN_PRIVASI,
+        baca_kebijakan: bacaKebijakan,
+        data_pribadi: setujuPribadi,
+        data_keuangan: setujuKeuangan,
+        data_anggota: anggota.length > 0 && setujuAnggota,
+        data_anak: adaAnak && setujuAnak,
+      });
       if (hasil.success) {
         try {
           window.localStorage.removeItem(kunciDraft);
@@ -402,6 +446,8 @@ export default function SensusClient({
             {modeRevisi
               ? "Pengurus RT mengizinkan perubahan. NIK tetap terkunci. Layanan portal lain terbuka kembali setelah data ini disimpan."
               : "Catatan ini diambil dari pendataan tahun-tahun sebelumnya. Pengurus RT tidak boleh mengubah NIK. Bandingkan dengan KTP. Jika NIK salah, kirim laporan agar pengurus dapat memeriksanya tanpa menghapus data."}
+            {" "}
+            Baca <Link href={PATH_KEBIJAKAN_PRIVASI} target="_blank" className="text-blue-200 underline font-semibold">Kebijakan Privasi</Link> sebelum mengirim. Login tidak dikunci jika Anda menolak data keuangan.
           </p>
         </div>
       </header>
@@ -689,8 +735,8 @@ export default function SensusClient({
 
         {langkah === 3 && (
           <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-4">
-            <h2 className="text-lg font-bold text-slate-900">Profil ekonomi rumah tangga</h2>
-            <p className="text-sm text-slate-500">Dipakai pengurus untuk pemetaan desil bansos, bukan untuk dipublikasikan.</p>
+            <h2 className="text-lg font-bold text-slate-900">Profil rumah tangga</h2>
+            <p className="text-sm text-slate-500">Kisaran pendapatan dan daya listrik untuk program RT, bukan DTKS/bansos pemerintah. Boleh dikosongkan. Tanpa izin khusus di langkah berikutnya, isian ini tidak disimpan.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={kelasLabel}>Pendapatan bulanan</label>
@@ -739,6 +785,49 @@ export default function SensusClient({
               <input type="checkbox" className="mt-1" checked={setujuTanggungJawab} onChange={(e) => setSetujuTanggungJawab(e.target.checked)} />
               <span className="text-sm text-slate-700 leading-relaxed">Saya bertanggung jawab atas kebenaran isian ini. Konflik identitas akan diperiksa pengurus tanpa penghapusan otomatis.</span>
             </label>
+            <div className="space-y-3 rounded-xl border-2 border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-700">Persetujuan pemrosesan data</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Terpisah dari pernyataan kebenaran di atas. Dicatat di server (versi {VERSI_KEBIJAKAN_PRIVASI}), bukan di draf peramban. Menolak data keuangan tidak mengunci login.
+              </p>
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={bacaKebijakan} onChange={(e) => setBacaKebijakan(e.target.checked)} />
+                <span className="text-sm text-slate-700 leading-relaxed">
+                  Saya telah membaca <Link href={PATH_KEBIJAKAN_PRIVASI} target="_blank" className="text-blue-700 font-bold underline">Kebijakan Privasi</Link> versi {VERSI_KEBIJAKAN_PRIVASI}.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={setujuPribadi} onChange={(e) => setSetujuPribadi(e.target.checked)} />
+                <span className="text-sm text-slate-700 leading-relaxed">
+                  Saya menyetujui pemrosesan data administrasi RT (nama, alamat, NIK, WhatsApp) untuk buku induk, surat, iuran, dan layanan portal.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={setujuKeuangan} onChange={(e) => setSetujuKeuangan(e.target.checked)} />
+                <span className="text-sm text-slate-700 leading-relaxed">
+                  Saya menyetujui pemrosesan kisaran pendapatan dan daya listrik untuk program RT. Jika tidak dicentang, isian itu dikosongkan.
+                </span>
+              </label>
+              {anggota.length > 0 ? (
+                <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+                  <input type="checkbox" className="mt-1" checked={setujuAnggota} onChange={(e) => setSetujuAnggota(e.target.checked)} />
+                  <span className="text-sm text-slate-700 leading-relaxed">
+                    Saya adalah penanggung jawab rumah tangga dan berwenang mendaftarkan data anggota keluarga yang saya isi.
+                  </span>
+                </label>
+              ) : null}
+              {anggota.some((item) => {
+                const umur = umurDariTanggalIso(item.tanggal_lahir);
+                return umur != null && umur < USIA_ANAK_PDP;
+              }) ? (
+                <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 cursor-pointer">
+                  <input type="checkbox" className="mt-1" checked={setujuAnak} onChange={(e) => setSetujuAnak(e.target.checked)} />
+                  <span className="text-sm text-amber-950 leading-relaxed">
+                    Saya orang tua atau wali dari anak di bawah 18 tahun yang didaftarkan, dan menyetujui pemrosesan data anak itu.
+                  </span>
+                </label>
+              ) : null}
+            </div>
           </section>
         )}
 
@@ -772,7 +861,7 @@ export default function SensusClient({
               </button>
             </div>
           ) : (
-            <button type="button" disabled={loading || !setujuData || !setujuTanggungJawab} onClick={handleSimpan} className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-50">
+            <button type="button" disabled={loading || !setujuData || !setujuTanggungJawab || !bacaKebijakan || !setujuPribadi} onClick={handleSimpan} className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-50">
               {loading ? "Menyimpan..." : "Kirim verifikasi"}
             </button>
           )}

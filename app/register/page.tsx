@@ -18,6 +18,9 @@ function RegisterWilayahTertutup({ pesan }: { pesan: string }) {
           Minta tautan rujukan resmi dari pengurus RT, berbentuk <span className="font-mono font-bold">/register?rt=kode</span>.
           Formulir publik tidak boleh mengirim data tanpa wilayah RT.
         </p>
+        <p className="text-xs text-slate-500 mt-3">
+          <Link href="/kebijakan-privasi" className="text-blue-700 font-semibold hover:underline">Kebijakan Privasi</Link>
+        </p>
       </div>
     </div>
   );
@@ -35,9 +38,9 @@ export default async function RegisterPage({
   const namaWilayah = [wilayah.wilayah.namaRt, wilayah.wilayah.namaRw].filter(Boolean).join(" / ");
   const rtIdTerikat = wilayah.wilayah.rtId;
 
-  async function daftar(payloadKepala: unknown, anggotaPayload: unknown): Promise<HasilRegister> {
+  async function daftar(payloadKepala: unknown, anggotaPayload: unknown, persetujuan: unknown): Promise<HasilRegister> {
     "use server";
-    return aksiRegister(rtIdTerikat, payloadKepala, anggotaPayload);
+    return aksiRegister(rtIdTerikat, payloadKepala, anggotaPayload, persetujuan);
   }
 
   return (

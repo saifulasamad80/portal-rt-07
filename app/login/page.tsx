@@ -148,11 +148,18 @@ export default function WargaLogin() {
           </form>
 
           {!requirePinChange && (
-            <div className="text-center mt-8 pt-6 border-t border-slate-200">
-              <span className="text-sm text-slate-500 font-medium">Belum punya akun? </span>
-              <Link href="/register" className="text-sm text-blue-600 font-black hover:underline ml-1">
-                Daftar di sini
-              </Link>
+            <div className="text-center mt-8 pt-6 border-t border-slate-200 space-y-3">
+              <p>
+                <span className="text-sm text-slate-500 font-medium">Belum punya akun? </span>
+                <Link href="/register" className="text-sm text-blue-600 font-black hover:underline ml-1">
+                  Daftar di sini
+                </Link>
+              </p>
+              <p>
+                <Link href="/kebijakan-privasi" className="text-xs text-slate-500 font-semibold hover:underline">
+                  Kebijakan Privasi
+                </Link>
+              </p>
             </div>
           )}
         </div>

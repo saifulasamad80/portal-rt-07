@@ -3,10 +3,16 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import {
+  PESAN_PERSETUJUAN_CARIK,
+  jumlahAnakDariTanggal,
+  normalisasiPersetujuanLaporDiri,
+} from "@/lib/kebijakan-privasi";
+import {
   PESAN_TINJAUAN_PENGURUS,
   periksaKepemilikanAnggota,
   type IdentitasAnggotaTersimpan,
 } from "@/lib/kebijakan-sensus";
+import { catatPersetujuanData } from "@/lib/persetujuan-data";
 import { POLA_UUID } from "@/lib/uuid-tenant";
 import { ambilRumahTanggaPortal } from "@/lib/rumah-tangga-warga";
 import {
@@ -498,7 +504,8 @@ export async function simpanVerifikasiCarikMandiri(
   identitas: IdentitasSensusMandiri,
   biodataMentah: Record<string, unknown>,
   anggotaMentah: unknown,
-  catatan: string
+  catatan: string,
+  persetujuanPayload: unknown
 ): Promise<HasilCarik> {
   if (
     !POLA_UUID.test(identitas.id) ||
@@ -522,9 +529,6 @@ export async function simpanVerifikasiCarikMandiri(
     };
   }
 
-  const biodata = sanitasiBiodata(biodataMentah);
-  if (!biodata.ok) return { success: false, message: biodata.message };
-
   // Argumen Server Action tetap attacker-controlled pada runtime. Nilai non-
   // array tidak boleh berubah arti menjadi daftar kosong (hapus semua anggota).
   if (!Array.isArray(anggotaMentah)) {
@@ -532,6 +536,20 @@ export async function simpanVerifikasiCarikMandiri(
   }
   const anggota = sanitasiAnggota(anggotaMentah, identitas.nik);
   if (!anggota.ok) return { success: false, message: anggota.message };
+
+  const jumlahAnak = jumlahAnakDariTanggal(anggota.data.map((item) => item.tanggal_lahir));
+  const persetujuan = normalisasiPersetujuanLaporDiri(
+    persetujuanPayload,
+    anggota.data.length,
+    jumlahAnak,
+    { wajibKeuangan: false, pesanWajib: PESAN_PERSETUJUAN_CARIK }
+  );
+  if (!persetujuan.ok) return { success: false, message: persetujuan.message };
+
+  const biodata = sanitasiBiodata(biodataMentah, {
+    wajibKeuangan: persetujuan.data.data_keuangan,
+  });
+  if (!biodata.ok) return { success: false, message: biodata.message };
 
   // Tidak ada fallback multi-query. RPC mengunci dan memvalidasi ulang warga,
   // tenant, NIK, serta ownership anggota di dalam satu transaksi PostgreSQL.
@@ -558,6 +576,20 @@ export async function simpanVerifikasiCarikMandiri(
     }
     return { success: false, message: "Verifikasi belum dapat disimpan. Coba lagi nanti." };
   }
+
+  // RPC enam argumen adalah kontrak yang tersedia saat ini. Jejak consent
+  // sengaja dicatat sesudah mutasi berhasil agar kegagalan RPC tidak
+  // meninggalkan persetujuan yang tidak terkait dengan submit Carik.
+  const jejak = await catatPersetujuanData(supabase, {
+    wargaId: identitas.id,
+    rtId: identitas.rtId,
+    sumber: "carik",
+    persetujuan: persetujuan.data,
+    jumlahAnggota: anggota.data.length,
+    jumlahAnak,
+    aktorAudit: "Carik mandiri",
+  });
+  if (!jejak.ok) return { success: false, message: jejak.message };
 
   return {
     success: true,

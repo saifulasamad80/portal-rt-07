@@ -28,9 +28,10 @@ test("Server Action /register tidak memanggil RPC warisan; rt_id diikat dari mas
   assert.match(aksi, /pastikanRtRegistrasiAda/);
   assert.match(aksi, /rt_id: rtId/);
   assert.equal((aksi.match(/rt_id: rtId/g) || []).length, 3);
+  assert.match(aksi, /catatPersetujuanData\([\s\S]*rtId,/);
 
   assert.match(halaman, /tetapkanRtRegistrasi\(rt\)/);
-  assert.match(halaman, /aksiRegister\(rtIdTerikat, payloadKepala, anggotaPayload\)/);
+  assert.match(halaman, /aksiRegister\(rtIdTerikat, payloadKepala, anggotaPayload, persetujuan\)/);
 
   assert.match(tenant, /import "server-only"/);
   assert.match(tenant, /from\("master_rt"\)/);

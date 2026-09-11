@@ -24,6 +24,13 @@ import {
   hapusDuplikatPilihan,
   hapusKarenaNikTidakSesuai,
 } from "@/lib/verifikasi-carik-admin";
+import { jumlahAnakDariTanggal, normalisasiPersetujuanLaporDiri, PESAN_PERSETUJUAN_CARIK, VERSI_KEBIJAKAN_PRIVASI } from "@/lib/kebijakan-privasi";
+import {
+  ambilPersetujuanTerbaru,
+  catatPersetujuanData,
+  pathSuratPersetujuan,
+} from "@/lib/persetujuan-data";
+import { parseDataUrlLampiran } from "@/lib/validasi-berkas-unggah";
 import { POLA_UUID } from "@/lib/uuid-tenant";
 
 export default async function AdminWargaDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -110,7 +117,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     pendidikan: anggota.pendidikan == null ? null : String(anggota.pendidikan),
   }));
 
-  const [statusCarik, duplikat] = await Promise.all([
+  const [statusCarik, duplikat, jejakPdp] = await Promise.all([
     ambilStatusCarik(supabase, idWarga, String(wargaRes.rt_id)),
     cariDuplikatWarga(supabase, {
       id: wargaRes.id,
@@ -119,6 +126,7 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       tanggal_lahir: wargaRes.tanggal_lahir,
       rt_id: String(wargaRes.rt_id),
     }),
+    ambilPersetujuanTerbaru(supabase, idWarga, String(wargaRes.rt_id)),
   ]);
 
   const wargaUntukKlien = {
@@ -274,6 +282,68 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
     }
   }
 
+  async function aksiUnggahSuratPdp(payload: unknown): Promise<HasilCarik> {
+    "use server";
+    try {
+      const otentikasi = await otentikasiAdminAktif();
+      if (!otentikasi.ok) return { success: false, message: otentikasi.message };
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        return { success: false, message: "Data surat tidak valid." };
+      }
+      const input = payload as Record<string, unknown>;
+      const klien = await buatKlienTerautentikasi(otentikasi.sesi);
+      const target = await otorisasiWargaUntukAdmin(klien, otentikasi.sesi, idWarga);
+      if (!target.ok) return { success: false, message: target.message };
+
+      const { data: anggota } = await klien
+        .from("anggota_keluarga")
+        .select("tanggal_lahir")
+        .eq("warga_id", target.sesi.id)
+        .eq("rt_id", target.sesi.rtId);
+      const tanggalAnggota = (anggota || []).map((item) => String(item.tanggal_lahir || ""));
+      const persetujuan = normalisasiPersetujuanLaporDiri(
+        input.persetujuan,
+        tanggalAnggota.length,
+        jumlahAnakDariTanggal(tanggalAnggota),
+        { wajibKeuangan: false, pesanWajib: PESAN_PERSETUJUAN_CARIK }
+      );
+      if (!persetujuan.ok) return { success: false, message: persetujuan.message };
+      if (persetujuan.data.versi_naskah !== VERSI_KEBIJAKAN_PRIVASI) {
+        return { success: false, message: "Surat kertas harus memakai naskah versi yang sama dengan situs." };
+      }
+
+      const berkas = parseDataUrlLampiran(input.berkasDataUrl);
+      if ("error" in berkas) return { success: false, message: berkas.error };
+      const path = pathSuratPersetujuan(target.sesi.rtId, target.sesi.id, berkas.ekstensi === "pdf" ? "pdf" : "jpg");
+      const privileged = getSupabaseAdminClientDariSesi(otentikasi.sesi);
+      const unggah = await privileged.storage.from("dokumen_warga").upload(path, berkas.buffer, {
+        contentType: berkas.contentType,
+        upsert: false,
+      });
+      if (unggah.error) return { success: false, message: "Berkas surat belum dapat disimpan." };
+
+      const jejak = await catatPersetujuanData(privileged, {
+        wargaId: target.sesi.id,
+        rtId: target.sesi.rtId,
+        sumber: "kertas",
+        persetujuan: persetujuan.data,
+        jumlahAnggota: tanggalAnggota.length,
+        jumlahAnak: jumlahAnakDariTanggal(tanggalAnggota),
+        berkasPath: path,
+        aktorAudit: otentikasi.sesi.nama,
+      });
+      if (!jejak.ok) {
+        await privileged.storage.from("dokumen_warga").remove([path]);
+        return { success: false, message: jejak.message };
+      }
+      revalidatePath("/");
+      return { success: true, message: `Surat kertas versi ${VERSI_KEBIJAKAN_PRIVASI} tercatat.` };
+    } catch (err: unknown) {
+      const pesan = err instanceof Error ? err.message : "Surat kertas belum dapat diunggah.";
+      return { success: false, message: pesan };
+    }
+  }
+
   return (
     <WargaDetailClient
       warga={wargaUntukKlien}
@@ -284,6 +354,8 @@ export default async function AdminWargaDetailPage({ params }: { params: Promise
       aksiVerifikasiCarik={aksiVerifikasiCarikPengurus}
       aksiNikTidakSesuai={aksiNikTidakSesuai}
       aksiHapusDuplikat={aksiHapusDuplikat}
+      persetujuanPdp={jejakPdp.ok ? jejakPdp.data : null}
+      aksiUnggahSuratPdp={aksiUnggahSuratPdp}
     />
   );
 }

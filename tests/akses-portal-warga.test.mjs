@@ -28,7 +28,9 @@ test("login, sesi, dan carik mandiri memisahkan akun portal dari kartu KK", asyn
   assert.match(sesi, /alasanTolakMasukPortal/);
   assert.doesNotMatch(sesi, /statusAktifTersedia && warga\.status_aktif !== true/);
   assert.match(mandiri, /rumahTangga\.adalahTanggungan/);
-  assert.match(kunci, /ambilCapCarikRumahTangga/);
+  assert.match(kunci, /otentikasiWargaAktif/);
+  assert.match(kunci, /redirect\("\/login"\)/);
+  assert.doesNotMatch(kunci, /ambilCapCarikRumahTangga|statusCarik|layananTerkunci/);
   assert.match(dasbor, /ambilCerminRumahTangga/);
   assert.match(dasbor, /wargaAktif\.id/);
   assert.match(sensus, /SensusTanggungan/);

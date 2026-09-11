@@ -78,8 +78,6 @@ export const BIDANG_WAJIB_CARIK = [
   "detail_alamat",
   "no_kk",
   "hubungan_kk",
-  "pendapatan_bulanan",
-  "daya_listrik",
 ] as const;
 
 const TANGGAL_ARSIP = "1900-01-01";
@@ -202,7 +200,7 @@ function normalisasiJenisKelamin(nilai: string) {
 
 export function sanitasiBiodata(
   mentah: Record<string, unknown>,
-  opsi?: { ketat?: boolean }
+  opsi?: { ketat?: boolean; wajibKeuangan?: boolean }
 ): { ok: true; data: BiodataInput } | { ok: false; message: string } {
   // NIK sengaja dibuang di sini: kolom itu gembok identitas dan tidak boleh
   // ikut payload UPDATE, baik dari warga maupun pengurus.
@@ -211,6 +209,7 @@ export function sanitasiBiodata(
   void _pinDiabaikan;
   void _idDiabaikan;
   const ketat = opsi?.ketat !== false;
+  const wajibKeuangan = opsi?.wajibKeuangan !== false;
 
   const data: BiodataInput = {
     nama_lengkap: teks(sisa.nama_lengkap).slice(0, 100),
@@ -265,11 +264,16 @@ export function sanitasiBiodata(
     return { ok: false, message: "Status tinggal harus Penduduk Tetap, Penduduk Tidak Tetap, Penyewa Kos, atau Penyewa Kontrakan." };
   }
   if (!data.detail_alamat) return { ok: false, message: "Detail alamat (gang/blok/nomor rumah) wajib diisi." };
-  if (!dalamDaftar(data.pendapatan_bulanan, PILIHAN_PENDAPATAN)) {
-    return { ok: false, message: "Pendapatan bulanan belum dipilih dengan benar." };
-  }
-  if (!dalamDaftar(data.daya_listrik, PILIHAN_DAYA_LISTRIK)) {
-    return { ok: false, message: "Daya listrik terpasang belum dipilih dengan benar." };
+  if (wajibKeuangan) {
+    if (!dalamDaftar(data.pendapatan_bulanan, PILIHAN_PENDAPATAN)) {
+      return { ok: false, message: "Pendapatan bulanan belum dipilih dengan benar." };
+    }
+    if (!dalamDaftar(data.daya_listrik, PILIHAN_DAYA_LISTRIK)) {
+      return { ok: false, message: "Daya listrik terpasang belum dipilih dengan benar." };
+    }
+  } else {
+    data.pendapatan_bulanan = "";
+    data.daya_listrik = "";
   }
 
   return { ok: true, data };

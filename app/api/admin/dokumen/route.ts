@@ -10,6 +10,7 @@ const POLA_PATH_DOKUMEN_WARGA = new RegExp(
     `registrasi/${POLA_UUID}/${POLA_UUID}/(?:KTP_KK|KK_UTAMA|KTP_ANGGOTA_[1-9][0-9]*)_${POLA_UUID}\\.(?:jpg|png|webp)`,
     `(?:KTP_KK|KK_UTAMA|KTP_ANGGOTA_[0-9]{16})_${POLA_UUID}\\.(?:jpeg|jpg|png|webp)`,
     `[0-9]{16}_(?:KTP_KK|KK_UTAMA|KTP_ANGGOTA)_[0-9]{10,17}\\.jpg`,
+    `persetujuan/${POLA_UUID}/${POLA_UUID}/SURAT_${POLA_UUID}\\.(?:jpg|pdf)`,
   ].map((pola) => `(?:${pola})`).join("|")})$`,
   "i"
 );
@@ -49,6 +50,14 @@ export async function GET(request: Request) {
       .eq("kk_path", path)
       .eq("rt_id", otentikasi.sesi.rtId);
     ({ data: pemilik, error: errPemilik } = await queryKk.maybeSingle());
+  }
+  if (errPemilik || !pemilik) {
+    const querySurat = supabase
+      .from("persetujuan_data_warga")
+      .select("id")
+      .eq("berkas_path", path)
+      .eq("rt_id", otentikasi.sesi.rtId);
+    ({ data: pemilik, error: errPemilik } = await querySurat.maybeSingle());
   }
   if (errPemilik || !pemilik) {
     return new NextResponse("Dokumen tidak ditemukan atau tidak berada dalam cakupan Anda", { status: 404 });

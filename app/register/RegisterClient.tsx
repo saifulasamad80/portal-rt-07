@@ -3,6 +3,12 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { kompresGambarKeDataUrl, MAKS_BYTE_GAMBAR_ASLI } from "@/lib/kompresi-gambar-klien";
+import {
+  PATH_KEBIJAKAN_PRIVASI,
+  USIA_ANAK_PDP,
+  VERSI_KEBIJAKAN_PRIVASI,
+  umurDariTanggalIso,
+} from "@/lib/kebijakan-privasi";
 import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
 
 const FITUR_KTP_AKTIF = false; 
@@ -28,7 +34,6 @@ type DraftRegister = {
   nik: string;
   nama: string;
   wa: string;
-  pin: string;
   statusTinggal: string;
   detailAlamat: string;
   tglLahir: string;
@@ -45,7 +50,7 @@ type DraftRegister = {
 };
 
 type HasilRegister = { success: boolean; message: string };
-type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown) => Promise<HasilRegister>;
+type AksiRegister = (payloadKepala: unknown, anggotaPayload: unknown, persetujuan: unknown) => Promise<HasilRegister>;
 
 function anggotaKeDraft(item: AnggotaKeluarga): AnggotaKeluargaDraft {
   const { fileKtp: _fileKtp, ...sisa } = item;
@@ -90,6 +95,11 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
   const [anggota, setAnggota] = useState<AnggotaKeluarga[]>([]);
   const [loading, setLoading] = useState(false); const [progressTeks, setProgressTeks] = useState("");
   const [draftSiap, setDraftSiap] = useState(false);
+  const [bacaKebijakan, setBacaKebijakan] = useState(false);
+  const [setujuPribadi, setSetujuPribadi] = useState(false);
+  const [setujuAnggota, setSetujuAnggota] = useState(false);
+  const [setujuAnak, setSetujuAnak] = useState(false);
+  const [setujuKeuangan, setSetujuKeuangan] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -101,7 +111,6 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
           setNik(String(parsed.nik ?? ""));
           setNama(String(parsed.nama ?? ""));
           setWa(String(parsed.wa ?? ""));
-          setPin(String(parsed.pin ?? ""));
           setStatusTinggal(String(parsed.statusTinggal ?? ""));
           setDetailAlamat(String(parsed.detailAlamat ?? ""));
           setTglLahir(String(parsed.tglLahir ?? ""));
@@ -132,7 +141,6 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
         nik,
         nama,
         wa,
-        pin,
         statusTinggal,
         detailAlamat,
         tglLahir,
@@ -157,7 +165,6 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     nik,
     nama,
     wa,
-    pin,
     statusTinggal,
     detailAlamat,
     tglLahir,
@@ -243,6 +250,10 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     if (noKk.replace(/\D/g, "").length !== 16) return alert("Nomor KK Kepala Keluarga wajib 16 digit.");
     if (!pendidikan) return alert("Pendidikan Kepala Keluarga wajib dipilih.");
     if (!tanggalValid(tglLahir)) return alert("Tanggal lahir Kepala Keluarga tidak valid.");
+    const umurKk = umurDariTanggalIso(tglLahir);
+    if (umurKk != null && umurKk < USIA_ANAK_PDP) {
+      return alert("Lapor diri mandiri hanya untuk penanggung jawab berusia 18 tahun atau lebih. Data anak didaftarkan oleh orang tua atau wali.");
+    }
     if (anggota.length > MAKS_ANGGOTA) return alert(`Maksimal ${MAKS_ANGGOTA} anggota keluarga.`);
 
     const nikTerdaftar = new Set<string>([nik]);
@@ -261,6 +272,20 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
       if (!dokumenMenyusul && (!fileKtp || !fileKk)) return alert("Lampirkan KTP dan KK Kepala Keluarga, atau centang 'Dokumen Menyusul'.");
     } else {
       if (!dokumenMenyusul && !fileKk) return alert("Lampirkan Foto Kartu Keluarga, atau centang 'Dokumen Menyusul'.");
+    }
+
+    if (!bacaKebijakan || !setujuPribadi || !setujuKeuangan) {
+      return alert("Baca dan setujui Kebijakan Privasi, pemrosesan data pribadi, dan data keuangan rumah tangga sebelum mengirim.");
+    }
+    if (anggota.length > 0 && !setujuAnggota) {
+      return alert("Pendaftaran anggota keluarga membutuhkan persetujuan tersendiri dari penanggung jawab.");
+    }
+    const adaAnak = anggota.some((item) => {
+      const umur = umurDariTanggalIso(item.tglLahir);
+      return umur != null && umur < USIA_ANAK_PDP;
+    });
+    if (adaAnak && !setujuAnak) {
+      return alert("Data anak di bawah 18 tahun membutuhkan persetujuan orang tua atau wali.");
     }
 
     setLoading(true);
@@ -299,7 +324,14 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
       };
 
       setProgressTeks("Mendaftarkan & Mengunggah via Server (Jalur Aman)...");
-      const hasil = await aksiRegister(payloadKepala, anggotaPayload);
+      const hasil = await aksiRegister(payloadKepala, anggotaPayload, {
+        versi_naskah: VERSI_KEBIJAKAN_PRIVASI,
+        baca_kebijakan: bacaKebijakan,
+        data_pribadi: setujuPribadi,
+        data_anggota: anggota.length > 0 && setujuAnggota,
+        data_anak: adaAnak && setujuAnak,
+        data_keuangan: setujuKeuangan,
+      });
       if (!hasil?.success) {
         alert(hasil?.message || "Pendaftaran belum dapat diproses saat ini.");
         setLoading(false); setProgressTeks("");
@@ -337,6 +369,10 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
       <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-4xl border-t-[8px] border-t-blue-600">
         <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 text-center tracking-tight">Formulir Lapor Diri {namaWilayah}</h1>
         <p className="text-center text-slate-500 text-xs md:text-sm mb-8 font-bold">Data masuk antrean pengurus. Belum tercatat sebagai warga sah sebelum disetujui.</p>
+        <p className="text-center text-xs text-slate-500 mb-6 leading-relaxed">
+          Dengan mengisi formulir ini Anda akan mengirim data pribadi kepada pengurus RT.
+          Baca <Link href={PATH_KEBIJAKAN_PRIVASI} target="_blank" className="text-blue-700 font-black underline">Kebijakan Privasi versi {VERSI_KEBIJAKAN_PRIVASI}</Link> sebelum menyetujui di bagian bawah.
+        </p>
         {alasan === "nik-tidak-sesuai" && (
           <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 leading-relaxed">
             Data warisan sebelumnya dihapus karena NIK tidak sesuai. NIK tidak bisa diubah. Isi formulir ini dengan NIK yang tertera di KTP, lalu tunggu persetujuan pengurus RT.
@@ -382,7 +418,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
               <div><label className="block text-xs font-bold text-slate-600 mb-1 uppercase">No. WhatsApp</label><input type="tel" minLength={10} maxLength={15} required className="w-full border-2 border-slate-200 bg-white text-slate-900 rounded-lg p-3 font-mono font-bold" value={wa} onChange={(e) => setWa(e.target.value.replace(/[^0-9]/g, ''))} /></div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
                 <label className="block text-[10px] font-black uppercase text-amber-800 mb-1 text-center">Buat PIN Portal (6 Angka)</label>
-                <input type="password" maxLength={6} minLength={6} required className="w-full border border-amber-300 bg-white text-slate-900 rounded p-2 font-mono tracking-widest text-center text-xl shadow-inner" value={pin} onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))} />
+                <input type="password" maxLength={6} minLength={6} required className="w-full border border-amber-300 bg-white text-slate-900 rounded p-2 font-mono tracking-widest text-center text-xl shadow-inner" value={pin} onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))} autoComplete="new-password" />
+                <p className="text-[10px] text-amber-800 mt-1.5 leading-relaxed">PIN tidak disimpan di draf peramban. Ketik ulang sebelum kirim.</p>
               </div>
             </div>
 
@@ -411,7 +448,8 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
           </div>
 
           <div className="space-y-4 pb-6 border-b border-slate-200">
-            <h2 className="font-black text-emerald-700 uppercase tracking-widest text-sm flex items-center gap-2">📊 Data Profil Ekonomi (Validasi Desil Bansos)</h2>
+            <h2 className="font-black text-emerald-700 uppercase tracking-widest text-sm flex items-center gap-2">Profil rumah tangga</h2>
+            <p className="text-[11px] text-slate-500 leading-relaxed">Kisaran pendapatan dan daya listrik untuk program RT (santunan, pendataan lingkungan). Bukan data DTKS dan bukan penyaluran bansos pemerintah. Termasuk data keuangan pribadi — persetujuan khusus di bagian bawah.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Rata-rata Pendapatan / Bulan</label>
@@ -525,6 +563,50 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
                 </div>
               );
             })}
+          </div>
+
+          <div className="space-y-3 rounded-xl border-2 border-slate-200 bg-slate-50 p-4 md:p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-700">Persetujuan pemrosesan data</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Centang hanya setelah membaca naskah. Persetujuan dicatat di server (versi {VERSI_KEBIJAKAN_PRIVASI}), bukan di draf peramban.
+            </p>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={bacaKebijakan} onChange={(e) => setBacaKebijakan(e.target.checked)} />
+              <span className="text-sm text-slate-700 leading-relaxed">
+                Saya telah membaca <Link href={PATH_KEBIJAKAN_PRIVASI} target="_blank" className="text-blue-700 font-bold underline">Kebijakan Privasi</Link> versi {VERSI_KEBIJAKAN_PRIVASI}.
+              </span>
+            </label>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={setujuPribadi} onChange={(e) => setSetujuPribadi(e.target.checked)} />
+              <span className="text-sm text-slate-700 leading-relaxed">
+                Saya menyetujui pemrosesan data pribadi saya untuk administrasi RT (buku induk, verifikasi, surat, iuran, dan layanan portal).
+              </span>
+            </label>
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={setujuKeuangan} onChange={(e) => setSetujuKeuangan(e.target.checked)} />
+              <span className="text-sm text-slate-700 leading-relaxed">
+                Saya menyetujui pemrosesan kisaran pendapatan dan daya listrik rumah tangga untuk program RT, bukan untuk DTKS/bansos pemerintah.
+              </span>
+            </label>
+            {anggota.length > 0 ? (
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={setujuAnggota} onChange={(e) => setSetujuAnggota(e.target.checked)} />
+                <span className="text-sm text-slate-700 leading-relaxed">
+                  Saya adalah penanggung jawab rumah tangga dan berwenang mendaftarkan data anggota keluarga yang saya isi.
+                </span>
+              </label>
+            ) : null}
+            {anggota.some((item) => {
+              const umur = umurDariTanggalIso(item.tglLahir);
+              return umur != null && umur < USIA_ANAK_PDP;
+            }) ? (
+              <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={setujuAnak} onChange={(e) => setSetujuAnak(e.target.checked)} />
+                <span className="text-sm text-amber-950 leading-relaxed">
+                  Saya orang tua atau wali dari anak di bawah 18 tahun yang didaftarkan, dan menyetujui pemrosesan data anak itu.
+                </span>
+              </label>
+            ) : null}
           </div>
 
           <button type="submit" disabled={loading} className={`w-full text-white text-lg font-black tracking-widest uppercase rounded-xl p-5 transition-all mt-8 shadow-xl relative overflow-hidden ${loading ? 'bg-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:scale-[1.02]'}`}>

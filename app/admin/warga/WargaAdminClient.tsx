@@ -5,6 +5,12 @@ import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
 import {
+  formatTanggalPdp,
+  PATH_SURAT_PERSETUJUAN,
+  PESAN_IMPOR_CSV_DITOLAK,
+} from "@/lib/kebijakan-privasi";
+import type { InventoriPdp } from "@/lib/kebijakan-privasi";
+import {
   type AnggotaKartu,
   susunHasilCari,
   teksCari,
@@ -15,13 +21,31 @@ const FITUR_KTP_AKTIF = false;
 
 type Notifikasi = { tipe: "sukses" | "gagal"; pesan: string } | null;
 
-export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus, aksiImportMassal, aksiResetPin }: { wargaList: any[], aksiHapus: any, aksiUbahStatus: any, aksiImportMassal: any, aksiResetPin: any }) {
+export default function WargaAdminClient({
+  wargaList,
+  inventoriPdp,
+  aksiHapus,
+  aksiUbahStatus,
+  aksiImportMassal,
+  aksiResetPin,
+  aksiSiarkanPdp,
+  aksiTenggatPdp,
+}: {
+  wargaList: any[],
+  inventoriPdp: InventoriPdp | null,
+  aksiHapus: any,
+  aksiUbahStatus: any,
+  aksiImportMassal: (dataWarga: unknown[]) => Promise<{ success: boolean; message: string; hasil?: { berhasil: number; gagal: number } }>,
+  aksiResetPin: any,
+  aksiSiarkanPdp: () => Promise<{ success: boolean; message: string }>,
+  aksiTenggatPdp: () => Promise<{ success: boolean; message: string }>,
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [notifikasi, setNotifikasi] = useState<Notifikasi>(null);
+  void aksiImportMassal;
 
   const daftarAman = Array.isArray(wargaList) ? wargaList : [];
 
@@ -200,54 +224,15 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
     setPdfLoading(false);
   };
 
-  const downloadTemplateCSV = () => {
-    const headers = "nik,nama_lengkap,no_kk,no_whatsapp,status_tinggal,detail_alamat,tanggal_lahir,tempat_lahir,jenis_kelamin,agama,pekerjaan,pendidikan\n";
-    const sample = "3171000000000001,Budi Santoso,3171000000000002,081234567890,Penduduk Tetap,Blok A No 1,1985-08-15,Jakarta,Laki-laki,Islam,Karyawan Swasta,SLTA/MA\n";
-    const blob = new Blob([headers + sample], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "Template_Import_Warga_RT07.csv"; a.click();
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!confirm(`Impor data dari file "${file.name}"?`)) { e.target.value = ''; return; }
-
-    setIsUploading(true);
-    setNotifikasi(null);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      const rows = (text || "").split("\n").filter(row => row.trim() !== "");
-      if (rows.length < 2) { laporkan("gagal", "File CSV kosong atau hanya berisi baris judul."); setIsUploading(false); return; }
-
-      const headers = rows[0].split(",").map(h => h.trim().toLowerCase());
-      const dataWarga = [];
-      for (let i = 1; i < rows.length; i++) {
-        const values = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').trim());
-        const obj: any = {};
-        headers.forEach((header, index) => { obj[header] = values[index]; });
-        dataWarga.push(obj);
-      }
-      try {
-        const res = await aksiImportMassal(dataWarga);
-        if (res?.success) {
-          const berhasil = res.hasil?.berhasil ?? 0;
-          const gagal = res.hasil?.gagal ?? 0;
-          laporkan("sukses", `🏁 IMPORT SELESAI! Sukses: ${berhasil} Warga. Gagal/Duplikat: ${gagal} baris.`);
-          router.refresh();
-        } else {
-          laporkan("gagal", res?.message || "Impor gagal tanpa keterangan dari server.");
-        }
-      } catch (error: any) {
-        laporkan("gagal", "Sistem Error: " + (error?.message || "kesalahan tidak diketahui"));
-      }
-      setIsUploading(false);
-    };
-    reader.onerror = () => { laporkan("gagal", "Gagal membaca file CSV dari perangkat Anda."); setIsUploading(false); };
-    reader.readAsText(file);
-    e.target.value = ''; 
+  const jalankanPdp = async (fn: () => Promise<{ success: boolean; message: string }>, konfirmasi?: string) => {
+    if (konfirmasi && !confirm(konfirmasi)) return;
+    try {
+      const res = await fn();
+      laporkan(res?.success ? "sukses" : "gagal", res?.message || "Perintah PDP belum selesai.");
+      if (res?.success) router.refresh();
+    } catch {
+      laporkan("gagal", "Perintah PDP belum dapat dijalankan.");
+    }
   };
 
   const totalKK = filteredWarga.length;
@@ -286,8 +271,51 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
           onClose={() => setNotifikasi(null)}
         />
 
+        {inventoriPdp ? (
+          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pelindungan data</p>
+            <h2 className="font-black text-xl text-slate-800 mt-1">Data lama dan surat kertas</h2>
+            <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+              Impor CSV NIK dimatikan. {PESAN_IMPOR_CSV_DITOLAK}
+            </p>
+            <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+              Pemberitahuan sejak {formatTanggalPdp(inventoriPdp.pemberitahuan)}. Tenggat mengosongkan pendapatan dan foto KK tanpa izin: {formatTanggalPdp(inventoriPdp.tenggat)}. NIK, kas, ronda, dan surat tidak dihapus.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-200">
+                {inventoriPdp.tanpaJejak} KK tanpa jejak izin
+              </span>
+              <span className="bg-rose-50 text-rose-800 px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-200">
+                {inventoriPdp.pendapatanTanpaKeuangan} KK punya pendapatan tanpa izin keuangan
+              </span>
+              <span className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200">
+                {inventoriPdp.fotoKkTanpaJejak} foto KK tanpa jejak izin
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <TautanHalus href={PATH_SURAT_PERSETUJUAN} className="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold">
+                Cetak surat kertas
+              </TautanHalus>
+              <button type="button" onClick={() => jalankanPdp(aksiSiarkanPdp)} className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold">
+                Siarkan pemberitahuan di portal
+              </button>
+              <button
+                type="button"
+                onClick={() => jalankanPdp(
+                  aksiTenggatPdp,
+                  inventoriPdp.tenggatLewat
+                    ? "Kosongkan pendapatan dan foto KK pada KK yang belum memberi izin? NIK dan buku induk tidak dihapus."
+                    : undefined
+                )}
+                className={`px-4 py-2.5 rounded-lg text-xs font-bold ${inventoriPdp.tenggatLewat ? "bg-rose-600 text-white" : "bg-slate-200 text-slate-500"}`}
+              >
+                {inventoriPdp.tenggatLewat ? "Jalankan tenggat" : "Tenggat belum lewat"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-t-[6px] border-t-blue-500">
-          
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-6 border-b border-slate-200 pb-6">
             <div>
               <h2 className="font-black text-xl text-slate-800 mb-3">Daftar Warga Terdaftar</h2>
@@ -306,11 +334,6 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
 
             <div className="w-full xl:w-auto flex flex-col sm:flex-row flex-wrap gap-2">
               <input type="search" placeholder="🔍 Cari istri, anak, KK, NIK, atau No. KK..." className="flex-1 sm:flex-none sm:w-80 border-2 border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-blue-500 bg-slate-50" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
-              <button onClick={downloadTemplateCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">📥 Template CSV</button>
-              <label className={`cursor-pointer px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 ${isUploading ? 'bg-slate-300 text-slate-500' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
-                <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                {isUploading ? "Memproses..." : "🚀 Upload CSV"}
-              </label>
               <button onClick={handleExportPDF} disabled={pdfLoading || filteredWarga.length === 0} className={`px-4 py-2.5 rounded-lg font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 ${pdfLoading ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
                 {pdfLoading ? "Merakit PDF..." : "📄 Cetak PDF"}
               </button>

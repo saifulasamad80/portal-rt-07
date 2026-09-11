@@ -5,6 +5,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PesanDialog from "@/components/PesanDialog";
 import {
+  PATH_SURAT_PERSETUJUAN,
+  VERSI_KEBIJAKAN_PRIVASI,
+  type JejakPersetujuan,
+} from "@/lib/kebijakan-privasi";
+import { berkasKeDataUrl, kompresGambarKeDataUrl } from "@/lib/kompresi-gambar-klien";
+import {
   hitungKelengkapan,
   nilaiKosong,
   PILIHAN_AGAMA,
@@ -120,6 +126,8 @@ export default function WargaDetailClient({
   aksiVerifikasiCarik,
   aksiNikTidakSesuai,
   aksiHapusDuplikat,
+  persetujuanPdp,
+  aksiUnggahSuratPdp,
 }: {
   warga: ProfilWargaDetail;
   carik: RingkasanCarik | null;
@@ -129,12 +137,20 @@ export default function WargaDetailClient({
   aksiVerifikasiCarik: (dataBaru: Record<string, unknown>, anggota: AnggotaInput[], catatan: string) => Promise<HasilCarik>;
   aksiNikTidakSesuai: () => Promise<HasilCarik>;
   aksiHapusDuplikat: (idTarget: string, sumberTarget: DuplikatWarga["sumber"]) => Promise<HasilCarik>;
+  persetujuanPdp: JejakPersetujuan | null;
+  aksiUnggahSuratPdp: (payload: unknown) => Promise<HasilCarik>;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formTerbuka, setFormTerbuka] = useState(false);
   const [modalNikSalah, setModalNikSalah] = useState(false);
   const [pesan, setPesan] = useState<{ tipe: "sukses" | "gagal"; teks: string } | null>(null);
+  const [bacaKebijakanKertas, setBacaKebijakanKertas] = useState(false);
+  const [setujuPribadiKertas, setSetujuPribadiKertas] = useState(false);
+  const [setujuKeuanganKertas, setSetujuKeuanganKertas] = useState(false);
+  const [setujuAnggotaKertas, setSetujuAnggotaKertas] = useState(false);
+  const [setujuAnakKertas, setSetujuAnakKertas] = useState(false);
+  const [berkasSurat, setBerkasSurat] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     nama_lengkap: warga?.nama_lengkap || "",
@@ -368,6 +384,73 @@ export default function WargaDetailClient({
             </div>
           </section>
         </div>
+
+        <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="font-bold text-slate-900 mb-2">Surat pernyataan kertas</h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Pelengkap untuk KK yang tidak membuka portal. Naskah wajib sama dengan situs (versi {VERSI_KEBIJAKAN_PRIVASI}). Centang sesuai surat yang ditandatangani, lalu unggah salinannya.
+          </p>
+          {persetujuanPdp ? (
+            <p className="mt-3 text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+              Jejak terakhir: {persetujuanPdp.sumber} · v{persetujuanPdp.versi_naskah} · {formatTanggalId(persetujuanPdp.dicatat_pada)}
+              {persetujuanPdp.berkas_path ? (
+                <>
+                  {" · "}
+                  <a href={`/api/admin/dokumen?path=${persetujuanPdp.berkas_path}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+                    Lihat berkas
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : (
+            <p className="mt-3 text-sm text-amber-900 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+              Belum ada jejak izin digital atau kertas.
+            </p>
+          )}
+          <TautanHalus href={PATH_SURAT_PERSETUJUAN} className="inline-block mt-3 text-sm font-semibold text-blue-700 hover:underline">
+            Buka naskah surat untuk dicetak
+          </TautanHalus>
+          <div className="mt-4 space-y-2">
+            <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={bacaKebijakanKertas} onChange={(e) => setBacaKebijakanKertas(e.target.checked)} /><span>Surat menyatakan naskah versi {VERSI_KEBIJAKAN_PRIVASI} sudah dibaca.</span></label>
+            <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuPribadiKertas} onChange={(e) => setSetujuPribadiKertas(e.target.checked)} /><span>Izin data administrasi RT dicentang di surat.</span></label>
+            <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuKeuanganKertas} onChange={(e) => setSetujuKeuanganKertas(e.target.checked)} /><span>Izin data keuangan dicentang di surat.</span></label>
+            <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuAnggotaKertas} onChange={(e) => setSetujuAnggotaKertas(e.target.checked)} /><span>Izin anggota keluarga dicentang di surat.</span></label>
+            <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={setujuAnakKertas} onChange={(e) => setSetujuAnakKertas(e.target.checked)} /><span>Izin wali anak dicentang di surat.</span></label>
+          </div>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            className="mt-4 block w-full text-sm"
+            onChange={(e) => setBerkasSurat(e.target.files?.[0] || null)}
+          />
+          <button
+            type="button"
+            disabled={loading}
+            className="mt-4 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-50"
+            onClick={() => jalankan(async () => {
+              if (!berkasSurat) return { success: false, message: "Unggah salinan surat yang sudah ditandatangani." };
+              let berkasDataUrl = "";
+              if (berkasSurat.type === "application/pdf") {
+                berkasDataUrl = await berkasKeDataUrl(berkasSurat, 1536 * 1024);
+              } else {
+                berkasDataUrl = await kompresGambarKeDataUrl(berkasSurat, "dokumenIdentitas");
+              }
+              return aksiUnggahSuratPdp({
+                berkasDataUrl,
+                persetujuan: {
+                  versi_naskah: VERSI_KEBIJAKAN_PRIVASI,
+                  baca_kebijakan: bacaKebijakanKertas,
+                  data_pribadi: setujuPribadiKertas,
+                  data_keuangan: setujuKeuanganKertas,
+                  data_anggota: setujuAnggotaKertas,
+                  data_anak: setujuAnakKertas,
+                },
+              });
+            })}
+          >
+            Simpan surat + versi + tanggal
+          </button>
+        </section>
 
         <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <h2 className="font-bold text-slate-900 mb-4">Anggota keluarga ({warga.anggota_keluarga?.length || 0})</h2>

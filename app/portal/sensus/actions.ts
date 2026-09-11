@@ -12,7 +12,8 @@ import {
 export async function aksiSimpanCarik(
   biodata: Record<string, unknown>,
   anggota: AnggotaInput[],
-  catatan: string
+  catatan: string,
+  persetujuan: unknown
 ): Promise<HasilCarik> {
   try {
     const sesiAktif = await otentikasiWargaAktif();
@@ -24,7 +25,8 @@ export async function aksiSimpanCarik(
       sesiAktif.sesi,
       biodata,
       anggota,
-      catatan
+      catatan,
+      persetujuan
     );
   } catch (err: unknown) {
     console.error("Server Action sensus mandiri gagal:", err instanceof Error ? err.name : "unknown");

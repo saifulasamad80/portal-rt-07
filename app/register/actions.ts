@@ -2,10 +2,17 @@
 
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
+import {
+  jumlahAnakDariTanggal,
+  normalisasiPersetujuanLaporDiri,
+  umurDariTanggalIso,
+  USIA_ANAK_PDP,
+} from "@/lib/kebijakan-privasi";
 import { JUDUL_TIKET_PENDAFTARAN } from "@/lib/kebijakan-sensus";
 import { kirimNotifikasiKePengurus } from "@/lib/notifikasi-push";
 import { pastikanRtRegistrasiAda } from "@/lib/registrasi-tenant";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import { catatPersetujuanData } from "@/lib/persetujuan-data";
 import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
 
 /**
@@ -340,7 +347,8 @@ export type HasilRegister = {
 export async function aksiRegister(
   rtIdMasukan: unknown,
   payloadKepala: unknown,
-  anggotaPayload: unknown
+  anggotaPayload: unknown,
+  persetujuanPayload: unknown
 ): Promise<HasilRegister> {
   let supabase: ReturnType<typeof getSupabaseAdminClient> | null = null;
   let wargaId: string | null = null;
@@ -350,6 +358,15 @@ export async function aksiRegister(
   try {
     const kepala = normalisasiKepala(payloadKepala);
     const anggota = normalisasiAnggota(anggotaPayload);
+    const umurKepala = umurDariTanggalIso(kepala.tanggal_lahir);
+    if (umurKepala != null && umurKepala < USIA_ANAK_PDP) {
+      throw new RegistrasiAmanError(
+        "Lapor diri mandiri hanya untuk penanggung jawab berusia 18 tahun atau lebih. Data anak didaftarkan oleh orang tua atau wali."
+      );
+    }
+    const jumlahAnak = jumlahAnakDariTanggal(anggota.map((item) => item.tanggal_lahir));
+    const persetujuan = normalisasiPersetujuanLaporDiri(persetujuanPayload, anggota.length, jumlahAnak);
+    if (!persetujuan.ok) throw new RegistrasiAmanError(persetujuan.message);
     const semuaNik = semuaNikUnik(kepala, anggota);
     if (jumlahByteDokumen(kepala, anggota) > MAKS_TOTAL_BYTE_DOKUMEN) {
       throw new RegistrasiAmanError(PESAN_VALIDASI);
@@ -467,6 +484,19 @@ export async function aksiRegister(
       throw new Error("Insert tiket verifikasi gagal: Supabase tidak mengembalikan id dan tidak mengembalikan error.");
     }
     tiketId = String(tiketBaru.id);
+
+    const jejak = await catatPersetujuanData(supabase, {
+      wargaId,
+      rtId,
+      sumber: "lapor_diri",
+      persetujuan: persetujuan.data,
+      jumlahAnggota: anggota.length,
+      jumlahAnak,
+      aktorAudit: "Lapor diri mandiri",
+    });
+    if (!jejak.ok) {
+      throw new Error(jejak.message);
+    }
 
     try {
       await kirimNotifikasiKePengurus(

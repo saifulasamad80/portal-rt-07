@@ -16,15 +16,12 @@ import {
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { POLA_UUID } from "@/lib/uuid-tenant";
 import { siapkanBukuIndukWarga } from "@/lib/cari-jiwa-warga";
-import { petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
 import {
-  PILIHAN_AGAMA,
-  PILIHAN_HUBUNGAN_KK,
-  validasiNik,
-} from "@/lib/verifikasi-carik";
-
-const JENIS_KELAMIN_SAH = ["Laki-laki", "Perempuan"] as const;
-const BATAS_BARIS_IMPORT = 1000;
+  ISI_PENGUMUMAN_PDP,
+  JUDUL_PENGUMUMAN_PDP,
+  PESAN_IMPOR_CSV_DITOLAK,
+} from "@/lib/kebijakan-privasi";
+import { hitungInventoriPdp, kosongkanDataSpesifikLewatTenggat } from "@/lib/persetujuan-data";
 
 function validasiIdWarga(id: unknown): { ok: true; id: string } | { ok: false; message: string } {
   const bersih = String(id ?? "").trim();
@@ -43,7 +40,7 @@ export default async function WargaAdminPage() {
   // Jiwa tanggungan diambil kueri terpisah. Embed nested PostgREST sering
   // pulang kosong di bawah RLS pengurus, sehingga cari "Giyanti" seolah
   // tidak ada padahal istri itu tercatat di kartu KK.
-  const [{ data: wargaRes, error: errWarga }, { data: anggotaRes, error: errAnggota }] = await Promise.all([
+  const [{ data: wargaRes, error: errWarga }, { data: anggotaRes, error: errAnggota }, inventoriPdp] = await Promise.all([
     supabaseAdmin
       .from("warga")
       .select(`
@@ -72,6 +69,7 @@ export default async function WargaAdminPage() {
       .from("anggota_keluarga")
       .select("id, nik, nama_lengkap, hubungan_keluarga, rt_id, warga_id")
       .eq("rt_id", rtIdSesi),
+    hitungInventoriPdp(supabaseAdmin, rtIdSesi),
   ]);
 
   if (errWarga) console.error("Gagal memuat buku induk warga:", errWarga.message);
@@ -146,103 +144,19 @@ export default async function WargaAdminPage() {
       if (!otentikasi.ok) {
         return { success: false, message: otentikasi.message, hasil: { berhasil: 0, gagal: 0 } };
       }
-
-      if (!Array.isArray(dataWarga) || dataWarga.length === 0) {
-        return { success: false, message: "Tidak ada baris data yang bisa diimpor.", hasil: { berhasil: 0, gagal: 0 } };
-      }
-      if (dataWarga.length > BATAS_BARIS_IMPORT) {
-        return {
-          success: false,
-          message: `Terlalu banyak baris (${dataWarga.length}). Maksimal ${BATAS_BARIS_IMPORT} baris per impor.`,
-          hasil: { berhasil: 0, gagal: 0 },
-        };
-      }
-
-      const rtId = otentikasi.sesi.rtId;
-      if (!rtId) {
-        return {
-          success: false,
-          message: "Akses Ditolak: Gagal mengidentifikasi ID RT Anda.",
-          hasil: { berhasil: 0, gagal: 0 },
-        };
-      }
-
+      void dataWarga;
       const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-      const defaultPinHash = await bcrypt.hash("123456", 10);
-      let berhasil = 0;
-      let gagal = 0;
-
-      for (const baris of dataWarga) {
-        const w = baris && typeof baris === "object" ? baris as Record<string, unknown> : {};
-        const nik = String(w?.nik ?? "").replace(/\D/g, "").trim();
-        const namaLengkap = String(w?.nama_lengkap ?? "").trim();
-
-        // Patokan pengurus: NIK sah + nama cukup untuk masuk buku induk.
-        // Pendidikan, no. KK, dan field Carik lain dilengkapi lewat verifikasi data.
-        const cacatNik = validasiNik(nik, namaLengkap || "baris impor");
-        if (cacatNik || !namaLengkap) {
-          gagal++;
-          continue;
-        }
-
-        const statusTinggal = String(w?.status_tinggal ?? "").trim();
-        const jenisKelamin = String(w?.jenis_kelamin ?? "").trim();
-        const tanggalLahir = String(w?.tanggal_lahir ?? "").trim();
-        const noKkDigit = String(w?.no_kk ?? "").replace(/\D/g, "");
-
-        const pendidikan = String(w?.pendidikan ?? "").trim().slice(0, 80);
-        const agama = String(w?.agama ?? "").trim();
-        const hubunganKkMentah = String(w?.hubungan_kk ?? "").trim();
-        const hubunganKk = (PILIHAN_HUBUNGAN_KK as readonly string[]).includes(hubunganKkMentah)
-          ? hubunganKkMentah
-          : "KK";
-
-        const payload: Record<string, unknown> = {
-          nik,
-          nama_lengkap: namaLengkap.slice(0, 100),
-          no_whatsapp: String(w?.no_whatsapp ?? "").replace(/[^\d+]/g, "").trim(),
-          status_tinggal: petaStatusTinggalImpor(statusTinggal),
-          detail_alamat: String(w?.detail_alamat ?? "").trim().slice(0, 255),
-          tanggal_lahir: /^\d{4}-\d{2}-\d{2}$/.test(tanggalLahir) ? tanggalLahir : null,
-          tempat_lahir: String(w?.tempat_lahir ?? "").trim().slice(0, 100),
-          jenis_kelamin: JENIS_KELAMIN_SAH.includes(jenisKelamin as (typeof JENIS_KELAMIN_SAH)[number])
-            ? jenisKelamin
-            : "Laki-laki",
-          pekerjaan: String(w?.pekerjaan ?? "").trim().slice(0, 100),
-          hubungan_kk: hubunganKk,
-          status_verifikasi: "Disetujui",
-          pin: defaultPinHash,
-          rt_id: rtId,
-        };
-        if (noKkDigit.length === 16) payload.no_kk = noKkDigit;
-        if (pendidikan) payload.pendidikan = pendidikan;
-        if ((PILIHAN_AGAMA as readonly string[]).includes(agama)) payload.agama = agama;
-
-        const { error } = await supabase.from("warga").insert([payload]);
-        if (error) {
-          gagal++;
-        } else {
-          berhasil++;
-        }
-      }
-
       const { error: errAudit } = await supabase.from("audit_log").insert([
         {
           aktor: otentikasi.sesi.nama,
-          aksi: "Import Bulk CSV Warga",
+          aksi: "Impor CSV NIK ditolak",
           tabel_target: "warga",
-          detail: `Sukses: ${berhasil} KK. Gagal/Duplikat: ${gagal} baris.`,
-          rt_id: rtId,
+          detail: "Percobaan impor massal NIK ditolak karena tidak ada dasar dan pemberitahuan ke subjek.",
+          rt_id: otentikasi.sesi.rtId,
         },
       ]);
-      if (errAudit) console.error("Audit log import gagal dicatat:", errAudit.message);
-
-      if (berhasil > 0) revalidatePath("/");
-      return {
-        success: true,
-        message: `Impor selesai. Sukses ${berhasil} KK, gagal ${gagal} baris.`,
-        hasil: { berhasil, gagal },
-      };
+      if (errAudit) console.error("Audit penolakan impor gagal dicatat:", errAudit.message);
+      return { success: false, message: PESAN_IMPOR_CSV_DITOLAK, hasil: { berhasil: 0, gagal: 0 } };
     } catch (err: unknown) {
       const pesan = err instanceof Error ? err.message : "Kegagalan internal server saat mengimpor.";
       return { success: false, message: pesan, hasil: { berhasil: 0, gagal: 0 } };
@@ -307,13 +221,74 @@ export default async function WargaAdminPage() {
     }
   }
 
+  async function siarkanPemberitahuanPdp() {
+    "use server";
+    try {
+      const otentikasi = await otentikasiAdmin();
+      if (!otentikasi.ok) return { success: false, message: otentikasi.message };
+      const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
+      const { data: ada } = await supabase
+        .from("pengumuman_rt")
+        .select("id")
+        .eq("rt_id", otentikasi.sesi.rtId)
+        .eq("judul", JUDUL_PENGUMUMAN_PDP)
+        .limit(1)
+        .maybeSingle();
+      if (ada?.id) {
+        return { success: true, message: "Pemberitahuan PDP sudah tersiar. Tidak dibuat ulang." };
+      }
+      const { error } = await supabase.from("pengumuman_rt").insert([{
+        judul: JUDUL_PENGUMUMAN_PDP,
+        deskripsi: ISI_PENGUMUMAN_PDP,
+        rt_id: otentikasi.sesi.rtId,
+      }]);
+      if (error) return { success: false, message: "Pemberitahuan belum dapat disiarkan." };
+      await supabase.from("audit_log").insert([{
+        aktor: otentikasi.sesi.nama,
+        aksi: "Siarkan pemberitahuan PDP",
+        tabel_target: "pengumuman_rt",
+        detail: `Judul: ${JUDUL_PENGUMUMAN_PDP}`,
+        rt_id: otentikasi.sesi.rtId,
+      }]);
+      revalidatePath("/");
+      return { success: true, message: "Pemberitahuan PDP tersiar di portal dan beranda." };
+    } catch (err: unknown) {
+      const pesan = err instanceof Error ? err.message : "Pemberitahuan belum dapat disiarkan.";
+      return { success: false, message: pesan };
+    }
+  }
+
+  async function jalankanTenggatPdp() {
+    "use server";
+    try {
+      const otentikasi = await otentikasiAdmin();
+      if (!otentikasi.ok) return { success: false, message: otentikasi.message };
+      const hasil = await kosongkanDataSpesifikLewatTenggat(
+        getSupabaseAdminClientDariSesi(otentikasi.sesi),
+        { rtId: otentikasi.sesi.rtId, aktor: otentikasi.sesi.nama }
+      );
+      if (!hasil.ok) return { success: false, message: hasil.message };
+      revalidatePath("/");
+      return {
+        success: true,
+        message: `Tenggat dijalankan. Pendapatan dikosongkan di ${hasil.pendapatan} KK, foto KK di ${hasil.fotoKk} KK. NIK dan buku induk tidak dihapus.`,
+      };
+    } catch (err: unknown) {
+      const pesan = err instanceof Error ? err.message : "Tenggat belum dapat dijalankan.";
+      return { success: false, message: pesan };
+    }
+  }
+
   return (
     <WargaAdminClient
       wargaList={wargaListAman}
+      inventoriPdp={inventoriPdp.ok ? inventoriPdp.data : null}
       aksiHapus={hapusWarga}
       aksiUbahStatus={ubahStatusWarga}
       aksiImportMassal={importWargaMassal}
       aksiResetPin={resetPinWarga}
+      aksiSiarkanPdp={siarkanPemberitahuanPdp}
+      aksiTenggatPdp={jalankanTenggatPdp}
     />
   );
 }

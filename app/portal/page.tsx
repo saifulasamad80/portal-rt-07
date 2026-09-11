@@ -7,6 +7,9 @@ import TautanHalus from "@/components/TautanHalus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { ambilCapCarikRumahTangga, ambilCerminRumahTangga } from "@/lib/rumah-tangga-warga";
+import { jumlahAnakDariTanggal } from "@/lib/kebijakan-privasi";
+import { ambilPersetujuanTerbaru } from "@/lib/persetujuan-data";
+import PemberitahuanPdpPortal from "@/components/PemberitahuanPdpPortal";
 
 const FITUR_LAPOR_AKTIF = false;
 
@@ -52,8 +55,15 @@ export default async function PortalWarga() {
 
   const capDisetujui = capRumahTangga.capDisetujui;
   const capMenunggu = capRumahTangga.capMenunggu;
-  const layananTerkunci = !capDisetujui;
   const iuranTerakhirPada = cerminRumah.iuranTerakhirPada;
+  const jejakPdp = await ambilPersetujuanTerbaru(
+    supabaseAdmin,
+    capRumahTangga.rumah.kepalaId,
+    wargaAktif.rtId
+  );
+  const tanggalAnggota = cerminRumah.jiwa
+    .slice(1)
+    .map((jiwa) => String(jiwa.tanggal_lahir || "").slice(0, 10));
 
   const birthdayNames: string[] = [];
   for (const jiwa of cerminRumah.jiwa) {
@@ -140,6 +150,12 @@ export default async function PortalWarga() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-9 relative z-10 space-y-6">
+        <PemberitahuanPdpPortal
+          bolehIsiIzin={!capRumahTangga.rumah.adalahTanggungan}
+          jumlahAnggota={tanggalAnggota.length}
+          jumlahAnak={jumlahAnakDariTanggal(tanggalAnggota)}
+          sudahAdaJejak={Boolean(jejakPdp.ok && jejakPdp.data)}
+        />
         <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors">
             <div className="flex items-center justify-between mb-2">
@@ -162,13 +178,9 @@ export default async function PortalWarga() {
               <span className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-xs shrink-0">💰</span>
             </div>
             <p className={`text-sm font-semibold leading-snug ${aksenIuran}`}>{statusIuran}</p>
-            {layananTerkunci ? (
-              <p className="text-[11px] text-slate-400 font-semibold mt-1.5">Transparansi kas terkunci</p>
-            ) : (
-              <TautanHalus href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
-                Lihat transparansi kas →
-              </TautanHalus>
-            )}
+            <TautanHalus href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
+              Lihat transparansi kas →
+            </TautanHalus>
           </div>
         </section>
 
@@ -200,15 +212,9 @@ export default async function PortalWarga() {
                   </p>
                 </div>
               </div>
-              {layananTerkunci ? (
-                <span className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-200 text-slate-500">
-                  Terkunci
-                </span>
-              ) : (
-                <TautanHalus href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
-                  Konfirmasi
-                </TautanHalus>
-              )}
+              <TautanHalus href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
+                Konfirmasi
+              </TautanHalus>
             </div>
           )}
 
@@ -289,11 +295,11 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Urusan surat, kas, suara, dan aset RT</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <KartuLayanan href="/portal/keluarga" ikon="👪" judul="Data keluarga" deskripsi="KK yang tercatat" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/keluarga" ikon="👪" judul="Data keluarga" deskripsi="KK yang tercatat" />
+            <KartuLayanan href="/portal/surat" ikon="📄" judul="Layanan surat" deskripsi="Pengantar mandiri" />
+            <KartuLayanan href="/portal/keuangan" ikon="💰" judul="Transparansi kas" deskripsi="Tagihan & riwayat iuran" />
+            <KartuLayanan href="/portal/voting" ikon="📊" judul="E-voting" deskripsi="Suara digital warga" />
+            <KartuLayanan href="/portal/inventaris" ikon="🎪" judul="Inventaris RT" deskripsi="Pinjam tenda & kursi" />
           </div>
         </section>
 
@@ -305,10 +311,10 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Sirkular ekonomi &amp; kegiatan keluarga</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="Daftar lapak & hubungi penjual" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" terkunci={layananTerkunci} />
-            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/lapak" ikon="🏪" judul="Pasar warga" deskripsi="Daftar lapak & hubungi penjual" />
+            <KartuLayanan href="/portal/sampah" ikon="♻️" judul="Tabungan sampah" deskripsi="Saldo setor anorganik" />
+            <KartuLayanan href="/portal/kurban" ikon="🐄" judul="Tabungan kurban" deskripsi="Persiapan Idul Adha" />
+            <KartuLayanan href="/portal/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" />
           </div>
         </section>
 
@@ -320,9 +326,9 @@ export default async function PortalWarga() {
             <p className="text-[11px] text-slate-400 hidden md:block">Ronda dan pelaporan fasilitas</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" terkunci={layananTerkunci} />
+            <KartuLayanan href="/portal/ronda" ikon="🔦" judul="Siskamling" deskripsi="Jadwal ronda dan konfirmasi kehadiran" />
             {FITUR_LAPOR_AKTIF && (
-              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" terkunci={layananTerkunci} />
+              <KartuLayanan href="/portal/lapor" ikon="🚨" judul="Lapor warga" deskripsi="Tiket kerusakan fasilitas" />
             )}
           </div>
         </section>

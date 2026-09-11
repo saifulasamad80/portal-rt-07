@@ -352,6 +352,18 @@ export default async function LandingPage() {
       <footer className="border-t border-[#e4dccb] bg-[#0F241C] px-4 py-10 text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#E8C56A]">Sistem Kependudukan RT 07</p>
         <p className="mt-2 text-[12px] text-emerald-100/70">Pengumuman dan galeri tampil di beranda segera setelah pengurus mengunggahnya.</p>
+        <p className="mt-4">
+          <Link href="/kebijakan-privasi" className="text-[12px] font-semibold text-[#E8C56A] hover:underline">
+            Kebijakan Privasi
+          </Link>
+          <span className="text-emerald-100/40 mx-2">·</span>
+          <Link href="/kebijakan-privasi/surat" className="text-[12px] font-semibold text-[#E8C56A] hover:underline">
+            Surat pernyataan kertas
+          </Link>
+        </p>
+        <p className="mt-3 text-[11px] leading-relaxed text-emerald-100/60 max-w-xl mx-auto">
+          Data buku induk dipakai untuk surat, iuran, dan ronda. Pendapatan dan foto KK tanpa izin akan dikosongkan setelah tenggat. Login tidak dikunci.
+        </p>
       </footer>
     </div>
   );
