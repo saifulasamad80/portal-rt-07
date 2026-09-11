@@ -6,6 +6,7 @@ import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 import ThumbnailPdf from "@/components/ThumbnailPdf";
 import { BATAS_BYTE_PDF } from "@/lib/batas-berkas-unggah";
 import { berkasKeDataUrl, kompresGambarKeDataUrl } from "@/lib/kompresi-gambar-klien";
+import TombolShareWhatsAppPengumuman, { sebarPengumumanKeWhatsApp } from "@/components/TombolShareWhatsAppPengumuman";
 import { adalahUrlGambar, adalahUrlPdf, labelAksiLampiran } from "@/lib/lampiran-pengumuman";
 
 type PengumumanBaris = {
@@ -16,15 +17,17 @@ type PengumumanBaris = {
   tanggal_publikasi: string;
 };
 
-type HasilAksi = { success: boolean; message?: string };
+type HasilAksi = { success: boolean; message?: string; id?: string };
 
 export default function PengumumanAdminClient({
+  namaRt,
   pengumumanList,
   aksiSimpan,
   aksiEdit,
   aksiHapus,
 }: {
   adminAktif: { id: string; nama: string; role: string; rt_id: string };
+  namaRt: string;
   pengumumanList: PengumumanBaris[];
   aksiSimpan: (payload: unknown) => Promise<HasilAksi>;
   aksiEdit: (id: string, payload: unknown) => Promise<HasilAksi>;
@@ -60,12 +63,6 @@ export default function PengumumanAdminClient({
     setHapusLampiran(false);
   };
 
-  const shareKeWhatsApp = (teksJudul: string) => {
-    const appUrl = window.location.origin;
-    const pesanWa = `📢 *INFO PENTING RT 07* 📢\n\n*${teksJudul.toUpperCase()}*\n\nSilakan cek detail informasi lengkapnya di Mading Portal Warga sekarang:\n👉 ${appUrl}\n\n_Harap segera dibaca agar tidak tertinggal informasi!_`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(pesanWa)}`, "_blank");
-  };
-
   const siapkanLampiran = async (file: File) => {
     if (file.type === "application/pdf") {
       return { lampiranDataUrl: await berkasKeDataUrl(file, BATAS_BYTE_PDF) };
@@ -95,8 +92,8 @@ export default function PengumumanAdminClient({
         return;
       }
 
-      if (!modeEditId && confirm("Pengumuman sudah di portal. Sebarkan judulnya ke grup WhatsApp RT sekarang?")) {
-        shareKeWhatsApp(judul);
+      if (!modeEditId && confirm("Pengumuman sudah di portal. Sebarkan ringkasan dan tautannya ke grup WhatsApp RT sekarang?")) {
+        sebarPengumumanKeWhatsApp({ id: hasil.id, judul, deskripsi, namaRt });
       } else {
         setPesan({ tipe: "sukses", judul: "Pengumuman tersimpan", teks: hasil.message || "Siaran berhasil dipublikasikan." });
       }
@@ -244,12 +241,15 @@ export default function PengumumanAdminClient({
 
                     <div className="flex flex-row md:flex-col gap-2 shrink-0 md:border-l md:border-slate-200 md:pl-6 pt-4 md:pt-0 border-t border-slate-200 md:border-t-0 justify-end md:justify-start">
 
-                      <button
-                        onClick={() => shareKeWhatsApp(p.judul)}
+                      <TombolShareWhatsAppPengumuman
+                        id={p.id}
+                        judul={p.judul}
+                        deskripsi={p.deskripsi}
+                        namaRt={namaRt}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-4 py-2.5 rounded shadow-sm transition-colors uppercase tracking-wider flex-1 md:flex-none text-center active:scale-95"
                       >
                         📲 Share WA
-                      </button>
+                      </TombolShareWhatsAppPengumuman>
 
                       <button
                         onClick={() => handleKlikEdit(p)}

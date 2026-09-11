@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import ThumbnailPdf from "@/components/ThumbnailPdf";
+import TombolShareWhatsAppPengumuman from "@/components/TombolShareWhatsAppPengumuman";
 import { adalahUrlDrive, adalahUrlGambar, adalahUrlPdf, labelAksiLampiran } from "@/lib/lampiran-pengumuman";
 
 type SiaranPublik = {
@@ -29,7 +30,7 @@ function LatarThumbnail({ siaran }: { siaran: SiaranPublik }) {
   );
 }
 
-export default function PengumumanClient({ pengumumanReguler, rekapVoting }: { pengumumanReguler: any[], rekapVoting: any }) {
+export default function PengumumanClient({ pengumumanReguler, rekapVoting, namaRt }: { pengumumanReguler: any[], rekapVoting: any, namaRt?: string }) {
   const [modalData, setModalData] = useState<any>(null);
 
   return (
@@ -158,6 +159,24 @@ export default function PengumumanClient({ pengumumanReguler, rekapVoting }: { p
                   </a>
                 </div>
               )}
+
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+                <TombolShareWhatsAppPengumuman
+                  id={modalData.id}
+                  judul={modalData.judul}
+                  deskripsi={modalData.deskripsi || ""}
+                  namaRt={namaRt || "RT"}
+                  className="flex-1 rounded-xl bg-emerald-500 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-emerald-600 active:scale-95"
+                >
+                  📲 Bagikan WA
+                </TombolShareWhatsAppPengumuman>
+                <Link
+                  href={`/pengumuman/${modalData.id}`}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Buka halaman
+                </Link>
+              </div>
             </div>
           </div>
         </div>

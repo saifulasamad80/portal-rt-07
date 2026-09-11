@@ -40,16 +40,13 @@ export const metadata: Metadata = {
     description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
     url: "https://wargaku-six.vercel.app",
     siteName: "Portal Warga",
-    images: [
-      {
-        url: "/og-image.jpeg",
-        width: 1200,
-        height: 630,
-        alt: "Preview Portal Warga",
-      },
-    ],
     locale: "id_ID",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Portal Warga",
+    description: "Sistem Informasi Terpadu dan Layanan Mandiri Warga",
   },
 };
 

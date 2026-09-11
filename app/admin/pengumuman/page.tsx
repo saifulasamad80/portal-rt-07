@@ -42,12 +42,19 @@ export default async function AdminPengumumanPage() {
 
   const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
 
-  const { data: pengumumanRes } = await supabaseAdmin
-    .from("pengumuman_rt")
-    .select("*")
-    .eq("rt_id", rtIdAktif)
-    .order("tanggal_publikasi", { ascending: false })
-    .limit(100);
+  const [{ data: pengumumanRes }, { data: masterRt }] = await Promise.all([
+    supabaseAdmin
+      .from("pengumuman_rt")
+      .select("*")
+      .eq("rt_id", rtIdAktif)
+      .order("tanggal_publikasi", { ascending: false })
+      .limit(100),
+    supabaseAdmin
+      .from("master_rt")
+      .select("nama_rt")
+      .eq("id", rtIdAktif)
+      .maybeSingle(),
+  ]);
 
   async function simpanPengumuman(payload: unknown) {
     "use server";
@@ -91,7 +98,7 @@ export default async function AdminPengumumanPage() {
       await kirimNotifikasiKeSemuaWarga({
         title: "Pengumuman baru dari pengurus RT",
         body: judulBersih.length > 120 ? `${judulBersih.slice(0, 117)}...` : judulBersih,
-        url: "/portal",
+        url: barisBaru?.id ? `/pengumuman/${barisBaru.id}` : "/portal",
         tag: `pengumuman-${barisBaru?.id || "baru"}`,
       }, sesi.rtId);
     } catch (pushErr) {
@@ -99,7 +106,7 @@ export default async function AdminPengumumanPage() {
     }
 
     segarKanPortalPublik();
-    return { success: true, message: "Pengumuman berhasil disebarkan." };
+    return { success: true, message: "Pengumuman berhasil disebarkan.", id: barisBaru?.id };
   }
 
   async function editPengumuman(id: string, payload: unknown) {
@@ -196,6 +203,7 @@ export default async function AdminPengumumanPage() {
 
   return <PengumumanAdminClient
             adminAktif={adminAktif}
+            namaRt={String(masterRt?.nama_rt || "RT").trim() || "RT"}
             pengumumanList={pengumumanRes || []}
             aksiSimpan={simpanPengumuman}
             aksiEdit={editPengumuman}

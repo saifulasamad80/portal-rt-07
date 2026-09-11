@@ -326,7 +326,7 @@ export default async function LandingPage() {
         </section>
 
         <section id="pengumuman" className="scroll-mt-24 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} />
+          <PengumumanClient pengumumanReguler={pengumumanReguler || []} rekapVoting={rekapVoting} namaRt={masterRt?.nama_rt || "RT"} />
           <LapakPublik daftarLapak={daftarLapak} />
         </section>
 
