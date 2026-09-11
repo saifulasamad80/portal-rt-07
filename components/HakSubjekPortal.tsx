@@ -86,7 +86,7 @@ export default function HakSubjekPortal({
             onClick={unduh}
             className="rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-bold px-4 py-2 disabled:opacity-50"
           >
-            {loading === "salinan" ? "Menyusun..." : "Unduh salinan JSON"}
+            {loading === "salinan" ? "Menyusun..." : "Unduh salinan data rumah tangga"}
           </button>
           {(izinKeuangan || izinKesehatan) ? (
             <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 space-y-2">

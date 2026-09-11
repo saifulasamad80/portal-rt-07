@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
@@ -290,7 +289,7 @@ export default function WargaAdminClient({
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pelindungan data</p>
             <h2 className="font-black text-xl text-slate-800 mt-1">Data lama dan surat kertas</h2>
             <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-              Impor CSV NIK dimatikan. {PESAN_IMPOR_CSV_DITOLAK}
+              {PESAN_IMPOR_CSV_DITOLAK}
             </p>
             <p className="text-sm text-slate-600 mt-2 leading-relaxed">
               Pemberitahuan sejak {formatTanggalPdp(inventoriPdp.pemberitahuan)}. Tenggat mengosongkan pendapatan dan foto KK tanpa izin: {formatTanggalPdp(inventoriPdp.tenggat)}. NIK, kas, ronda, dan surat tidak dihapus.
@@ -513,7 +512,7 @@ export default function WargaAdminClient({
                       </td>
 
                       <td className="p-4 align-top text-center bg-slate-50/50">
-                        <Link href={`/admin/warga/${w.id}`} className="bg-white hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600 text-[10px] font-black px-4 py-2.5 rounded-lg transition-all shadow-sm uppercase tracking-wider w-full mb-2 inline-flex justify-center items-center gap-1 active:scale-95"><span>🔍</span> Buka Profil</Link>
+                        <TautanHalus href={`/admin/warga/${w.id}`} className="bg-white hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600 text-[10px] font-black px-4 py-2.5 rounded-lg transition-all shadow-sm uppercase tracking-wider w-full mb-2 inline-flex justify-center items-center gap-1 active:scale-95"><span>🔍</span> Buka Profil</TautanHalus>
                         
                         <div className="grid grid-cols-2 gap-2 mb-2">
                           <button onClick={() => handleResetPin(w.id, namaKK)} disabled={loadingId === w.id} className="bg-slate-800 hover:bg-slate-700 text-white text-[9px] font-black px-2 py-2.5 rounded-lg transition-all shadow-sm disabled:opacity-50 uppercase tracking-wider flex items-center justify-center gap-1 active:scale-95"><span>🔑</span> Reset PIN</button>

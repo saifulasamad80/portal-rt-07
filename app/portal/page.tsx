@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import KartuLayanan from "@/components/portal/KartuLayanan";
 import TautanHalus from "@/components/TautanHalus";
@@ -233,9 +232,9 @@ export default async function PortalWarga() {
                   <p className="text-[13px] text-slate-600 truncate">{pengumumanBaru.judul}</p>
                 </div>
               </div>
-              <Link href={`/pengumuman/${pengumumanBaru.id}`} className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
+              <TautanHalus href={`/pengumuman/${pengumumanBaru.id}`} className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors">
                 Baca pengumuman
-              </Link>
+              </TautanHalus>
             </div>
           )}
 

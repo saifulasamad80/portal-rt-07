@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { jwtVerify, type JWTPayload } from "jose";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
@@ -160,7 +161,7 @@ async function verifikasiToken(token: string, jenis: JenisSesi): Promise<JWTPayl
   return payload;
 }
 
-export async function otentikasiWargaAktif(): Promise<HasilAutentikasi<WargaTerautentikasi>> {
+export const otentikasiWargaAktif = cache(async function otentikasiWargaAktif(): Promise<HasilAutentikasi<WargaTerautentikasi>> {
   const cookieStore = await cookies();
   const token = cookieStore.get("warga_session")?.value;
   if (!token) {
@@ -270,7 +271,7 @@ export async function otentikasiWargaAktif(): Promise<HasilAutentikasi<WargaTera
       rtId,
     },
   };
-}
+});
 
 export async function wajibOtentikasiWarga(): Promise<WargaTerautentikasi> {
   const hasil = await otentikasiWargaAktif();
@@ -283,7 +284,7 @@ export function wargaUntukKlien(sesi: WargaTerautentikasi) {
   return { id: sesi.id, sub: sesi.id, nik: sesi.nik, nama: sesi.nama, rt_id: sesi.rtId };
 }
 
-export async function otentikasiAdminAktif(): Promise<HasilAutentikasi<PengurusTerautentikasi>> {
+export const otentikasiAdminAktif = cache(async function otentikasiAdminAktif(): Promise<HasilAutentikasi<PengurusTerautentikasi>> {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
   if (!token) {
@@ -351,7 +352,7 @@ export async function otentikasiAdminAktif(): Promise<HasilAutentikasi<PengurusT
       rtId,
     },
   };
-}
+});
 
 /**
  * Bentuk exception dipakai oleh Server Action lama yang memang sudah
