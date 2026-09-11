@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -34,7 +34,7 @@ export default async function TabunganKurbanWarga() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-pink-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
+        <TautanHalus href="/portal" className="text-pink-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</TautanHalus>
         <div className="bg-gradient-to-r from-pink-600 to-rose-800 p-8 rounded-2xl shadow-xl text-white">
           <h2 className="text-pink-100 text-sm font-bold uppercase tracking-widest mb-2">Tabungan Kurban RT 07</h2>
           <div className="text-5xl font-black mb-1">Rp {saldo.toLocaleString("id-ID")}</div>

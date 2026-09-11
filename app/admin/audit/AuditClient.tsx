@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { posisiAkhirTabelPdf } from "@/lib/pdf-autotable";
@@ -83,9 +83,9 @@ export default function AuditClient({ logs }: { logs: any[] }) {
     <div className="min-h-screen bg-slate-900 p-6 md:p-8 font-mono">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        <Link href="/admin" className="text-emerald-500 font-bold hover:underline mb-2 inline-block">
+        <TautanHalus href="/admin" className="text-emerald-500 font-bold hover:underline mb-2 inline-block">
           &larr; KEMBALI KE PUSAT KOMANDO
-        </Link>
+        </TautanHalus>
 
         <div className="bg-slate-800 p-6 rounded-xl shadow-2xl border-l-8 border-rose-500 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>

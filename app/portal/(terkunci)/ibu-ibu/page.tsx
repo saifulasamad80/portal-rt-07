@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import KerangkaIbuIbu from "@/components/ibu-ibu/KerangkaIbuIbu";
+import TautanHalus from "@/components/TautanHalus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 
@@ -51,7 +51,7 @@ export default async function PortalIbuIbuPage() {
 
       <div className="grid md:grid-cols-1 gap-4">
         {MODUL.map((item) => (
-          <Link
+          <TautanHalus
             key={item.href}
             href={item.href}
             className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col"
@@ -67,7 +67,7 @@ export default async function PortalIbuIbuPage() {
               </span>
               <span className="text-xs font-bold text-blue-700">Buka &rarr;</span>
             </div>
-          </Link>
+          </TautanHalus>
         ))}
       </div>
     </KerangkaIbuIbu>

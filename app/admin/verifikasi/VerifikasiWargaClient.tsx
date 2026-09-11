@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
@@ -85,9 +86,9 @@ export default function VerifikasiWargaClient({
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <Link href="/admin" className="text-blue-600 font-bold text-sm hover:underline inline-block">
+        <TautanHalus href="/admin" className="text-blue-600 font-bold text-sm hover:underline inline-block">
           &larr; Kembali ke Pusat Komando
-        </Link>
+        </TautanHalus>
 
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-amber-500 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>

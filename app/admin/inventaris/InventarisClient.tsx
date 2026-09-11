@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 
 export default function InventarisClient({ masterList, pinjamList, aksiTambah, aksiStatus }: { masterList: any[], pinjamList: any[], aksiTambah: any, aksiStatus: any }) {
@@ -41,7 +41,7 @@ export default function InventarisClient({ masterList, pinjamList, aksiTambah, a
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <Link href="/admin" className="text-orange-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</Link>
+        <TautanHalus href="/admin" className="text-orange-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</TautanHalus>
 
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-orange-500 mb-8 flex justify-between items-center">
           <div>

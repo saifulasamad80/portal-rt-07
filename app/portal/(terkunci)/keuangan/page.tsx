@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -66,7 +66,7 @@ export default async function KeuanganWarga() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
+        <TautanHalus href="/portal" className="text-blue-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</TautanHalus>
         
         {/* REVISI UX: Split Header menjadi Dua Panel (Total Rupiah & Status Tunggakan) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

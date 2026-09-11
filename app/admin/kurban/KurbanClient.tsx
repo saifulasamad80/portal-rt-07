@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import { angkaPostgrest } from "@/lib/angka-postgrest";
 
@@ -70,7 +70,7 @@ export default function KurbanAdminClient({ adminAktif, transaksiList, wargaList
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <Link href="/admin" className="text-pink-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</Link>
+        <TautanHalus href="/admin" className="text-pink-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</TautanHalus>
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-pink-500 mb-8 flex justify-between items-center">
           <div><h1 className="text-2xl md:text-3xl font-black text-white mb-1">Tabungan Kurban</h1><p className="text-slate-400 text-sm">Persiapan Idul Adha & Manajemen Shohibul Kurban RT 07.</p></div>
           <div className="text-5xl hidden md:block grayscale brightness-125">🐄</div>

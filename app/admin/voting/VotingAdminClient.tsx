@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 
 export default function VotingAdminClient({ daftarVoting, aksiBuatTopik, aksiToggleStatus }: { daftarVoting: any[], aksiBuatTopik: any, aksiToggleStatus: any }) {
@@ -32,7 +32,7 @@ export default function VotingAdminClient({ daftarVoting, aksiBuatTopik, aksiTog
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-4">
-        <Link href="/admin" className="text-indigo-600 font-bold text-xs hover:underline mb-1 inline-block">&larr; Kembali ke Pusat Komando</Link>
+        <TautanHalus href="/admin" className="text-indigo-600 font-bold text-xs hover:underline mb-1 inline-block">&larr; Kembali ke Pusat Komando</TautanHalus>
         
         {/* HEADER COMPACT */}
         <div className="bg-slate-800 p-5 rounded-xl shadow-md border-l-[8px] border-indigo-500 mb-4 flex justify-between items-center">

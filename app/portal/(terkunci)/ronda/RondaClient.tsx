@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
@@ -55,9 +55,9 @@ export default function RondaClient({ jadwal, konfirmasiKehadiran }: { jadwal: J
   return (
     <div className="min-h-screen bg-[#eef2f6] p-4 md:p-8 font-sans text-slate-800">
       <div className="max-w-3xl mx-auto space-y-6">
-        <Link href="/portal" className="text-blue-700 font-semibold text-sm hover:underline inline-block">
+        <TautanHalus href="/portal" className="text-blue-700 font-semibold text-sm hover:underline inline-block">
           &larr; Kembali ke Dasbor
-        </Link>
+        </TautanHalus>
 
         <div className="bg-slate-900 rounded-2xl p-6 md:p-8 shadow-sm">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-300 mb-2">Keamanan Lingkungan</p>

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
@@ -66,7 +66,7 @@ export default function InventarisClient({ masterBarang, riwayat, jadwalTerisi, 
     <div className="min-h-screen bg-slate-50 p-6 md:p-8 font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
         
-        <Link href="/portal" className="text-amber-700 font-bold hover:underline mb-2 inline-block text-sm">&larr; Kembali ke Dasbor Warga</Link>
+        <TautanHalus href="/portal" className="text-amber-700 font-bold hover:underline mb-2 inline-block text-sm">&larr; Kembali ke Dasbor Warga</TautanHalus>
         
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-amber-500 mb-8 flex justify-between items-center">
           <div>

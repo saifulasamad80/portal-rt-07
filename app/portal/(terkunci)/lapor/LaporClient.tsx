@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
@@ -47,7 +47,7 @@ export default function LaporClient({ warga, initialLaporan, kirimLaporan }: { w
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        <Link href="/portal" className="text-rose-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</Link>
+        <TautanHalus href="/portal" className="text-rose-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</TautanHalus>
         <div className="bg-white p-6 rounded-xl shadow border-l-8 border-rose-500">
           <h1 className="text-2xl font-bold text-slate-800">Sistem Lapor Warga RT 07</h1>
           <p className="text-slate-500 text-sm">Laporkan kerusakan fasilitas umum.</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import ModulJumantik from "../ModulJumantik";
 
@@ -254,7 +254,7 @@ export default function IbuIbuAdminClient({
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <Link href="/admin" className="text-blue-600 font-bold text-sm hover:underline">&larr; Kembali ke Pusat Komando</Link>
+        <TautanHalus href="/admin" className="text-blue-600 font-bold text-sm hover:underline">&larr; Kembali ke Pusat Komando</TautanHalus>
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl">
           <h1 className="text-2xl font-black text-white">Modul Ibu-ibu RT</h1>
           <p className="text-slate-400 text-sm mt-1">Rekam medis kunjungan per individu, Jumantik, dan simpan-pinjam arisan.</p>

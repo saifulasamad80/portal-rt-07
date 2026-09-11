@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 
@@ -33,7 +33,7 @@ export default function VotingClient({ wargaAktif, votingAktif, suaraKu, aksiPil
   return (
     <div className="min-h-screen bg-slate-50 p-6 flex flex-col items-center py-12 font-sans">
       <div className="w-full max-w-2xl">
-        <Link href="/portal" className="text-indigo-600 font-bold text-sm hover:underline mb-6 inline-block">&larr; Kembali ke Dasbor</Link>
+        <TautanHalus href="/portal" className="text-indigo-600 font-bold text-sm hover:underline mb-6 inline-block">&larr; Kembali ke Dasbor</TautanHalus>
         
         {/* REVISI UX: Hapus border-t-[8px], ganti dengan shadow elegan */}
         <div className="bg-white p-8 md:p-10 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-100 text-center relative overflow-hidden transition-all duration-300">

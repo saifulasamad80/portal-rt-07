@@ -1,9 +1,10 @@
 "use client";
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import PesanDialog from "@/components/PesanDialog";
+import KartuLayanan from "@/components/portal/KartuLayanan";
+import TautanHalus from "@/components/TautanHalus";
 
 const FITUR_KTP_AKTIF = false;
 
@@ -208,42 +209,14 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <p className="text-[11px] text-slate-400 hidden md:block">Buku induk, edaran, dan kegiatan keluarga</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Link href="/admin/warga" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">👥</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Buku Induk Warga</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Hanya warga yang sudah Disetujui</p>
-            </Link>
-            <Link href="/admin/kotak-sampah" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-amber-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🗑️</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-amber-700 transition-colors">Kotak Sampah</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Pulihkan warga yang terhapus</p>
-            </Link>
-            <Link href="/admin/verifikasi" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-amber-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🪪</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-amber-700 transition-colors">Verifikasi Pendaftaran</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Antrean status Menunggu</p>
-            </Link>
-            <Link href="/admin/pengumuman" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">📢</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Pengumuman RT</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Buat edaran ke warga</p>
-            </Link>
-            <Link href="/admin/galeri" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🖼️</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Galeri Kegiatan</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Unggah foto ke portal</p>
-            </Link>
-            <Link href="/admin/ibu-ibu" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🌸</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Modul Ibu-ibu</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Posyandu &amp; arisan</p>
-            </Link>
+            <KartuLayanan href="/admin/warga" ikon="👥" judul="Buku Induk Warga" deskripsi="Hanya warga yang sudah Disetujui" />
+            <KartuLayanan href="/admin/kotak-sampah" ikon="🗑️" judul="Kotak Sampah" deskripsi="Pulihkan warga yang terhapus" />
+            <KartuLayanan href="/admin/verifikasi" ikon="🪪" judul="Verifikasi Pendaftaran" deskripsi="Antrean status Menunggu" />
+            <KartuLayanan href="/admin/pengumuman" ikon="📢" judul="Pengumuman RT" deskripsi="Buat edaran ke warga" />
+            <KartuLayanan href="/admin/galeri" ikon="🖼️" judul="Galeri Kegiatan" deskripsi="Unggah foto ke portal" />
+            <KartuLayanan href="/admin/ibu-ibu" ikon="🌸" judul="Modul Ibu-ibu" deskripsi="Posyandu & arisan" />
             {adminAktif?.role === 'webmaster' ? (
-              <Link href="/admin/pengurus" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-                <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">👔</div>
-                <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Akses Pengurus</h2>
-                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Tambah &amp; Reset Akun</p>
-              </Link>
+              <KartuLayanan href="/admin/pengurus" ikon="👔" judul="Akses Pengurus" deskripsi="Tambah & Reset Akun" />
             ) : (
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
                 <span className="absolute top-3 right-3 bg-rose-100 text-rose-700 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Webmaster</span>
@@ -263,31 +236,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <p className="text-[11px] text-slate-400 hidden md:block">Kas, bank sampah, kurban, dan aset RT</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Link href="/admin/kas" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">💰</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Kas &amp; Keuangan</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Rekap iuran bulanan</p>
-            </Link>
-            <Link href="/admin/sampah" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">♻️</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Tabungan Sampah</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Manajemen bank sampah</p>
-            </Link>
-            <Link href="/admin/kurban" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🐄</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Tabungan Kurban</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Persiapan Idul Adha</p>
-            </Link>
-            <Link href="/admin/lapak" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🏪</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Pasar Warga (UMKM)</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Validasi lapak dagangan</p>
-            </Link>
-            <Link href="/admin/inventaris" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🎪</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Inventaris</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Setujui peminjaman alat</p>
-            </Link>
+            <KartuLayanan href="/admin/kas" ikon="💰" judul="Kas & Keuangan" deskripsi="Rekap iuran bulanan" />
+            <KartuLayanan href="/admin/sampah" ikon="♻️" judul="Tabungan Sampah" deskripsi="Manajemen bank sampah" />
+            <KartuLayanan href="/admin/kurban" ikon="🐄" judul="Tabungan Kurban" deskripsi="Persiapan Idul Adha" />
+            <KartuLayanan href="/admin/lapak" ikon="🏪" judul="Pasar Warga (UMKM)" deskripsi="Validasi lapak dagangan" />
+            <KartuLayanan href="/admin/inventaris" ikon="🎪" judul="Inventaris" deskripsi="Setujui peminjaman alat" />
           </div>
         </section>
 
@@ -299,27 +252,11 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <p className="text-[11px] text-slate-400 hidden md:block">Ronda, e-voting, dan log pengurus</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Link href="/admin/ronda" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🔦</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Jadwal Siskamling</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Atur regu ronda malam</p>
-            </Link>
-            <Link href="/admin/voting" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">📊</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Manajemen Voting</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Buat topik pemilihan</p>
-            </Link>
-            <Link href="/admin/lapor" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-              <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🚨</div>
-              <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Laporan Warga</h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Tiket perubahan data keluarga</p>
-            </Link>
+            <KartuLayanan href="/admin/ronda" ikon="🔦" judul="Jadwal Siskamling" deskripsi="Atur regu ronda malam" />
+            <KartuLayanan href="/admin/voting" ikon="📊" judul="Manajemen Voting" deskripsi="Buat topik pemilihan" />
+            <KartuLayanan href="/admin/lapor" ikon="🚨" judul="Laporan Warga" deskripsi="Tiket perubahan data keluarga" />
             {adminAktif?.role === 'webmaster' ? (
-              <Link href="/admin/audit" className="group bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base mb-3 group-hover:scale-105 transition-transform duration-200">🔍</div>
-                <h2 className="font-semibold text-slate-800 text-[13px] leading-snug tracking-tight group-hover:text-blue-700 transition-colors">Log Audit</h2>
-                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">Pantau pergerakan pengurus</p>
-              </Link>
+              <KartuLayanan href="/admin/audit" ikon="🔍" judul="Log Audit" deskripsi="Pantau pergerakan pengurus" />
             ) : (
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-dashed border-slate-300 cursor-not-allowed relative h-full">
                 <span className="absolute top-3 right-3 bg-rose-100 text-rose-700 text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">🔒 Webmaster</span>
@@ -336,9 +273,9 @@ export default function AdminDashboardClient({ adminAktif, wargaList, statistik,
             <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 flex items-center gap-2">
               <span className="w-1 h-3.5 rounded-full bg-amber-500 shrink-0"></span> Validasi pendaftaran warga baru
             </h2>
-            <Link href="/admin/verifikasi" className="text-[10px] font-semibold text-blue-600 hover:underline">
+            <TautanHalus href="/admin/verifikasi" className="text-[10px] font-semibold text-blue-600 hover:underline">
               Buka halaman verifikasi →
-            </Link>
+            </TautanHalus>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">

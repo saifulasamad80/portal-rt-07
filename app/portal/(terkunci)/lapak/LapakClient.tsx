@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 import { kompresGambarKeDataUrl } from "@/lib/kompresi-gambar-klien";
@@ -113,7 +113,7 @@ export default function LapakClient({ wargaAktif, nomorWaDefault, katalog, lapak
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6 font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
-        <Link href="/portal" className="text-orange-600 font-bold hover:underline mb-2 inline-block text-sm">&larr; Kembali ke Dasbor</Link>
+        <TautanHalus href="/portal" className="text-orange-600 font-bold hover:underline mb-2 inline-block text-sm">&larr; Kembali ke Dasbor</TautanHalus>
 
         {/* HEADER */}
         <div className="bg-gradient-to-r from-orange-500 to-amber-600 p-6 md:p-8 rounded-2xl shadow-lg text-white flex justify-between items-center">

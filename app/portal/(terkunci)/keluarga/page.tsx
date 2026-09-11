@@ -1,4 +1,4 @@
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { redirect } from "next/navigation";
 import {
   JUDUL_PERMOHONAN_PERUBAHAN_KELUARGA,
@@ -232,9 +232,9 @@ export default async function HalamanKeluarga() {
     <div className="min-h-screen bg-slate-50 pb-20 font-sans text-slate-800">
       <header className="bg-slate-900 text-white">
         <div className="max-w-3xl mx-auto px-4 md:px-6 pt-8 pb-10">
-          <Link href="/portal" className="text-[11px] font-semibold text-blue-300 hover:text-white">
+          <TautanHalus href="/portal" className="text-[11px] font-semibold text-blue-300 hover:text-white">
             ← Kembali ke dasbor
-          </Link>
+          </TautanHalus>
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 mt-4 mb-2">
             Data keluarga · Terverifikasi
           </p>

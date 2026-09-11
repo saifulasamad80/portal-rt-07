@@ -1,4 +1,5 @@
 import Link from "next/link";
+import IndikatorPendingNavigasi from "@/components/IndikatorPendingNavigasi";
 
 export default function KartuLayanan({
   href,
@@ -26,14 +27,14 @@ export default function KartuLayanan({
         className={`w-9 h-9 rounded-xl border flex items-center justify-center text-base mb-3 ${
           terkunci
             ? "bg-slate-100 border-slate-200 grayscale opacity-70"
-            : "bg-slate-50 border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:scale-105 transition-all duration-200"
+            : "bg-slate-50 border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 group-hover:scale-105 transition-transform duration-200"
         }`}
       >
         {ikon}
       </div>
       <h2
         className={`font-semibold text-[13px] leading-snug tracking-tight ${
-          terkunci ? "text-slate-500" : "group-hover:text-blue-700 transition-colors"
+          terkunci ? "text-slate-500" : "group-hover:text-blue-700 transition-colors duration-200"
         }`}
       >
         {judul}
@@ -58,9 +59,10 @@ export default function KartuLayanan({
   return (
     <Link
       href={href}
-      className={`${aksen} group p-4 rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-blue-300 transition-all duration-200 block h-full relative`}
+      className={`${aksen} group p-4 rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300 transition-[transform,box-shadow,border-color,color] duration-200 ease-out block h-full relative touch-manipulation active:scale-[0.98] active:shadow-sm`}
     >
       {isi}
+      <IndikatorPendingNavigasi />
     </Link>
   );
 }

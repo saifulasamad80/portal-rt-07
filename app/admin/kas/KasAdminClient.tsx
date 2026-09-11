@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -110,7 +110,7 @@ export default function KasAdminClient({ adminAktif, transaksiList, wargaList, a
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans pb-20">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        <Link href="/admin" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</Link>
+        <TautanHalus href="/admin" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">&larr; Kembali ke Pusat Komando</TautanHalus>
 
         <div className="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-blue-500 mb-8 flex justify-between items-center">
           <div><h1 className="text-2xl md:text-3xl font-black text-white mb-1">Manajemen Kas RT</h1><p className="text-slate-300 text-sm">Rekapitulasi iuran warga dan biaya operasional.</p></div>

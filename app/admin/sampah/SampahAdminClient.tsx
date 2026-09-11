@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import { angkaPostgrest } from "@/lib/angka-postgrest";
 
@@ -91,9 +91,9 @@ export default function SampahAdminClient({ adminAktif, transaksiList, wargaList
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        <Link href="/admin" className="text-emerald-600 font-bold text-sm hover:underline mb-2 inline-block">
+        <TautanHalus href="/admin" className="text-emerald-600 font-bold text-sm hover:underline mb-2 inline-block">
           &larr; Kembali ke Pusat Komando
-        </Link>
+        </TautanHalus>
 
         {/* HEADER BANK SAMPAH */}
         <div className="bg-slate-800 p-6 md:p-8 rounded-2xl shadow-lg border-l-[12px] border-emerald-500 mb-8 flex justify-between items-center">

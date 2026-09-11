@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 import { KATEGORI_GALERI } from "@/lib/batas-berkas-unggah";
@@ -135,9 +135,9 @@ export default function GaleriAdminClient({
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
       <div className="max-w-6xl mx-auto space-y-6">
-        <Link href="/admin" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">
+        <TautanHalus href="/admin" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">
           &larr; Kembali ke Pusat Komando
-        </Link>
+        </TautanHalus>
 
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-sm border border-slate-800">
           <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Galeri Kegiatan</h1>

@@ -18,3 +18,78 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+.halaman-modul {
+  animation: halamanModulMuncul 220ms ease-out;
+}
+
+.kartu-modul-pending {
+  opacity: 0;
+  animation: kartuModulPending 180ms ease 90ms forwards;
+}
+
+.kartu-modul-pending > span {
+  animation: kartuModulPutar 0.7s linear 90ms infinite;
+}
+
+.batang-navigasi-aktif {
+  opacity: 0;
+  animation: batangNavigasiMuncul 160ms ease 90ms forwards;
+}
+
+.batang-navigasi {
+  animation: batangNavigasiGeser 1.05s ease-in-out infinite;
+}
+
+@keyframes halamanModulMuncul {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes kartuModulPending {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kartuModulPutar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes batangNavigasiMuncul {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes batangNavigasiGeser {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halaman-modul,
+  .kartu-modul-pending,
+  .kartu-modul-pending > span,
+  .batang-navigasi-aktif,
+  .batang-navigasi {
+    animation: none;
+  }
+
+  .kartu-modul-pending,
+  .batang-navigasi-aktif {
+    opacity: 1;
+  }
+}

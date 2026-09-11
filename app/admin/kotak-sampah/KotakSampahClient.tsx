@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import type { BundelKotakSampah, HasilKotakSampah } from "@/lib/kotak-sampah-tipe";
 import PesanDialog from "@/components/PesanDialog";
@@ -41,9 +41,9 @@ export default function KotakSampahClient({
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-5">
-        <Link href="/admin" className="text-blue-700 font-semibold text-sm hover:underline">
+        <TautanHalus href="/admin" className="text-blue-700 font-semibold text-sm hover:underline">
           ← Kembali ke dasbor
-        </Link>
+        </TautanHalus>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-start gap-3">

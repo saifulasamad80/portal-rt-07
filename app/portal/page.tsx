@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import KartuLayanan from "@/components/portal/KartuLayanan";
+import TautanHalus from "@/components/TautanHalus";
 import { adalahCapCarikDisetujui, adalahCapCarikMenunggu } from "@/lib/kebijakan-sensus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
@@ -156,9 +157,9 @@ export default async function PortalWarga() {
             {layananTerkunci ? (
               <p className="text-[11px] text-slate-400 font-semibold mt-1.5">Transparansi kas terkunci</p>
             ) : (
-              <Link href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
+              <TautanHalus href="/portal/keuangan" className="text-[11px] text-blue-700 font-semibold mt-1.5 inline-block hover:underline">
                 Lihat transparansi kas →
-              </Link>
+              </TautanHalus>
             )}
           </div>
         </section>
@@ -196,9 +197,9 @@ export default async function PortalWarga() {
                   Terkunci
                 </span>
               ) : (
-                <Link href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
+                <TautanHalus href="/portal/ronda" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors">
                   Konfirmasi
-                </Link>
+                </TautanHalus>
               )}
             </div>
           )}
@@ -227,9 +228,9 @@ export default async function PortalWarga() {
                   <p className="text-[13px] text-slate-600 leading-relaxed">NIK terkunci. Anda dapat melihat KK tercatat; perubahan diajukan ke pengurus RT.</p>
                 </div>
               </div>
-              <Link href="/portal/keluarga" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-colors">
+              <TautanHalus href="/portal/keluarga" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-colors">
                 Lihat data
-              </Link>
+              </TautanHalus>
             </div>
           ) : capMenunggu ? (
             <div className="bg-white border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
@@ -240,9 +241,9 @@ export default async function PortalWarga() {
                   <p className="text-[13px] text-slate-600">Pengurus mengizinkan koreksi. Layanan portal terbuka kembali setelah form Carik disimpan. NIK tetap terkunci.</p>
                 </div>
               </div>
-              <Link href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+              <TautanHalus href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
                 Lanjutkan revisi
-              </Link>
+              </TautanHalus>
             </div>
           ) : (
             <div className="bg-white border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
@@ -253,9 +254,9 @@ export default async function PortalWarga() {
                   <p className="text-[13px] text-slate-600">Periksa data keluarga warisan, termasuk istri/anak yang sempat tercatat sebagai KK terpisah.</p>
                 </div>
               </div>
-              <Link href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+              <TautanHalus href="/portal/sensus" className="shrink-0 text-center text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">
                 Periksa data
-              </Link>
+              </TautanHalus>
             </div>
           )}
         </section>

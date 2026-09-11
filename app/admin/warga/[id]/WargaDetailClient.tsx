@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PesanDialog from "@/components/PesanDialog";
@@ -222,9 +222,9 @@ export default function WargaDetailClient({
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans pb-20">
       <div className="max-w-5xl mx-auto space-y-5">
-        <Link href="/admin/warga" className="text-blue-700 font-semibold text-sm hover:underline">
+        <TautanHalus href="/admin/warga" className="text-blue-700 font-semibold text-sm hover:underline">
           ← Kembali ke buku induk
-        </Link>
+        </TautanHalus>
 
         <PesanDialog
           pesan={

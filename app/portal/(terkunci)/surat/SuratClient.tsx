@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 
 export default function SuratClient({ warga }: { warga: any }) {
   const [keperluan, setKeperluan] = useState("");
@@ -31,7 +31,7 @@ export default function SuratClient({ warga }: { warga: any }) {
       {/* PANEL FORM (DISEMBUNYIKAN SECARA OTOMATIS SAAT NGE-PRINT) */}
       {/* --------------------------------------------------------- */}
       <div className="w-full max-w-4xl print:hidden space-y-6 mb-10">
-        <Link href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block transition-colors active:scale-95">&larr; Kembali ke Dasbor</Link>
+        <TautanHalus href="/portal" className="text-blue-600 font-bold hover:underline mb-2 inline-block transition-colors active:scale-95">&larr; Kembali ke Dasbor</TautanHalus>
         <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-200">
           <h1 className="text-2xl font-black text-slate-800 mb-2">Layanan Surat Pengantar Mandiri</h1>
           <p className="text-sm text-slate-500 mb-4">Lengkapi data tambahan di bawah ini, lalu cetak surat secara instan untuk dibawa ke rumah RT.</p>

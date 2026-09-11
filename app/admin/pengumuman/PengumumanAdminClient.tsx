@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import PesanDialog, { type PesanDialogData } from "@/components/PesanDialog";
 import ThumbnailPdf from "@/components/ThumbnailPdf";
@@ -142,9 +142,9 @@ export default function PengumumanAdminClient({
       <PesanDialog pesan={pesan} onClose={() => setPesan(null)} />
       <div className="max-w-6xl mx-auto space-y-6">
 
-        <Link href="/admin" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">
+        <TautanHalus href="/admin" className="text-blue-600 font-bold text-sm hover:underline mb-2 inline-block">
           &larr; Kembali ke Pusat Komando
-        </Link>
+        </TautanHalus>
 
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] mb-8 border border-slate-800">
           <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Pusat Informasi RT 07</h1>
