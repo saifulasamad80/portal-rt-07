@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 import {
   JUDUL_PERMOHONAN_PERUBAHAN_KELUARGA,
   STATUS_TIKET_TERBUKA,
-  adalahCapCarikDisetujui,
   samarkanNik,
 } from "@/lib/kebijakan-sensus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
+import { ambilCapCarikRumahTangga, ambilProfilKartuKkRumahTangga, ambilRumahTanggaPortal } from "@/lib/rumah-tangga-warga";
 import PermohonanKeluargaClient from "./PermohonanKeluargaClient";
 
 type AnggotaTerbaca = {
@@ -25,7 +25,7 @@ type AnggotaTerbaca = {
   pendidikan: string | null;
 };
 
-function formatTanggalLokal(nilai: string | null | undefined) {
+function formatTanggalLokal(nilai: unknown) {
   const isi = String(nilai || "").slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(isi)) return "—";
   const [tahun, bulan, hari] = isi.split("-").map(Number);
@@ -62,66 +62,27 @@ export default async function HalamanKeluarga() {
   const otentikasi = await otentikasiWargaAktif();
   if (!otentikasi.ok) redirect("/login");
 
-  const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-  const [{ data: profilWarga, error: errProfil }, { data: tiketRes }, { data: capCarik }] = await Promise.all([
-    supabase
-      .from("warga")
-      .select(`
-        id,
-        nik,
-        nama_lengkap,
-        tempat_lahir,
-        tanggal_lahir,
-        jenis_kelamin,
-        agama,
-        pekerjaan,
-        pendidikan,
-        no_whatsapp,
-        status_tinggal,
-        detail_alamat,
-        no_kk,
-        hubungan_kk,
-        pendapatan_bulanan,
-        daya_listrik,
-        anggota_keluarga (
-          id,
-          nik,
-          rt_id,
-          nama_lengkap,
-          hubungan_keluarga,
-          hubungan_detail,
-          tanggal_lahir,
-          tempat_lahir,
-          jenis_kelamin,
-          agama,
-          pekerjaan,
-          pendidikan
-        )
-      `)
-      .eq("id", otentikasi.sesi.id)
-      .eq("nik", otentikasi.sesi.nik)
-      .eq("rt_id", otentikasi.sesi.rtId)
-      .maybeSingle(),
-    supabase
-      .from("laporan_warga")
-      .select("id, status, deskripsi, tanggapan_rt, created_at")
-      .eq("warga_id", otentikasi.sesi.id)
-      .eq("rt_id", otentikasi.sesi.rtId)
-      .eq("judul_laporan", JUDUL_PERMOHONAN_PERUBAHAN_KELUARGA)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("sensus_kesejahteraan")
-      .select("id, status_validasi")
-      .eq("warga_id", otentikasi.sesi.id)
-      .eq("rt_id", otentikasi.sesi.rtId)
-      .maybeSingle(),
+  const [capRumahTangga, kartuKk] = await Promise.all([
+    ambilCapCarikRumahTangga(otentikasi.sesi),
+    ambilProfilKartuKkRumahTangga(otentikasi.sesi),
   ]);
+  if (capRumahTangga.error || !capRumahTangga.capDisetujui) redirect("/portal/sensus");
 
-  if (!adalahCapCarikDisetujui(capCarik?.status_validasi)) redirect("/portal/sensus");
+  const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
+  const { data: tiketRes } = capRumahTangga.rumah.adalahTanggungan
+    ? { data: [] }
+    : await supabase
+        .from("laporan_warga")
+        .select("id, status, deskripsi, tanggapan_rt, created_at")
+        .eq("warga_id", otentikasi.sesi.id)
+        .eq("rt_id", otentikasi.sesi.rtId)
+        .eq("judul_laporan", JUDUL_PERMOHONAN_PERUBAHAN_KELUARGA)
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-  if (errProfil) console.error("Profil keluarga gagal dimuat:", errProfil.message);
-  if (errProfil || !profilWarga) redirect("/login");
+  const profilWarga = kartuKk.profil as Record<string, unknown> | null;
+  if (kartuKk.error) console.error("Profil keluarga gagal dimuat:", kartuKk.error);
+  if (!profilWarga) redirect("/login");
 
   const anggotaTerbaca = Array.isArray(profilWarga.anggota_keluarga)
     ? (profilWarga.anggota_keluarga as AnggotaTerbaca[])
@@ -155,12 +116,21 @@ export default async function HalamanKeluarga() {
     STATUS_TIKET_TERBUKA.includes(tiket.status as (typeof STATUS_TIKET_TERBUKA)[number])
   );
   const jumlahJiwa = 1 + anggotaTampil.length;
+  const adalahTanggungan = capRumahTangga.rumah.adalahTanggungan;
+  const nikKepalaTampil = adalahTanggungan
+    ? samarkanNik(String(profilWarga.nik || ""))
+    : String(profilWarga.nik || "");
 
   async function aksiAjukanPerubahan(alasanMentah: string) {
     "use server";
     try {
       const sesiAktif = await otentikasiWargaAktif();
       if (!sesiAktif.ok) return { success: false, message: sesiAktif.message };
+
+      const rumah = await ambilRumahTanggaPortal(sesiAktif.sesi);
+      if (rumah.adalahTanggungan) {
+        return { success: false, message: "Perubahan kartu keluarga hanya diajukan kepala keluarga." };
+      }
 
       const alasan = String(alasanMentah || "").trim().slice(0, 1000);
       if (alasan.length < 10) {
@@ -240,8 +210,9 @@ export default async function HalamanKeluarga() {
           </p>
           <h1 className="text-2xl md:text-3xl font-bold leading-tight">KK yang tercatat di RT</h1>
           <p className="text-sm text-slate-300 mt-3 leading-relaxed max-w-2xl">
-            Halaman ini hanya untuk melihat. NIK terkunci. Perubahan nama, alamat, atau anggota keluarga
-            diajukan ke pengurus RT.
+            {adalahTanggungan
+              ? `Halaman ini hanya kaca spion kartu keluarga${capRumahTangga.rumah.namaKepala ? ` ${capRumahTangga.rumah.namaKepala}` : ""}. Anda tidak dapat mengubah data atau mengajukan revisi.`
+              : "Halaman ini hanya untuk melihat. NIK terkunci. Perubahan nama, alamat, atau anggota keluarga diajukan ke pengurus RT."}
           </p>
         </div>
       </header>
@@ -260,7 +231,7 @@ export default async function HalamanKeluarga() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 mb-1">NIK</p>
-              <p className="font-mono text-lg font-semibold tracking-wide text-slate-900">{profilWarga.nik}</p>
+              <p className="font-mono text-lg font-semibold tracking-wide text-slate-900">{nikKepalaTampil}</p>
               <p className="text-sm text-slate-600 mt-1">{teksAtauStrip(profilWarga.nama_lengkap)}</p>
             </div>
             <BarisData label="Nomor KK" nilai={teksAtauStrip(profilWarga.no_kk)} />
@@ -311,11 +282,17 @@ export default async function HalamanKeluarga() {
           )}
         </section>
 
-        <PermohonanKeluargaClient
-          riwayat={riwayat}
-          tiketTerbuka={tiketTerbuka}
-          aksiAjukan={aksiAjukanPerubahan}
-        />
+        {adalahTanggungan ? (
+          <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl p-4">
+            Permohonan ubah data kartu keluarga hanya bisa diajukan kepala keluarga.
+          </p>
+        ) : (
+          <PermohonanKeluargaClient
+            riwayat={riwayat}
+            tiketTerbuka={tiketTerbuka}
+            aksiAjukan={aksiAjukanPerubahan}
+          />
+        )}
       </div>
     </div>
   );

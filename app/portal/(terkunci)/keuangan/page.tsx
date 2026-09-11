@@ -1,36 +1,21 @@
 import { redirect } from "next/navigation";
 import TautanHalus from "@/components/TautanHalus";
-import { angkaPostgrest } from "@/lib/angka-postgrest";
 import { otentikasiWargaAktif } from "@/lib/session-security";
-import { buatKlienTerautentikasi } from "@/lib/supabase-server";
+import { ambilRiwayatKasRumahTangga } from "@/lib/rumah-tangga-warga";
 
 export default async function KeuanganWarga() {
   const otentikasi = await otentikasiWargaAktif();
   if (!otentikasi.ok) redirect("/login");
-  const wargaAktif = otentikasi.sesi;
 
-  const supabaseAdmin = await buatKlienTerautentikasi(otentikasi.sesi);
-  const { data: riwayatPribadi } = await supabaseAdmin
-    .from("kas_rt")
-    .select("id, created_at, nominal, tipe_transaksi, kategori, keterangan")
-    .eq("warga_id", wargaAktif.id)
-    .eq("rt_id", wargaAktif.rtId)
-    .order("created_at", { ascending: false })
-    .limit(1000);
-
-  const riwayat = (riwayatPribadi || []).map((t) => ({
-    ...t,
-    nominal: angkaPostgrest(t.nominal),
-  }));
+  const kasRumah = await ambilRiwayatKasRumahTangga(otentikasi.sesi);
+  const riwayat = kasRumah.riwayat;
   const totalPartisipasi = riwayat.reduce((sum, t) => sum + t.nominal, 0);
-
-  // -------------------------------------------------------------------------
-  // INJEKSI MUTLAK: MESIN KALKULASI TUNGGAKAN IURAN (SISI WARGA)
-  // -------------------------------------------------------------------------
-  const iuranMasuk = riwayat.filter(t => t.tipe_transaksi === "Pemasukan");
+  const iuranMasuk = riwayat.filter((t) => t.tipe_transaksi === "Pemasukan");
   const lastPaymentStr = iuranMasuk.length > 0 ? iuranMasuk[0].created_at : null;
+  const labelRumah = kasRumah.rumah.adalahTanggungan && kasRumah.rumah.namaKepala
+    ? `kartu keluarga ${kasRumah.rumah.namaKepala}`
+    : "akun Anda";
 
-  let bulanTunggakan = 3;
   let teksTunggakan = "Belum Ada Data";
   let statusTheme: "emerald" | "amber" | "rose" = "rose";
 
@@ -40,21 +25,17 @@ export default async function KeuanganWarga() {
     const diffMonths = (now.getFullYear() - lastDate.getFullYear()) * 12 + (now.getMonth() - lastDate.getMonth());
     
     if (diffMonths <= 0) {
-      bulanTunggakan = 0;
       teksTunggakan = "Lunas Bulan Ini";
       statusTheme = "emerald";
     } else if (diffMonths >= 3) {
-      bulanTunggakan = 3;
       teksTunggakan = "Nunggak ≥ 3 Bulan";
       statusTheme = "rose";
     } else {
-      bulanTunggakan = diffMonths;
       teksTunggakan = `Nunggak ${diffMonths} Bulan`;
       statusTheme = "amber";
     }
   }
 
-  // Anti Tailwind PurgeCSS Bug (Deklarasi Style Manual)
   const themeStyles = {
     emerald: { wrapper: "bg-emerald-50 border-emerald-200", badge: "bg-emerald-500", title: "text-emerald-800", value: "text-emerald-700", sub: "text-emerald-600", icon: "🌟 Status Iuran Aktif" },
     amber: { wrapper: "bg-amber-50 border-amber-200", badge: "bg-amber-500", title: "text-amber-800", value: "text-amber-700", sub: "text-amber-600", icon: "⚠️ Peringatan Sistem" },
@@ -68,7 +49,6 @@ export default async function KeuanganWarga() {
       <div className="max-w-4xl mx-auto space-y-6">
         <TautanHalus href="/portal" className="text-blue-600 font-bold hover:underline mb-4 inline-block">&larr; Kembali ke Dasbor</TautanHalus>
         
-        {/* REVISI UX: Split Header menjadi Dua Panel (Total Rupiah & Status Tunggakan) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
           <div className="bg-white p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-200 flex flex-col justify-center">
@@ -76,7 +56,9 @@ export default async function KeuanganWarga() {
             <div className="text-4xl md:text-5xl font-black text-slate-800 tabular-nums">
               Rp {totalPartisipasi.toLocaleString("id-ID")}
             </div>
-            <p className="text-xs text-slate-400 mt-4 border-t border-slate-100 pt-3">Akumulasi seluruh iuran Anda yang telah divalidasi RT.</p>
+            <p className="text-xs text-slate-400 mt-4 border-t border-slate-100 pt-3">
+              Akumulasi iuran {labelRumah} yang telah divalidasi RT. Halaman ini hanya untuk melihat.
+            </p>
           </div>
 
           <div className={`p-8 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border flex flex-col justify-center relative overflow-hidden transition-colors ${s.wrapper}`}>
@@ -90,14 +72,14 @@ export default async function KeuanganWarga() {
             <p className={`text-xs mt-4 border-t border-black/10 pt-3 font-medium ${s.sub}`}>
               {lastPaymentStr 
                 ? `Terakhir tercatat: ${new Date(lastPaymentStr).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}`
-                : "Segera lakukan pembayaran iuran wajib pertama Anda ke RT."}
+                : "Belum ada iuran tercatat pada kartu keluarga ini."}
             </p>
           </div>
 
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-200">
-          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-200 pb-3">Riwayat Pembayaran Anda</h2>
+          <h2 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-200 pb-3">Riwayat pembayaran {labelRumah}</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>

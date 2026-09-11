@@ -94,7 +94,9 @@ test("halaman keluarga terverifikasi hanya baca dan tidak membuka form carik", a
 
   assert.match(halaman, /samarkanNik/);
   assert.match(halaman, /JUDUL_PERMOHONAN_PERUBAHAN_KELUARGA/);
-  assert.match(halaman, /adalahCapCarikDisetujui/);
+  assert.match(halaman, /ambilCapCarikRumahTangga/);
+  assert.match(halaman, /ambilProfilKartuKkRumahTangga/);
+  assert.match(halaman, /adalahTanggungan/);
   assert.match(halaman, /redirect\("\/portal\/sensus"\)/);
   assert.doesNotMatch(halaman, /simpanVerifikasiCarikMandiri|sanitasiBiodata|\.update\(/);
   assert.doesNotMatch(permohonan, /simpanVerifikasiCarikMandiri|type="text"|input /);
