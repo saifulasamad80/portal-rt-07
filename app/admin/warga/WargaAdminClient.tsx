@@ -462,6 +462,9 @@ export default function WargaAdminClient({ wargaList, aksiHapus, aksiUbahStatus,
                                     <div className="font-mono text-[10px] text-slate-500 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200 w-fit">
                                       NIK: {ak.nik ? `${String(ak.nik).slice(0, 4)}********${String(ak.nik).slice(-4)}` : <span className="text-rose-400 italic">Belum diisi</span>}
                                     </div>
+                                    <p className={`mt-1.5 text-[9px] font-bold uppercase tracking-wider ${ak.punya_akun_portal ? "text-emerald-700" : "text-slate-400"}`}>
+                                      {ak.punya_akun_portal ? "Tanggungan KK · punya akun portal" : "Tanggungan KK · tanpa akun portal"}
+                                    </p>
                                   </div>
                                 </div>
                               );

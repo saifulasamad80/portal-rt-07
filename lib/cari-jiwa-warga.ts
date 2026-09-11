@@ -3,6 +3,7 @@ export type AnggotaKartu = {
   nama_lengkap?: string | null;
   nik?: string | null;
   hubungan_keluarga?: string | null;
+  punya_akun_portal?: boolean;
 };
 
 export type HasilCariKk = {
@@ -71,5 +72,52 @@ export function tempelAnggotaKeKartuKk(
     const rtIdWarga = String(warga.rt_id || "");
     if (rtIdWarga !== rtIdSesi) return [];
     return [{ ...warga, anggota_keluarga: anggotaPerKk.get(String(warga.id)) ?? [] }];
+  });
+}
+
+function nikEnamBelas(baris: unknown): string {
+  if (!baris || typeof baris !== "object") return "";
+  const nik = String((baris as { nik?: unknown }).nik ?? "").replace(/\D/g, "");
+  return nik.length === 16 ? nik : "";
+}
+
+/**
+ * Buku induk menampilkan satu kartu per rumah tangga. Jiwa yang sudah menempel
+ * di anggota_keluarga (istri/anak) tidak boleh tampil lagi sebagai kartu
+ * terpisah meski akun portal-nya diaktifkan.
+ */
+export function siapkanBukuIndukWarga(
+  daftarWargaAktif: unknown[],
+  daftarAnggota: unknown[],
+  rtIdSesi: string
+): Record<string, unknown>[] {
+  const nikPortal = new Set<string>();
+  for (const baris of Array.isArray(daftarWargaAktif) ? daftarWargaAktif : []) {
+    const nik = nikEnamBelas(baris);
+    if (nik) nikPortal.add(nik);
+  }
+
+  const nikMenempelDiKk = new Set<string>();
+  for (const baris of Array.isArray(daftarAnggota) ? daftarAnggota : []) {
+    const nik = nikEnamBelas(baris);
+    if (nik) nikMenempelDiKk.add(nik);
+  }
+
+  return tempelAnggotaKeKartuKk(daftarWargaAktif, daftarAnggota, rtIdSesi).flatMap((kartu) => {
+    const nikKartu = nikEnamBelas(kartu);
+    if (nikKartu && nikMenempelDiKk.has(nikKartu)) return [];
+    const tanggungan = Array.isArray(kartu.anggota_keluarga) ? kartu.anggota_keluarga : [];
+    return [
+      {
+        ...kartu,
+        anggota_keluarga: tanggungan.map((ak) => {
+          const nikAnggota = nikEnamBelas(ak);
+          return {
+            ...ak,
+            punya_akun_portal: Boolean(nikAnggota && nikPortal.has(nikAnggota)),
+          };
+        }),
+      },
+    ];
   });
 }

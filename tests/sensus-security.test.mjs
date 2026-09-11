@@ -107,6 +107,7 @@ test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () 
   const dasbor = await readFile(new URL("../app/admin/AdminDashboardClient.tsx", import.meta.url), "utf8");
   const portalLapor = await readFile(new URL("../app/portal/(terkunci)/lapor/page.tsx", import.meta.url), "utf8");
   const portalDasbor = await readFile(new URL("../app/portal/page.tsx", import.meta.url), "utf8");
+  const rumahTangga = await readFile(new URL("../lib/rumah-tangga-warga.ts", import.meta.url), "utf8");
   const sensusClient = await readFile(new URL("../app/portal/sensus/SensusClient.tsx", import.meta.url), "utf8");
   const sensusPage = await readFile(new URL("../app/portal/sensus/page.tsx", import.meta.url), "utf8");
   const rpc = await readFile(new URL("../sensus-mandiri-atomic-migration.sql", import.meta.url), "utf8");
@@ -141,8 +142,11 @@ test("tata kelola tiket tertutup membuka cap Carik bukan status akun", async () 
   assert.match(portalLapor, /redirect\("\/portal"\)/);
   assert.doesNotMatch(portalLapor, /kirimLaporan/);
   assert.match(portalDasbor, /FITUR_LAPOR_AKTIF = false/);
-  assert.match(portalDasbor, /adalahCapCarikDisetujui/);
-  assert.match(portalDasbor, /adalahCapCarikMenunggu/);
+  assert.match(portalDasbor, /ambilCapCarikRumahTangga/);
+  assert.match(portalDasbor, /capRumahTangga\.capDisetujui/);
+  assert.match(portalDasbor, /capRumahTangga\.capMenunggu/);
+  assert.match(rumahTangga, /adalahCapCarikDisetujui/);
+  assert.match(rumahTangga, /adalahCapCarikMenunggu/);
   assert.match(portalDasbor, /Lanjutkan revisi/);
   assert.match(portalDasbor, /href="\/portal\/sensus"/);
   assert.doesNotMatch(portalDasbor, /isDataTervalidasiWarga = !!statusCarik/);

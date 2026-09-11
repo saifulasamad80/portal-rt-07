@@ -8,6 +8,7 @@ import {
   type IdentitasAnggotaTersimpan,
 } from "@/lib/kebijakan-sensus";
 import { POLA_UUID } from "@/lib/uuid-tenant";
+import { ambilRumahTanggaPortal } from "@/lib/rumah-tangga-warga";
 import {
   adalahArsipPemilu,
   kePayloadUpdateBiodata,
@@ -505,6 +506,20 @@ export async function simpanVerifikasiCarikMandiri(
     !/^\d{16}$/.test(identitas.nik)
   ) {
     return { success: false, message: "Identitas sesi warga tidak valid." };
+  }
+
+  const rumahTangga = await ambilRumahTanggaPortal({
+    id: identitas.id,
+    nik: identitas.nik,
+    rtId: identitas.rtId,
+  });
+  if (rumahTangga.adalahTanggungan) {
+    return {
+      success: false,
+      message: rumahTangga.namaKepala
+        ? `Anda tercatat di kartu keluarga ${rumahTangga.namaKepala}. Data Carik rumah tangga hanya diisi kepala keluarga.`
+        : "Anda tercatat sebagai tanggungan kartu keluarga. Data Carik rumah tangga hanya diisi kepala keluarga.",
+    };
   }
 
   const biodata = sanitasiBiodata(biodataMentah);

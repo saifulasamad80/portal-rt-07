@@ -15,7 +15,7 @@ import {
 } from "@/lib/session-security";
 import { prosesValidasiAkunWarga } from "@/lib/validasi-akun-warga";
 import { POLA_UUID } from "@/lib/uuid-tenant";
-import { tempelAnggotaKeKartuKk } from "@/lib/cari-jiwa-warga";
+import { siapkanBukuIndukWarga } from "@/lib/cari-jiwa-warga";
 import { petaStatusTinggalImpor } from "@/lib/peta-status-tinggal";
 import {
   PILIHAN_AGAMA,
@@ -77,7 +77,7 @@ export default async function WargaAdminPage() {
   if (errWarga) console.error("Gagal memuat buku induk warga:", errWarga.message);
   if (errAnggota) console.error("Gagal memuat tanggungan buku induk:", errAnggota.message);
 
-  const wargaListAman = tempelAnggotaKeKartuKk(
+  const wargaListAman = siapkanBukuIndukWarga(
     Array.isArray(wargaRes) ? wargaRes : [],
     Array.isArray(anggotaRes) ? anggotaRes : [],
     rtIdSesi

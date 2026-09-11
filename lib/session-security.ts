@@ -12,6 +12,7 @@ export const SESSION_AUDIENCE_WARGA = "portal-warga";
 export const SESSION_AUDIENCE_ADMIN = "portal-admin";
 
 import { POLA_UUID, uuidTenantSah } from "@/lib/uuid-tenant";
+import { alasanTolakMasukPortal } from "@/lib/akses-portal-warga";
 const PANJANG_MINIMUM_SECRET = 32;
 
 type JenisSesi = "warga" | "admin";
@@ -236,11 +237,13 @@ export async function otentikasiWargaAktif(): Promise<HasilAutentikasi<WargaTera
   if (!warga) {
     return { ok: false, message: "Akun warga tidak ditemukan atau sudah dinonaktifkan." };
   }
-  if (
-    warga.status_verifikasi !== "Disetujui" ||
-    (statusAktifTersedia && warga.status_aktif !== true)
-  ) {
-    return { ok: false, message: "Akun warga tidak aktif atau belum disetujui pengurus RT." };
+  const alasanStatus = alasanTolakMasukPortal({
+    status_verifikasi: warga.status_verifikasi,
+    nama_lengkap: warga.nama_lengkap,
+    nik: warga.nik,
+  });
+  if (alasanStatus) {
+    return { ok: false, message: alasanStatus };
   }
   if (sesiMasihTerkunci(warga.terkunci_sampai)) {
     return { ok: false, message: "Akun warga sedang dikunci. Silakan masuk kembali nanti." };

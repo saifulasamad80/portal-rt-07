@@ -2,11 +2,60 @@ import { redirect } from "next/navigation";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { ambilStatusCarik } from "@/lib/verifikasi-carik-server";
+import { ambilCapCarikRumahTangga } from "@/lib/rumah-tangga-warga";
+import TautanHalus from "@/components/TautanHalus";
 import SensusClient from "./SensusClient";
+
+function SensusTanggungan({
+  namaKepala,
+  menunggu,
+}: {
+  namaKepala: string | null;
+  menunggu: boolean;
+}) {
+  return (
+    <div className="min-h-screen bg-slate-50 px-4 py-10 font-sans text-slate-800">
+      <div className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Portal Warga</p>
+        <h1 className="mt-2 text-xl font-bold text-slate-900">Data keluarga sudah tercatat di kartu KK</h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          {namaKepala
+            ? `Anda tercatat sebagai tanggungan di kartu keluarga ${namaKepala}. Formulir Carik rumah tangga hanya diisi kepala keluarga, supaya tidak muncul KK kedua.`
+            : "Anda tercatat sebagai tanggungan kartu keluarga. Formulir Carik rumah tangga hanya diisi kepala keluarga, supaya tidak muncul KK kedua."}
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          {menunggu
+            ? "Pengurus RT masih meninjau data keluarga ini. Layanan portal terbuka setelah data itu disetujui."
+            : "Layanan portal terbuka setelah kepala keluarga menyelesaikan konfirmasi data Carik."}
+        </p>
+        <TautanHalus
+          href="/portal"
+          className="mt-6 inline-flex rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white"
+        >
+          Kembali ke portal
+        </TautanHalus>
+      </div>
+    </div>
+  );
+}
 
 export default async function SensusPage() {
   const otentikasi = await otentikasiWargaAktif();
   if (!otentikasi.ok) redirect("/login");
+
+  const capRumahTangga = await ambilCapCarikRumahTangga(otentikasi.sesi);
+  if (capRumahTangga.error) redirect("/login");
+  if (capRumahTangga.capDisetujui) {
+    redirect(capRumahTangga.rumah.adalahTanggungan ? "/portal" : "/portal/keluarga");
+  }
+  if (capRumahTangga.rumah.adalahTanggungan) {
+    return (
+      <SensusTanggungan
+        namaKepala={capRumahTangga.rumah.namaKepala}
+        menunggu={capRumahTangga.capMenunggu}
+      />
+    );
+  }
 
   const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
   const statusCarik = await ambilStatusCarik(supabase, otentikasi.sesi.id, otentikasi.sesi.rtId);

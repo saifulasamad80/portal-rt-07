@@ -4,9 +4,9 @@ import Link from "next/link";
 import TombolNotifikasiPush from "@/components/TombolNotifikasiPush";
 import KartuLayanan from "@/components/portal/KartuLayanan";
 import TautanHalus from "@/components/TautanHalus";
-import { adalahCapCarikDisetujui, adalahCapCarikMenunggu } from "@/lib/kebijakan-sensus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
 import { buatKlienTerautentikasi } from "@/lib/supabase-server";
+import { ambilCapCarikRumahTangga } from "@/lib/rumah-tangga-warga";
 
 const FITUR_LAPOR_AKTIF = false;
 
@@ -43,15 +43,15 @@ export default async function PortalWarga() {
     .eq("rt_id", wargaAktif.rtId)
     .single();
 
-  const [{ data: statusCarik }, { data: jadwalRonda }, { data: pengumumanBaru }, { data: iuranTerakhir }] = await Promise.all([
-    supabaseAdmin.from("sensus_kesejahteraan").select("id, status_validasi").eq("warga_id", wargaAktif.id).eq("rt_id", wargaAktif.rtId).maybeSingle(),
+  const [{ data: jadwalRonda }, { data: pengumumanBaru }, { data: iuranTerakhir }, capRumahTangga] = await Promise.all([
     supabaseAdmin.from("jadwal_ronda").select("id, tanggal_tugas, status").eq("warga_id", wargaAktif.id).eq("rt_id", wargaAktif.rtId).gte("tanggal_tugas", todayStr).order("tanggal_tugas", { ascending: true }).limit(1).maybeSingle(),
     supabaseAdmin.from("pengumuman_rt").select("id, judul, tanggal_publikasi").eq("rt_id", wargaAktif.rtId).gte("tanggal_publikasi", threeDaysAgoStr).order("tanggal_publikasi", { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from("kas_rt").select("created_at, nominal, tipe_transaksi").eq("warga_id", wargaAktif.id).eq("tipe_transaksi", "Pemasukan").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ambilCapCarikRumahTangga(wargaAktif),
   ]);
 
-  const capDisetujui = adalahCapCarikDisetujui(statusCarik?.status_validasi);
-  const capMenunggu = adalahCapCarikMenunggu(statusCarik?.status_validasi);
+  const capDisetujui = capRumahTangga.capDisetujui;
+  const capMenunggu = capRumahTangga.capMenunggu;
   const layananTerkunci = !capDisetujui;
 
   const birthdayNames: string[] = [];

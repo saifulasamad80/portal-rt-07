@@ -10,6 +10,7 @@ import {
   sessionVersionTidakTersedia,
   statusAktifTidakTersedia,
 } from "@/lib/session-security";
+import { alasanTolakMasukPortal } from "@/lib/akses-portal-warga";
 import { KLAIM_VERSI_SESI, angkaVersiSesi } from "@/lib/versi-sesi";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -146,14 +147,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: PESAN_KREDENSIAL }, { status: 401 });
     }
 
-    if (warga.status_verifikasi === "Menunggu") {
-      return NextResponse.json({ success: false, message: "Pendaftaran masih dalam antrean pengurus RT." }, { status: 403 });
-    }
-    if (warga.status_verifikasi === "Ditolak" || (statusAktifTersedia && warga.status_aktif !== true)) {
-      return NextResponse.json({ success: false, message: "Akun ini tidak aktif. Hubungi pengurus RT." }, { status: 403 });
-    }
-    if (warga.status_verifikasi !== "Disetujui") {
-      return NextResponse.json({ success: false, message: "Status akun belum disetujui pengurus RT." }, { status: 403 });
+    const alasanStatus = alasanTolakMasukPortal({
+      status_verifikasi: warga.status_verifikasi,
+      nama_lengkap: warga.nama_lengkap,
+      nik: warga.nik,
+    });
+    if (alasanStatus) {
+      return NextResponse.json({ success: false, message: alasanStatus }, { status: 403 });
     }
 
     const pinLemah = ["123456", "111111", "000000", "654321", "121212", "123123"];

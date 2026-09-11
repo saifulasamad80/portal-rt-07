@@ -1,25 +1,18 @@
 import { redirect } from "next/navigation";
-import { buatKlienTerautentikasi } from "@/lib/supabase-server";
 import { otentikasiWargaAktif } from "@/lib/session-security";
+import { ambilCapCarikRumahTangga } from "@/lib/rumah-tangga-warga";
 
 /**
  * Layanan portal selain /portal/sensus hanya dibuka setelah data carik
- * warisan dikonfirmasi. Route group ini tidak membungkus halaman sensus.
+ * rumah tangga dikonfirmasi. Tanggungan memakai carik kepala keluarga,
+ * bukan baris akun jiwa yang disembunyikan dari buku induk.
  */
 export default async function LayoutLayananTerkunci({ children }: { children: React.ReactNode }) {
   const otentikasi = await otentikasiWargaAktif();
   if (!otentikasi.ok) redirect("/login");
 
-  const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-  const { data: carik, error } = await supabase
-    .from("sensus_kesejahteraan")
-    .select("id, status_validasi")
-    .eq("warga_id", otentikasi.sesi.id)
-    .eq("rt_id", otentikasi.sesi.rtId)
-    .eq("status_validasi", "Disetujui")
-    .maybeSingle();
-
-  if (error || !carik) redirect("/portal/sensus");
+  const carik = await ambilCapCarikRumahTangga(otentikasi.sesi);
+  if (carik.error || !carik.capDisetujui) redirect("/portal/sensus");
 
   return children;
 }
