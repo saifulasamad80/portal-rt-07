@@ -1,0 +1,14 @@
+{
+  "name": "Portal Warga RT — Next.js 16 + Supabase",
+  "install": "pnpm install --frozen-lockfile",
+  "ports": [
+    { "name": "next-dev", "port": 3000 }
+  ],
+  "terminals": [
+    {
+      "name": "next-dev",
+      "command": "pnpm run dev",
+      "description": "Next.js 16 (Turbopack) dev server on http://localhost:3000. Supabase and session values are read from environment variables (Cloud Agent Secrets): NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, JWT_SECRET, PUBLIC_RT_ID, REGISTRATION_RT_ID. The dev server boots without them, but the landing page (/) requires NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY and returns HTTP 500 if they are unset (getSupabaseServerClient throws on the missing env var); once they are set, per-section fetch failures degrade to a zero-state. /login renders without any secrets. `pnpm run build` also requires the Supabase env vars. Run security suites with `pnpm run test:security:*`."
+    }
+  ]
+}
