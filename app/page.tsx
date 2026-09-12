@@ -36,12 +36,6 @@ function tarikanKurban(jenis: string) {
   return huruf.includes("tarik") || huruf.includes("penarikan");
 }
 
-function dalamBulanIni(tanggal: string) {
-  const d = new Date(tanggal);
-  const now = new Date();
-  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-}
-
 export default async function LandingPage() {
   const {
     pengumumanReguler,
@@ -50,8 +44,8 @@ export default async function LandingPage() {
     sampahGlobal,
     jumantik,
     dataKurban,
-    dataBalita,
-    dataLansia,
+    rekapBalita,
+    rekapLansia,
     daftarFoto,
     daftarLapak,
     daftarKontak,
@@ -85,9 +79,9 @@ export default async function LandingPage() {
   }, 0);
   const pesertaKurban = new Set(dataKurban.filter((t) => setoranKurban(t.jenis_transaksi) && t.warga_id).map((t) => t.warga_id)).size;
 
-  const balitaBulanIni = dataBalita.filter((b) => dalamBulanIni(b.tanggal_kunjungan)).length;
-  const lansiaBulanIni = dataLansia.filter((l) => dalamBulanIni(l.tanggal_kunjungan)).length;
-  const imunisasiTercatat = dataBalita.filter((b) => Boolean(b.imunisasi && b.imunisasi.trim())).length;
+  const balitaBulanIni = rekapBalita.bulanIni;
+  const lansiaBulanIni = rekapLansia.bulanIni;
+  const imunisasiTercatat = rekapBalita.imunisasi;
 
   const namaWilayah = [masterRt?.kelurahan ? `Kel. ${masterRt.kelurahan}` : null, masterRt?.nama_rw, masterRt?.nama_rt || "RT 07"]
     .filter(Boolean)
@@ -262,10 +256,10 @@ export default async function LandingPage() {
             deskripsi="Rekap Posyandu tanpa nama individu. Yang tampil hanya volume kunjungan dan cakupan imunisasi."
           />
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KartuKesehatan ikon="👶" judul="Posyandu Balita" nilai={String(dataBalita.length)} keterangan="total kunjungan tercatat" />
+            <KartuKesehatan ikon="👶" judul="Posyandu Balita" nilai={String(rekapBalita.total)} keterangan="total kunjungan tercatat" />
             <KartuKesehatan ikon="📅" judul="Balita bulan ini" nilai={String(balitaBulanIni)} keterangan="hadir pada bulan berjalan" />
             <KartuKesehatan ikon="💉" judul="Imunisasi tercatat" nilai={String(imunisasiTercatat)} keterangan="dari seluruh kunjungan balita" />
-            <KartuKesehatan ikon="🧓" judul="Posyandu Lansia" nilai={`${lansiaBulanIni}`} keterangan={`${dataLansia.length} kunjungan sepanjang waktu`} />
+            <KartuKesehatan ikon="🧓" judul="Posyandu Lansia" nilai={`${lansiaBulanIni}`} keterangan={`${rekapLansia.total} kunjungan sepanjang waktu`} />
           </div>
         </section>
 

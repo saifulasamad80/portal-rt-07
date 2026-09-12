@@ -7,6 +7,10 @@ export const VERSI_KEBIJAKAN_PRIVASI = "2026-09-12";
 export const PATH_KEBIJAKAN_PRIVASI = "/kebijakan-privasi";
 export const PATH_SURAT_PERSETUJUAN = "/kebijakan-privasi/surat";
 export const USIA_ANAK_PDP = 18;
+/** Sasaran Posyandu balita: 0–5 tahun. Di atas itu bukan tujuan modul ini. */
+export const USIA_MAKS_POSYANDU_BALITA = 5;
+/** Sasaran Posyandu lansia/pra-lansia sesuai praktik kader (45 tahun ke atas). */
+export const USIA_MIN_POSYANDU_LANSIA = 45;
 export const TANGGAL_PEMBERITAHUAN_PDP = "2026-09-11";
 export const HARI_TENGGAT_DATA_SPESIFIK = 60;
 export const HARI_TTL_KOTAK_SAMPAH = 30;
@@ -110,7 +114,7 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
       "Dokumen: foto Kartu Keluarga, jika Anda mengunggahnya. Unggah foto KTP sedang dimatikan.",
       "Gambaran rumah tangga: kisaran pendapatan bulanan dan daya listrik — opsional. Ini untuk program lingkungan (misalnya santunan atau pendataan), bukan data DTKS Kemensos, dan bukan untuk menyalurkan bansos pemerintah. Kalau suatu saat pengurus ingin memakainya untuk itu, kami akan minta izin baru.",
       "Anggota keluarga: data serupa untuk orang yang Anda daftarkan, termasuk anak di bawah 18 tahun jika Anda mengisinya sebagai orang tua atau wali.",
-      "Kesehatan: catatan posyandu (berat, tinggi, imunisasi, tensi, gula darah) hanya jika pengurus mencatat kunjungan dan rumah tangga memberi izin kesehatan. Tanpa izin itu, kunjungan individu tidak boleh disimpan.",
+      "Kesehatan: catatan posyandu (berat, tinggi, imunisasi, tensi, gula darah) hanya jika pengurus mencatat kunjungan, rumah tangga memberi izin kesehatan, dan jiwa yang dicatat ada di buku induk rumah tangga itu. Nama tidak boleh diketik bebas. Tanpa izin itu, kunjungan individu tidak boleh disimpan.",
       "Kunci masuk portal: PIN Anda tidak disimpan apa adanya. Kami hanya menyimpan jejak acaknya, sehingga angka asli tidak terbaca. Saat Anda masuk, portal memakai cookie sesi HttpOnly yang tidak bisa dibaca sembarang situs. Cookie itu wajib agar login jalan, bukan untuk iklan.",
       "Pemberitahuan di HP atau komputer: hanya jika Anda menyalakan notifikasi setelah membaca risiko transfer ke luar negeri. Penyedia notifikasi (OneSignal, Amerika Serikat) menerima alias akun dan token perangkat, bukan NIK.",
     ],
@@ -122,7 +126,7 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
       "Mencatat dan memverifikasi Anda di buku induk RT.",
       "Memberi akses portal: pengumuman, iuran, surat pengantar, laporan, dan layanan RT lain yang Anda pilih.",
       "Menghubungi Anda soal verifikasi, iuran, atau keadaan darurat di lingkungan.",
-      "Menampilkan angka ringkas di halaman publik (jumlah jiwa, sebaran usia atau agama) tanpa nama dan tanpa NIK. Ibarat menghitung jumlah rumah, bukan menempelkan papan nama di pagar.",
+      "Menampilkan angka ringkas di halaman publik (jumlah jiwa, sebaran usia atau agama, volume kunjungan posyandu) tanpa nama dan tanpa NIK. Ibarat menghitung jumlah rumah, bukan menempelkan papan nama di pagar.",
       "Menjaga keamanan akun: membatasi percobaan masuk yang mencurigakan dan mencatat jejak kerja pengurus.",
     ],
   },
@@ -130,8 +134,8 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     id: "penerima",
     judul: "5. Siapa yang boleh melihat",
     paragraf: [
-      "Pengurus RT Anda: biodata, dokumen KK, dan data keluarga, untuk verifikasi dan administrasi.",
-      "Anda sendiri, setelah akun disetujui: data rumah tangga Anda di portal.",
+      "Pengurus RT Anda: biodata, dokumen KK, data keluarga, dan catatan kunjungan posyandu rumah tangga yang masih berizin, untuk kader dan administrasi RT. Bukan rekam medis faskes.",
+      "Anda sendiri, setelah akun disetujui: data rumah tangga Anda di portal, termasuk catatan posyandu rumah tangga Anda — bukan milik tetangga.",
       "Tempat penyimpanan digital (Supabase, wilayah Singapore) dan tempat aplikasi dijalankan (Vercel): mereka menyimpan dan menampilkan data atas instruksi kami. Server Vercel dan CDN-nya bisa berada di luar Indonesia. Dengan memakai portal, Anda memahami risiko itu: hukum pelindungan data di negara tujuan bisa berbeda.",
       "Penyedia notifikasi (OneSignal, Amerika Serikat), hanya jika Anda menyalakan notifikasi setelah konfirmasi terpisah: alias akun, token perangkat, dan isi pemberitahuan, bukan NIK.",
       "WhatsApp/Meta, hanya jika pengurus mengetuk tautan chat ke nomor Anda (misalnya menagih iuran): nomor dan teks yang diketik pengurus.",
@@ -143,6 +147,7 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     judul: "6. Berapa lama data disimpan",
     paragraf: [
       "Selama Anda tercatat sebagai warga RT dan akun masih dibutuhkan untuk layanan portal.",
+      "Catatan posyandu individu disimpan selama izin kesehatan rumah tangga masih berlaku. Kalau izin ditarik atau akun dihapus, nama dan nilai pemeriksaan dihapus dari catatan itu. Angka kunjungan RT (berapa orang datang) boleh tertinggal tanpa identitas.",
       "Jika pengurus menghapus data, salinan sementara masuk kotak sampah internal selama 30 hari, lalu dihapus permanen dari sistem operasional.",
       "Salinan pengaman (cadangan) bisa bertahan lebih lama, sesuai jadwal harian, mingguan, atau tahunan. Setelah hapus sah, cadangan tidak boleh dipakai untuk menghidupkan data kembali, kecuali ada kewajiban hukum. Permintaan hapus di cadangan diteruskan operator hosting.",
     ],
@@ -153,7 +158,7 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     paragraf: [
       "Hak tahu: dokumen ini, plus penjelasan di formulir lapor diri.",
       "Hak melihat dan membetulkan: lewat portal (menu Carik / keluarga) setelah akun disetujui, atau lewat pengurus RT.",
-      "Hak unduh salinan rumah tangga, menarik izin keuangan atau kesehatan, dan mengajukan penghapusan akun: lewat beranda portal (kepala keluarga). Penghapusan diproses pengurus; data operasional masuk kotak sampah 30 hari. Indeks pemilu yang sudah tercatat bisa diarsipkan, bukan dihapus, demi integritas surat suara.",
+      "Hak unduh salinan rumah tangga (termasuk ringkasan posyandu rumah tangga), menarik izin keuangan atau kesehatan, dan mengajukan penghapusan akun: lewat beranda portal (kepala keluarga). Tarik izin kesehatan menganonimkan catatan kunjungan yang sudah ada, bukan cuma menolak yang baru. Penghapusan diproses pengurus; data operasional masuk kotak sampah 30 hari. Indeks pemilu yang sudah tercatat bisa diarsipkan, bukan dihapus, demi integritas surat suara.",
       "Hak mengadu ke lembaga pengawas pelindungan data pribadi, sesuai peraturan yang berlaku. Kontak pelindungan data: pengurus RT Anda.",
     ],
   },
@@ -172,7 +177,7 @@ export const BAGIAN_KEBIJAKAN_PRIVASI: BagianKebijakanPrivasi[] = [
     paragraf: [
       "Anak di sini artinya belum berusia 18 tahun. Data anak hanya boleh diisi oleh orang tua atau wali yang berwenang.",
       "Jika Anda mendaftarkan anak, Anda wajib mencentang izin khusus data anak. Mengisi data anak orang lain tanpa wewenang tidak diperbolehkan.",
-      "Catatan posyandu anak hanya boleh dibuat jika rumah tangga juga memberi izin kesehatan.",
+      "Catatan posyandu anak hanya boleh dibuat jika rumah tangga juga memberi izin kesehatan, jiwa itu tercatat sebagai anak di buku induk, dan usianya 0–5 tahun pada hari kunjungan.",
     ],
   },
   {

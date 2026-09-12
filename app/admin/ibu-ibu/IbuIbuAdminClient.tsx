@@ -1,40 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TautanHalus from "@/components/TautanHalus";
 import { useRouter } from "next/navigation";
 import ModulJumantik from "../ModulJumantik";
+import type { BarisKunjunganBalita, BarisKunjunganLansia, KartuIzinPosyandu } from "@/lib/posyandu-aturan";
 
 type TabId = "balita" | "lansia" | "arisan";
 type PesanForm = { tipe: "sukses" | "gagal"; teks: string } | null;
 
-type BarisKunjunganBalita = {
-  id: string;
-  created_at: string;
-  nama_anak: string;
-  nama_ibu: string;
-  tanggal_kunjungan: string;
-  berat_kg: number | null;
-  tinggi_cm: number | null;
-  imunisasi: string | null;
-  catatan: string | null;
-};
-
-type BarisKunjunganLansia = {
-  id: string;
-  created_at: string;
-  nama_peserta: string;
-  tanggal_kunjungan: string;
-  tensi_darah: string | null;
-  gula_darah: number | null;
-  berat_kg: number | null;
-  catatan: string | null;
-};
-
 const FORM_BALITA_KOSONG = {
   warga_id: "",
-  nama_anak: "",
-  nama_ibu: "",
+  kunci_jiwa: "",
   tanggal_kunjungan: "",
   berat_kg: "",
   tinggi_cm: "",
@@ -44,7 +21,7 @@ const FORM_BALITA_KOSONG = {
 
 const FORM_LANSIA_KOSONG = {
   warga_id: "",
-  nama_peserta: "",
+  kunci_jiwa: "",
   tanggal_kunjungan: "",
   tensi_darah: "",
   gula_darah: "",
@@ -57,18 +34,6 @@ function tanggalHariIni() {
   const bulan = String(sekarang.getMonth() + 1).padStart(2, "0");
   const hari = String(sekarang.getDate()).padStart(2, "0");
   return `${sekarang.getFullYear()}-${bulan}-${hari}`;
-}
-
-function angkaOpsional(nilai: string) {
-  const bersih = nilai.trim().replace(",", ".");
-  if (!bersih) return null;
-  const angka = Number(bersih);
-  return Number.isFinite(angka) ? angka : null;
-}
-
-function teksOpsional(nilai: string) {
-  const bersih = nilai.trim();
-  return bersih ? bersih : null;
 }
 
 function formatTanggal(tanggal: string) {
@@ -90,35 +55,39 @@ export default function IbuIbuAdminClient({
   aksiSimpanArisan,
   aksiSimpanTransaksi,
   aksiHapus,
-      aksiSimpanKunjunganBalita,
-      aksiSimpanKunjunganLansia,
-      bolehKelolaKunjungan,
-      laporanJumantik,
-      aksiCatatJumantik,
-      kartuKeluarga = [],
-    }: {
-      kunjunganLansia: BarisKunjunganLansia[];
-      kunjunganBalita: BarisKunjunganBalita[];
-      arisan: any[];
-      transaksi: any[];
-      aksiSimpanArisan: (payload: any) => Promise<{ success: boolean; message?: string }>;
-      aksiSimpanTransaksi: (payload: any) => Promise<{ success: boolean; message?: string }>;
-      aksiHapus: (tabel: string, id: string) => Promise<{ success: boolean; message?: string }>;
-      aksiSimpanKunjunganBalita: (payload: unknown) => Promise<{ success: boolean; message?: string; data?: BarisKunjunganBalita }>;
-      aksiSimpanKunjunganLansia: (payload: unknown) => Promise<{ success: boolean; message?: string; data?: BarisKunjunganLansia }>;
-      bolehKelolaKunjungan: boolean;
-      laporanJumantik: {
-        jumlah_rumah_diperiksa: number | null;
-        warga_terjangkit_dbd: boolean | null;
-        ditemukan_jentik: boolean | null;
-      } | null;
-      aksiCatatJumantik: (payload: {
-        jumlah_rumah_diperiksa: number;
-        warga_terjangkit_dbd: boolean;
-        ditemukan_jentik: boolean;
-      }) => Promise<{ success: boolean; message?: string }>;
-      kartuKeluarga?: Array<{ id: string; nama: string }>;
-    }) {
+  aksiSimpanKunjunganBalita,
+  aksiSimpanKunjunganLansia,
+  aksiHapusKunjungan,
+  aksiAnonimkanYatim,
+  jumlahRekamYatim,
+  laporanJumantik,
+  aksiCatatJumantik,
+  kartuIzin = [],
+}: {
+  kunjunganLansia: BarisKunjunganLansia[];
+  kunjunganBalita: BarisKunjunganBalita[];
+  arisan: any[];
+  transaksi: any[];
+  aksiSimpanArisan: (payload: any) => Promise<{ success: boolean; message?: string }>;
+  aksiSimpanTransaksi: (payload: any) => Promise<{ success: boolean; message?: string }>;
+  aksiHapus: (tabel: string, id: string) => Promise<{ success: boolean; message?: string }>;
+  aksiSimpanKunjunganBalita: (payload: unknown) => Promise<{ success: boolean; message?: string; data?: BarisKunjunganBalita }>;
+  aksiSimpanKunjunganLansia: (payload: unknown) => Promise<{ success: boolean; message?: string; data?: BarisKunjunganLansia }>;
+  aksiHapusKunjungan: (tabel: string, id: string) => Promise<{ success: boolean; message?: string }>;
+  aksiAnonimkanYatim: () => Promise<{ success: boolean; message?: string }>;
+  jumlahRekamYatim: number;
+  laporanJumantik: {
+    jumlah_rumah_diperiksa: number | null;
+    warga_terjangkit_dbd: boolean | null;
+    ditemukan_jentik: boolean | null;
+  } | null;
+  aksiCatatJumantik: (payload: {
+    jumlah_rumah_diperiksa: number;
+    warga_terjangkit_dbd: boolean;
+    ditemukan_jentik: boolean;
+  }) => Promise<{ success: boolean; message?: string }>;
+  kartuIzin?: KartuIzinPosyandu[];
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<TabId>("balita");
   const [loading, setLoading] = useState(false);
@@ -133,12 +102,19 @@ export default function IbuIbuAdminClient({
   const [menyimpanLansia, setMenyimpanLansia] = useState(false);
   const [pesanBalita, setPesanBalita] = useState<PesanForm>(null);
   const [pesanLansia, setPesanLansia] = useState<PesanForm>(null);
+  const [pesanYatim, setPesanYatim] = useState<PesanForm>(null);
+  const [rekamYatim, setRekamYatim] = useState(jumlahRekamYatim);
 
   useEffect(() => {
     const hariIni = tanggalHariIni();
     setFormBalita((sebelum) => (sebelum.tanggal_kunjungan ? sebelum : { ...sebelum, tanggal_kunjungan: hariIni }));
     setFormLansia((sebelum) => (sebelum.tanggal_kunjungan ? sebelum : { ...sebelum, tanggal_kunjungan: hariIni }));
   }, []);
+
+  const kkBalita = useMemo(() => kartuIzin.filter((kk) => kk.jiwaBalita.length > 0), [kartuIzin]);
+  const kkLansia = useMemo(() => kartuIzin.filter((kk) => kk.jiwaLansia.length > 0), [kartuIzin]);
+  const jiwaBalitaTerpilih = kkBalita.find((kk) => kk.id === formBalita.warga_id)?.jiwaBalita || [];
+  const jiwaLansiaTerpilih = kkLansia.find((kk) => kk.id === formLansia.warga_id)?.jiwaLansia || [];
 
   const simpanArisan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,24 +152,31 @@ export default function IbuIbuAdminClient({
     else router.refresh();
   };
 
-  const simpanKunjunganBalita = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bolehKelolaKunjungan) {
-      setPesanBalita({ tipe: "gagal", teks: "Rekam medis kunjungan legacy hanya dapat dikelola webmaster sampai pemetaan RT tersedia." });
+  const hapusKunjungan = async (tabel: "kunjungan_balita" | "kunjungan_lansia", id: string) => {
+    if (!confirm("Hapus kunjungan ini? Ini untuk koreksi salah catat, bukan tarik izin.")) return;
+    const res = await aksiHapusKunjungan(tabel, id);
+    if (!res.success) {
+      alert(res.message || "Gagal menghapus kunjungan");
       return;
     }
+    if (tabel === "kunjungan_balita") setDaftarBalita((sebelum) => sebelum.filter((row) => row.id !== id));
+    else setDaftarLansia((sebelum) => sebelum.filter((row) => row.id !== id));
+  };
+
+  const simpanKunjunganBalita = async (e: React.FormEvent) => {
+    e.preventDefault();
     setMenyimpanBalita(true);
     setPesanBalita(null);
 
     const hasil = await aksiSimpanKunjunganBalita({
       warga_id: formBalita.warga_id,
-      nama_anak: formBalita.nama_anak.trim(),
-      nama_ibu: formBalita.nama_ibu.trim(),
+      anggota_id: formBalita.kunci_jiwa,
+      kunci_jiwa: formBalita.kunci_jiwa,
       tanggal_kunjungan: formBalita.tanggal_kunjungan,
-      berat_kg: angkaOpsional(formBalita.berat_kg),
-      tinggi_cm: angkaOpsional(formBalita.tinggi_cm),
-      imunisasi: teksOpsional(formBalita.imunisasi),
-      catatan: teksOpsional(formBalita.catatan),
+      berat_kg: formBalita.berat_kg,
+      tinggi_cm: formBalita.tinggi_cm,
+      imunisasi: formBalita.imunisasi,
+      catatan: formBalita.catatan,
     });
 
     setMenyimpanBalita(false);
@@ -201,7 +184,7 @@ export default function IbuIbuAdminClient({
     if (!hasil.success || !hasil.data) {
       setPesanBalita({
         tipe: "gagal",
-        teks: hasil.message || "Kunjungan balita gagal disimpan. Periksa koneksi, lalu tekan Simpan lagi.",
+        teks: hasil.message || "Kunjungan balita gagal disimpan. Periksa izin kesehatan dan usia anak.",
       });
       return;
     }
@@ -211,27 +194,23 @@ export default function IbuIbuAdminClient({
     setFormBalita({ ...FORM_BALITA_KOSONG, tanggal_kunjungan: tanggalHariIni() });
     setPesanBalita({
       tipe: "sukses",
-      teks: `Kunjungan ${data.nama_anak} berhasil dicatat ke rekam medis.`,
+      teks: `Kunjungan ${data.nama_anak} tercatat. Tertaut ke buku induk, bukan nama ketikan.`,
     });
   };
 
   const simpanKunjunganLansia = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bolehKelolaKunjungan) {
-      setPesanLansia({ tipe: "gagal", teks: "Rekam medis kunjungan legacy hanya dapat dikelola webmaster sampai pemetaan RT tersedia." });
-      return;
-    }
     setMenyimpanLansia(true);
     setPesanLansia(null);
 
     const hasil = await aksiSimpanKunjunganLansia({
       warga_id: formLansia.warga_id,
-      nama_peserta: formLansia.nama_peserta.trim(),
+      kunci_jiwa: formLansia.kunci_jiwa,
       tanggal_kunjungan: formLansia.tanggal_kunjungan,
-      tensi_darah: teksOpsional(formLansia.tensi_darah),
-      gula_darah: angkaOpsional(formLansia.gula_darah),
-      berat_kg: angkaOpsional(formLansia.berat_kg),
-      catatan: teksOpsional(formLansia.catatan),
+      tensi_darah: formLansia.tensi_darah,
+      gula_darah: formLansia.gula_darah,
+      berat_kg: formLansia.berat_kg,
+      catatan: formLansia.catatan,
     });
 
     setMenyimpanLansia(false);
@@ -239,7 +218,7 @@ export default function IbuIbuAdminClient({
     if (!hasil.success || !hasil.data) {
       setPesanLansia({
         tipe: "gagal",
-        teks: hasil.message || "Kunjungan lansia gagal disimpan. Periksa koneksi, lalu tekan Simpan lagi.",
+        teks: hasil.message || "Kunjungan lansia gagal disimpan. Periksa izin kesehatan dan usia peserta.",
       });
       return;
     }
@@ -249,8 +228,20 @@ export default function IbuIbuAdminClient({
     setFormLansia({ ...FORM_LANSIA_KOSONG, tanggal_kunjungan: tanggalHariIni() });
     setPesanLansia({
       tipe: "sukses",
-      teks: `Kunjungan ${data.nama_peserta} berhasil dicatat ke rekam medis.`,
+      teks: `Kunjungan ${data.nama_peserta} tercatat. Tertaut ke buku induk, bukan nama ketikan.`,
     });
+  };
+
+  const anonimkanYatim = async () => {
+    if (!confirm("Anonimkan semua rekam kunjungan yang tidak tertaut kartu keluarga di RT ini?")) return;
+    const hasil = await aksiAnonimkanYatim();
+    if (!hasil.success) {
+      setPesanYatim({ tipe: "gagal", teks: hasil.message || "Gagal menganonimkan." });
+      return;
+    }
+    setRekamYatim(0);
+    setPesanYatim({ tipe: "sukses", teks: hasil.message || "Rekam yatim dianonimkan." });
+    router.refresh();
   };
 
   const totalSetoran = arisan.reduce((sum, a) => sum + Number(a.setoran_terakhir || 0), 0);
@@ -263,11 +254,15 @@ export default function IbuIbuAdminClient({
         <TautanHalus href="/admin" className="text-blue-600 font-bold text-sm hover:underline">&larr; Kembali ke Pusat Komando</TautanHalus>
         <div className="bg-slate-900 p-6 md:p-8 rounded-2xl">
           <h1 className="text-2xl font-black text-white">Modul Ibu-ibu RT</h1>
-          <p className="text-slate-400 text-sm mt-1">Rekam medis kunjungan per individu, Jumantik, dan simpan-pinjam arisan.</p>
+          <p className="text-slate-400 text-sm mt-1">Catatan kunjungan posyandu tertaut buku induk, Jumantik, dan simpan-pinjam arisan.</p>
         </div>
-        {!bolehKelolaKunjungan && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Data kunjungan balita/lansia legacy belum memiliki pemetaan RT. Akses rekam medis ditahan untuk admin RT agar data warga lain tidak terbaca; webmaster dapat mengelolanya setelah migrasi.
+        {rekamYatim > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 space-y-2">
+            <p>{rekamYatim} rekam kunjungan lama tidak tertaut subjek. Itu tidak boleh ditampilkan sebagai identitas. Anonimkan supaya hanya angka kunjungan yang tertinggal.</p>
+            <button type="button" onClick={anonimkanYatim} className="rounded-lg bg-amber-800 text-white text-xs font-bold px-3 py-2">
+              Anonimkan rekam tanpa tautan
+            </button>
+            {pesanYatim && <p className={pesanYatim.tipe === "sukses" ? "text-emerald-800" : "text-rose-700"}>{pesanYatim.teks}</p>}
           </div>
         )}
 
@@ -314,25 +309,26 @@ export default function IbuIbuAdminClient({
                 <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-base shrink-0">👶</div>
                 <div>
                   <h2 className="font-black text-slate-900">Catat Kunjungan Balita</h2>
-                  <p className="text-[11px] text-slate-400">Rekam medis per anak. Wajib kartu keluarga yang sudah izin kesehatan dan wali anak.</p>
+                  <p className="text-[11px] text-slate-400">Anak 0–5 tahun dari KK yang sudah izin kesehatan dan wali anak. Nama tidak diketik.</p>
                 </div>
               </div>
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Kartu keluarga</span>
-                <select required className={kelasIsian} value={formBalita.warga_id} onChange={(e) => setFormBalita({ ...formBalita, warga_id: e.target.value })}>
-                  <option value="">Pilih KK yang punya izin kesehatan</option>
-                  {kartuKeluarga.map((kk) => (
+                <select required className={kelasIsian} value={formBalita.warga_id} onChange={(e) => setFormBalita({ ...formBalita, warga_id: e.target.value, kunci_jiwa: "" })}>
+                  <option value="">Pilih KK berizin kesehatan + wali anak</option>
+                  {kkBalita.map((kk) => (
                     <option key={kk.id} value={kk.id}>{kk.nama}</option>
                   ))}
                 </select>
               </label>
               <label className="block">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Nama anak</span>
-                <input required placeholder="Nama lengkap anak" className={kelasIsian} value={formBalita.nama_anak} onChange={(e) => setFormBalita({ ...formBalita, nama_anak: e.target.value })} />
-              </label>
-              <label className="block">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Nama ibu</span>
-                <input required placeholder="Nama ibu" className={kelasIsian} value={formBalita.nama_ibu} onChange={(e) => setFormBalita({ ...formBalita, nama_ibu: e.target.value })} />
+                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Anak</span>
+                <select required className={kelasIsian} value={formBalita.kunci_jiwa} onChange={(e) => setFormBalita({ ...formBalita, kunci_jiwa: e.target.value })} disabled={!formBalita.warga_id}>
+                  <option value="">{formBalita.warga_id ? "Pilih anak 0–5 tahun" : "Pilih KK dulu"}</option>
+                  {jiwaBalitaTerpilih.map((jiwa) => (
+                    <option key={jiwa.kunci} value={jiwa.kunci}>{jiwa.nama}</option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Tanggal kunjungan</span>
@@ -361,22 +357,26 @@ export default function IbuIbuAdminClient({
                   {pesanBalita.teks}
                 </p>
               )}
-              <button type="submit" disabled={menyimpanBalita || !bolehKelolaKunjungan} className="w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+              <button type="submit" disabled={menyimpanBalita || kkBalita.length === 0} className="w-full bg-sky-700 hover:bg-sky-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                 {menyimpanBalita ? "Menyimpan..." : "Simpan"}
               </button>
+              {kkBalita.length === 0 && <p className="text-[11px] text-slate-500">Belum ada KK dengan izin kesehatan, izin wali anak, dan anak 0–5 tahun di buku induk.</p>}
             </form>
             <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-slate-200 space-y-3">
               <h2 className="font-black text-slate-900">Riwayat kunjungan balita</h2>
               {daftarBalita.map((row) => (
-                <div key={row.id} className="border border-slate-200 rounded-xl p-4">
-                  <p className="font-bold">{row.nama_anak}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Ibu {row.nama_ibu} · {formatTanggal(row.tanggal_kunjungan)}
-                    {row.berat_kg != null ? ` · ${row.berat_kg} kg` : ""}
-                    {row.tinggi_cm != null ? ` · ${row.tinggi_cm} cm` : ""}
-                    {row.imunisasi ? ` · ${row.imunisasi}` : ""}
-                  </p>
-                  {row.catatan && <p className="text-xs text-slate-400 mt-1">{row.catatan}</p>}
+                <div key={row.id} className="border border-slate-200 rounded-xl p-4 flex justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold">{row.nama_anak}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Ibu {row.nama_ibu} · {formatTanggal(row.tanggal_kunjungan)}
+                      {row.berat_kg != null ? ` · ${row.berat_kg} kg` : ""}
+                      {row.tinggi_cm != null ? ` · ${row.tinggi_cm} cm` : ""}
+                      {row.imunisasi ? ` · ${row.imunisasi}` : ""}
+                    </p>
+                    {row.catatan && <p className="text-xs text-slate-400 mt-1">{row.catatan}</p>}
+                  </div>
+                  <button type="button" onClick={() => hapusKunjungan("kunjungan_balita", row.id)} className="text-xs text-rose-600 font-bold shrink-0">Hapus</button>
                 </div>
               ))}
               {daftarBalita.length === 0 && <p className="text-sm text-slate-400">Belum ada kunjungan tercatat.</p>}
@@ -391,21 +391,26 @@ export default function IbuIbuAdminClient({
                 <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center text-base shrink-0">🧓</div>
                 <div>
                   <h2 className="font-black text-slate-900">Catat Kunjungan Lansia</h2>
-                  <p className="text-[11px] text-slate-400">Rekam medis per peserta. Wajib kartu keluarga yang sudah izin kesehatan.</p>
+                  <p className="text-[11px] text-slate-400">Peserta 45 tahun ke atas dari KK yang sudah izin kesehatan. Nama tidak diketik.</p>
                 </div>
               </div>
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Kartu keluarga</span>
-                <select required className={kelasIsian} value={formLansia.warga_id} onChange={(e) => setFormLansia({ ...formLansia, warga_id: e.target.value })}>
-                  <option value="">Pilih KK yang punya izin kesehatan</option>
-                  {kartuKeluarga.map((kk) => (
+                <select required className={kelasIsian} value={formLansia.warga_id} onChange={(e) => setFormLansia({ ...formLansia, warga_id: e.target.value, kunci_jiwa: "" })}>
+                  <option value="">Pilih KK berizin kesehatan</option>
+                  {kkLansia.map((kk) => (
                     <option key={kk.id} value={kk.id}>{kk.nama}</option>
                   ))}
                 </select>
               </label>
               <label className="block">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Nama peserta</span>
-                <input required placeholder="Nama lengkap peserta" className={kelasIsian} value={formLansia.nama_peserta} onChange={(e) => setFormLansia({ ...formLansia, nama_peserta: e.target.value })} />
+                <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Peserta</span>
+                <select required className={kelasIsian} value={formLansia.kunci_jiwa} onChange={(e) => setFormLansia({ ...formLansia, kunci_jiwa: e.target.value })} disabled={!formLansia.warga_id}>
+                  <option value="">{formLansia.warga_id ? "Pilih peserta 45 tahun ke atas" : "Pilih KK dulu"}</option>
+                  {jiwaLansiaTerpilih.map((jiwa) => (
+                    <option key={jiwa.kunci} value={jiwa.kunci}>{jiwa.nama}</option>
+                  ))}
+                </select>
               </label>
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 mb-1.5">Tanggal kunjungan</span>
@@ -434,22 +439,26 @@ export default function IbuIbuAdminClient({
                   {pesanLansia.teks}
                 </p>
               )}
-              <button type="submit" disabled={menyimpanLansia || !bolehKelolaKunjungan} className="w-full bg-violet-700 hover:bg-violet-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
+              <button type="submit" disabled={menyimpanLansia || kkLansia.length === 0} className="w-full bg-violet-700 hover:bg-violet-800 text-white font-bold py-3 rounded-xl disabled:opacity-50">
                 {menyimpanLansia ? "Menyimpan..." : "Simpan"}
               </button>
+              {kkLansia.length === 0 && <p className="text-[11px] text-slate-500">Belum ada KK dengan izin kesehatan dan jiwa 45 tahun ke atas di buku induk.</p>}
             </form>
             <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-slate-200 space-y-3">
               <h2 className="font-black text-slate-900">Riwayat kunjungan lansia</h2>
               {daftarLansia.map((row) => (
-                <div key={row.id} className="border border-slate-200 rounded-xl p-4">
-                  <p className="font-bold">{row.nama_peserta}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {formatTanggal(row.tanggal_kunjungan)}
-                    {row.tensi_darah ? ` · TD ${row.tensi_darah}` : ""}
-                    {row.gula_darah != null ? ` · Gula ${row.gula_darah}` : ""}
-                    {row.berat_kg != null ? ` · ${row.berat_kg} kg` : ""}
-                  </p>
-                  {row.catatan && <p className="text-xs text-slate-400 mt-1">{row.catatan}</p>}
+                <div key={row.id} className="border border-slate-200 rounded-xl p-4 flex justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold">{row.nama_peserta}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {formatTanggal(row.tanggal_kunjungan)}
+                      {row.tensi_darah ? ` · TD ${row.tensi_darah}` : ""}
+                      {row.gula_darah != null ? ` · Gula ${row.gula_darah}` : ""}
+                      {row.berat_kg != null ? ` · ${row.berat_kg} kg` : ""}
+                    </p>
+                    {row.catatan && <p className="text-xs text-slate-400 mt-1">{row.catatan}</p>}
+                  </div>
+                  <button type="button" onClick={() => hapusKunjungan("kunjungan_lansia", row.id)} className="text-xs text-rose-600 font-bold shrink-0">Hapus</button>
                 </div>
               ))}
               {daftarLansia.length === 0 && <p className="text-sm text-slate-400">Belum ada kunjungan tercatat.</p>}

@@ -340,13 +340,25 @@ export async function terapkanPenarikanIzin(
     if (error) return { ok: false, message: "Izin tercatat, tetapi pendapatan belum dapat dikosongkan." };
   }
 
+  if (input.tarikKesehatan) {
+    const { anonimkanKunjunganRumahTangga } = await import("@/lib/posyandu-kunjungan");
+    const anonim = await anonimkanKunjunganRumahTangga(supabase, {
+      rtId: input.rtId,
+      wargaId: input.wargaId,
+      aktor: input.aktor,
+    });
+    if (!anonim.ok) {
+      return { ok: false, message: "Izin tercatat, tetapi catatan posyandu belum dapat dianonimkan." };
+    }
+  }
+
   return {
     ok: true,
     message: input.tarikKeuangan && input.tarikKesehatan
-      ? "Izin keuangan dan kesehatan ditarik. Pendapatan dikosongkan; kunjungan posyandu baru ditolak."
+      ? "Izin keuangan dan kesehatan ditarik. Pendapatan dikosongkan; catatan posyandu rumah tangga dianonimkan."
       : input.tarikKeuangan
         ? "Izin keuangan ditarik. Kisaran pendapatan dan daya listrik dikosongkan."
-        : "Izin kesehatan ditarik. Kunjungan posyandu individu baru ditolak.",
+        : "Izin kesehatan ditarik. Catatan posyandu rumah tangga dianonimkan; kunjungan baru ditolak.",
   };
 }
 

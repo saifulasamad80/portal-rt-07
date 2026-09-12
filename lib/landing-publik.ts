@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ambilEtalasePublik } from "@/lib/etalase-publik";
 import { skemaBelumSiap } from "@/lib/arsip-warga";
 import { type RekamanJiwa } from "@/lib/demografi-publik";
+import { rekapPosyanduPublik, type RekapPosyanduPublik } from "@/lib/posyandu-kunjungan";
 import { klienDanTenantPublik } from "@/lib/tenant-publik";
 import { adalahGalatTipeUuid } from "@/lib/uuid-tenant";
 
@@ -22,14 +23,7 @@ export type BarisKurbanPublik = {
   warga_id: string | null;
 };
 
-export type BarisPosyanduBalitaPublik = {
-  tanggal_kunjungan: string;
-  imunisasi: string | null;
-};
-
-export type BarisPosyanduLansiaPublik = {
-  tanggal_kunjungan: string;
-};
+export type { RekapPosyanduPublik };
 
 export type LapakPublikLanding = {
   id: string;
@@ -91,8 +85,8 @@ export type MuatanLandingPublik = {
   sampahGlobal: SampahPublik[];
   jumantik: JumantikPublik | null;
   dataKurban: BarisKurbanPublik[];
-  dataBalita: BarisPosyanduBalitaPublik[];
-  dataLansia: BarisPosyanduLansiaPublik[];
+  rekapBalita: RekapPosyanduPublik;
+  rekapLansia: RekapPosyanduPublik;
   daftarFoto: Array<{
     id: string;
     judul: string;
@@ -181,31 +175,6 @@ async function ambilKasRt(supabase: SupabaseClient, tenant: string) {
   return { data: semua, error: null };
 }
 
-async function ambilKunjunganPosyanduRt<T>(
-  supabase: SupabaseClient,
-  tabel: "kunjungan_balita" | "kunjungan_lansia",
-  kolom: string,
-  tenant: string,
-) {
-  const UKURAN = 1000;
-  const semua: T[] = [];
-  let dari = 0;
-  while (dari < 20000) {
-    const { data, error } = await supabase
-      .from(tabel)
-      .select(kolom)
-      .eq("rt_id", tenant)
-      .order("tanggal_kunjungan", { ascending: false })
-      .range(dari, dari + UKURAN - 1);
-    if (error) return { data: [] as T[], error };
-    const batch = (data || []) as T[];
-    semua.push(...batch);
-    if (batch.length < UKURAN) break;
-    dari += UKURAN;
-  }
-  return { data: semua, error: null };
-}
-
 async function ambilRekapVoting(
   supabase: SupabaseClient,
   tenant: string,
@@ -254,8 +223,7 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
     dataDemografiReal,
     jumantikRes,
     kurbanRes,
-    balitaRes,
-    lansiaRes,
+    posyanduRes,
     etalaseRes,
     lapakRes,
     masterRes,
@@ -288,18 +256,7 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
       .limit(1)
       .maybeSingle(),
     ambilKurbanRt(supabase, tenant),
-    ambilKunjunganPosyanduRt<BarisPosyanduBalitaPublik>(
-      supabase,
-      "kunjungan_balita",
-      "tanggal_kunjungan, imunisasi",
-      tenant,
-    ),
-    ambilKunjunganPosyanduRt<BarisPosyanduLansiaPublik>(
-      supabase,
-      "kunjungan_lansia",
-      "tanggal_kunjungan",
-      tenant,
-    ),
+    rekapPosyanduPublik(supabase, tenant),
     ambilEtalasePublik(supabase),
     supabase
       .from("lapak_warga")
@@ -321,8 +278,16 @@ export async function ambilMuatanLandingPublik(): Promise<MuatanLandingPublik> {
     sampahGlobal: dataAtauKosong(sampahRes, [], "bank sampah"),
     jumantik: jumantikRes.error ? null : (jumantikRes.data as JumantikPublik | null),
     dataKurban: dataAtauKosong(kurbanRes, [] as BarisKurbanPublik[], "dana kurban"),
-    dataBalita: dataAtauKosong(balitaRes, [] as BarisPosyanduBalitaPublik[], "posyandu balita"),
-    dataLansia: dataAtauKosong(lansiaRes, [] as BarisPosyanduLansiaPublik[], "posyandu lansia"),
+    rekapBalita: dataAtauKosong(
+      { data: posyanduRes.balita, error: posyanduRes.error },
+      { total: 0, bulanIni: 0, imunisasi: 0 },
+      "posyandu balita",
+    ),
+    rekapLansia: dataAtauKosong(
+      { data: posyanduRes.lansia, error: posyanduRes.error },
+      { total: 0, bulanIni: 0, imunisasi: 0 },
+      "posyandu lansia",
+    ),
     daftarFoto: etalaseRes.galeri,
     daftarLapak: dataAtauKosong(lapakRes, [] as LapakPublikLanding[], "lapak UMKM"),
     daftarKontak: etalaseRes.kontak,
