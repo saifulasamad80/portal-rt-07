@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["web-push", "pdfjs-dist", "@napi-rs/canvas"],
+  serverExternalPackages: ["web-push", "pdfjs-dist", "@napi-rs/canvas", "tesseract.js"],
   images: {
     qualities: [70, 75, 80],
   },
