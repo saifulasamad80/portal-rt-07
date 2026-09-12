@@ -463,9 +463,9 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'kk')} className="w-full text-xs text-slate-900" />
                   {fileKk && <div className="text-[10px] text-emerald-600 font-black mt-2 bg-emerald-50 px-2 py-1 rounded w-fit">✓ File terlampir</div>}
                 </div>
-                <BacaFotoIdentitas berkasUtama={fileKk} onTerapkan={terapkanOcr} />
               </div>
             )}
+            <BacaFotoIdentitas berkasUtama={fileKk} onTerapkan={terapkanOcr} />
           </div>
 
           <div className="space-y-4">
