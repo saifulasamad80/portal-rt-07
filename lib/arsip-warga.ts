@@ -444,6 +444,15 @@ export async function arsipkanWargaKarenaPemilu(
     return { success: false, mode: "gagal", message: anggota.message };
   }
 
+  if (uuidTenantSah(rtArsip)) {
+    const { anonimkanKunjunganRumahTangga } = await import("@/lib/posyandu-kunjungan");
+    await anonimkanKunjunganRumahTangga(supabase, {
+      rtId: String(rtArsip),
+      wargaId,
+      aktor: "pengurus",
+    });
+  }
+
   await bersihkanRelasiNonPemilu(supabase, wargaId, { lewatiAnggotaKeluarga: true });
 
   const nikArsip = `99${wargaId.replace(/-/g, "").slice(0, 14)}`;
@@ -616,6 +625,14 @@ export async function prosesHapusAtauArsipWarga(
   }
 
   try {
+    if (target.rt_id) {
+      const { anonimkanKunjunganRumahTangga } = await import("@/lib/posyandu-kunjungan");
+      await anonimkanKunjunganRumahTangga(supabasePrivileged, {
+        rtId: String(target.rt_id),
+        wargaId,
+        aktor: aktor || "pengurus",
+      });
+    }
     await bersihkanRelasiNonPemilu(supabasePrivileged, wargaId);
 
     const { error: errHapus } = await supabasePrivileged.from("warga").delete().eq("id", wargaId);

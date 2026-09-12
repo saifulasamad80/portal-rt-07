@@ -99,7 +99,7 @@ export default function HakSubjekPortal({
               {izinKesehatan ? (
                 <label className="flex items-start gap-2 text-[13px] text-slate-700">
                   <input type="checkbox" className="mt-1" checked={tarikKesehatan} onChange={(e) => setTarikKesehatan(e.target.checked)} />
-                  <span>Tarik izin kesehatan (kunjungan posyandu baru ditolak)</span>
+                  <span>Tarik izin kesehatan (catatan posyandu rumah tangga dianonimkan, kunjungan baru ditolak)</span>
                 </label>
               ) : null}
               <button

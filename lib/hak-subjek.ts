@@ -8,6 +8,7 @@ import {
 import { samarkanNik, STATUS_TIKET_TERBUKA } from "@/lib/kebijakan-sensus";
 import { kirimNotifikasiKePengurus } from "@/lib/notifikasi-push";
 import { terapkanPenarikanIzin } from "@/lib/persetujuan-data";
+import { salinanKunjunganRumahTangga } from "@/lib/posyandu-kunjungan";
 import { ambilProfilKartuKkRumahTangga, type IdentitasRumahTangga } from "@/lib/rumah-tangga-warga";
 import { POLA_UUID } from "@/lib/uuid-tenant";
 
@@ -31,6 +32,7 @@ export async function buatSalinanRumahTangga(
 
   const profil = kartu.profil as Record<string, unknown>;
   const anggotaMentah = Array.isArray(profil.anggota_keluarga) ? profil.anggota_keluarga : [];
+  const posyandu = await salinanKunjunganRumahTangga(supabase, sesi.rtId, sesi.id);
   const salinan = {
     versi_naskah: VERSI_KEBIJAKAN_PRIVASI,
     dicatat_pada: new Date().toISOString(),
@@ -64,6 +66,7 @@ export async function buatSalinanRumahTangga(
         pendidikan: teks(item.pendidikan),
       };
     }),
+    posyandu,
   };
 
   const { error } = await supabase.from("audit_log").insert([{

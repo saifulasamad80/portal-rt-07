@@ -2,9 +2,32 @@ import { redirect } from "next/navigation";
 import KerangkaIbuIbu from "@/components/ibu-ibu/KerangkaIbuIbu";
 import TautanHalus from "@/components/TautanHalus";
 import { otentikasiWargaAktif } from "@/lib/session-security";
-import { buatKlienTerautentikasi } from "@/lib/supabase-server";
+import { buatKlienTerautentikasi, getSupabaseAdminClientDariSesi } from "@/lib/supabase-server";
+import { ambilRumahTanggaPortal } from "@/lib/rumah-tangga-warga";
+import {
+  daftarKunjunganBalitaRumahTangga,
+  daftarKunjunganLansiaRumahTangga,
+} from "@/lib/posyandu-kunjungan";
 
 const MODUL = [
+  {
+    href: "/portal/ibu-ibu/balita",
+    judul: "Posyandu Balita",
+    deskripsi: "Catatan tumbuh kembang anak rumah tangga Anda.",
+    ikon: "👶",
+    aksen: "bg-sky-50 text-sky-700 border-sky-100",
+    statKey: "balita" as const,
+    statLabel: "kunjungan tercatat",
+  },
+  {
+    href: "/portal/ibu-ibu/lansia",
+    judul: "Posyandu Lansia",
+    deskripsi: "Catatan pemeriksaan lansia rumah tangga Anda.",
+    ikon: "🧓",
+    aksen: "bg-violet-50 text-violet-700 border-violet-100",
+    statKey: "lansia" as const,
+    statLabel: "kunjungan tercatat",
+  },
   {
     href: "/portal/ibu-ibu/arisan",
     judul: "Arisan Ibu-ibu",
@@ -22,21 +45,27 @@ export default async function PortalIbuIbuPage() {
   const wargaAktif = otentikasi.sesi;
 
   const supabase = await buatKlienTerautentikasi(wargaAktif);
+  const rumah = await ambilRumahTanggaPortal(wargaAktif);
+  const posyandu = getSupabaseAdminClientDariSesi(wargaAktif);
 
-  const [{ count: totalArisan }, { data: arisanAktif }] = await Promise.all([
+  const [{ count: totalArisan }, { data: arisanAktif }, balita, lansia] = await Promise.all([
     supabase.from("arisan_ibu").select("id", { count: "exact", head: true }).eq("rt_id", wargaAktif.rtId),
     supabase.from("arisan_ibu").select("setoran_terakhir, pinjaman_berjalan").eq("rt_id", wargaAktif.rtId).limit(500),
+    daftarKunjunganBalitaRumahTangga(posyandu, wargaAktif.rtId, rumah.kepalaId),
+    daftarKunjunganLansiaRumahTangga(posyandu, wargaAktif.rtId, rumah.kepalaId),
   ]);
 
   const totalDanaTerkumpul = (arisanAktif || []).reduce((sum, a) => sum + Number(a.setoran_terakhir || 0), 0);
   const statistik: Record<string, number> = {
     arisan: totalArisan || 0,
+    balita: balita.length,
+    lansia: lansia.length,
   };
 
   return (
     <KerangkaIbuIbu
       judul="Pusat kegiatan Ibu-ibu RT"
-      deskripsi="Kelola pendaftaran dan ringkasan simpan-pinjam arisan ibu-ibu RT. Rekam kesehatan individu hanya tersedia bagi pengurus berwenang."
+      deskripsi="Arisan ibu-ibu RT, plus catatan posyandu rumah tangga Anda sendiri — bukan milik tetangga."
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
@@ -49,7 +78,7 @@ export default async function PortalIbuIbuPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-1 gap-4">
+      <div className="grid md:grid-cols-3 gap-4">
         {MODUL.map((item) => (
           <TautanHalus
             key={item.href}

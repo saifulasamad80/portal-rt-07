@@ -7,41 +7,30 @@ import {
 import {
   otentikasiAdminAktif,
   wajibOtentikasiAdmin,
-  wajibWebmaster,
 } from "@/lib/session-security";
-import { izinKesehatanRumahTangga } from "@/lib/persetujuan-data";
-import { POLA_UUID, uuidTenantSah } from "@/lib/uuid-tenant";
-
-// Tabel kunjungan_* adalah tabel legacy yang hanya boleh dibuka setelah
-// operator memetakan seluruh baris ke satu tenant. Jangan pernah menerima
-// rt_id dari payload warga/admin; target berasal dari konfigurasi server.
-const LEGACY_POSYANDU_RT_ID = uuidTenantSah(process.env.LEGACY_POSYANDU_RT_ID);
-
-function klienPrivileged(sesi: { id: string; rtId: string }) {
-  return getSupabaseAdminClientDariSesi(sesi);
-}
+import {
+  anonimkanKunjunganYatimRt,
+  daftarKartuIzinPosyandu,
+  daftarKunjunganBalitaRt,
+  daftarKunjunganLansiaRt,
+  hapusKunjunganPosyandu,
+  hitungRekamYatimRt,
+  simpanKunjunganBalita,
+  simpanKunjunganLansia,
+} from "@/lib/posyandu-kunjungan";
 
 export default async function AdminIbuIbuPage() {
   const otentikasi = await otentikasiAdminAktif();
   if (!otentikasi.ok) redirect("/admin");
   const rtIdAktif = otentikasi.sesi.rtId;
-  const bolehKelolaKunjungan = otentikasi.sesi.role === "webmaster" && Boolean(LEGACY_POSYANDU_RT_ID);
 
   const supabase = await buatKlienTerautentikasi(otentikasi.sesi);
-  const supabaseKunjungan = bolehKelolaKunjungan
-    ? getSupabaseAdminClientDariSesi(otentikasi.sesi)
-    : null;
-  // Tabel legacy hanya dibaca bila tenant sudah dikunci lewat environment
-  // server. Tanpa konfigurasi, semua akses ditahan (fail closed), termasuk
-  // webmaster; ini mencegah query service-role global.
-  const kunjunganKosong = Promise.resolve({ data: [], error: null });
-  const [lansiaRes, balitaRes, arisanRes, jumantikRes, kkRes] = await Promise.all([
-    supabaseKunjungan
-      ? supabaseKunjungan.from("kunjungan_lansia").select("id, created_at, nama_peserta, tanggal_kunjungan, tensi_darah, gula_darah, berat_kg, catatan").eq("rt_id", LEGACY_POSYANDU_RT_ID).order("tanggal_kunjungan", { ascending: false }).limit(200)
-      : kunjunganKosong,
-    supabaseKunjungan
-      ? supabaseKunjungan.from("kunjungan_balita").select("id, created_at, nama_anak, nama_ibu, tanggal_kunjungan, berat_kg, tinggi_cm, imunisasi, catatan").eq("rt_id", LEGACY_POSYANDU_RT_ID).order("tanggal_kunjungan", { ascending: false }).limit(200)
-      : kunjunganKosong,
+  const supabasePosyandu = getSupabaseAdminClientDariSesi(otentikasi.sesi);
+  const [kunjunganLansia, kunjunganBalita, kartuIzin, jumlahRekamYatim, arisanRes, jumantikRes] = await Promise.all([
+    daftarKunjunganLansiaRt(supabasePosyandu, rtIdAktif),
+    daftarKunjunganBalitaRt(supabasePosyandu, rtIdAktif),
+    daftarKartuIzinPosyandu(supabasePosyandu, rtIdAktif),
+    hitungRekamYatimRt(supabasePosyandu, rtIdAktif),
     supabase.from("arisan_ibu").select("*").eq("rt_id", rtIdAktif).order("created_at", { ascending: false }).limit(200),
     supabase
       .from("laporan_jumantik")
@@ -50,128 +39,75 @@ export default async function AdminIbuIbuPage() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabaseKunjungan
-      ? supabaseKunjungan.from("warga").select("id, nama_lengkap").eq("rt_id", LEGACY_POSYANDU_RT_ID).neq("status_aktif", false).order("nama_lengkap").limit(500)
-      : kunjunganKosong,
   ]);
   const arisanIds = (arisanRes.data || []).map((row) => String(row.id)).filter(Boolean);
   const transaksiRes = arisanIds.length
     ? await supabase.from("arisan_transaksi").select("*").in("arisan_id", arisanIds).order("created_at", { ascending: false }).limit(500)
     : { data: [], error: null };
 
-  const POLA_TANGGAL = /^\d{4}-\d{2}-\d{2}$/;
-  function angkaOpsional(value: unknown, maksimum: number) {
-    if (value == null || value === "") return null;
-    const angka = Number(value);
-    return Number.isFinite(angka) && angka >= 0 && angka <= maksimum ? angka : NaN;
-  }
-  function tanggalValid(value: unknown) {
-    const tanggal = String(value ?? "").trim();
-    if (!POLA_TANGGAL.test(tanggal)) return null;
-    const [tahun, bulan, hari] = tanggal.split("-").map(Number);
-    const pemeriksaan = new Date(Date.UTC(tahun, bulan - 1, hari));
-    return pemeriksaan.getUTCFullYear() === tahun && pemeriksaan.getUTCMonth() === bulan - 1 && pemeriksaan.getUTCDate() === hari
-      ? tanggal
-      : null;
-  }
-
-  async function simpanKunjunganBalita(payload: unknown) {
+  async function aksiSimpanKunjunganBalita(payload: unknown) {
     "use server";
     try {
-      const sesi = await wajibWebmaster();
-      if (!LEGACY_POSYANDU_RT_ID) {
-        return { success: false, message: "Modul kunjungan belum tersedia sampai pemetaan RT selesai." };
-      }
-      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        return { success: false, message: "Format kunjungan balita tidak valid." };
-      }
-      const input = payload as Record<string, unknown>;
-      const namaAnak = String(input.nama_anak ?? "").trim().slice(0, 150);
-      const namaIbu = String(input.nama_ibu ?? "").trim().slice(0, 150);
-      const wargaId = String(input.warga_id ?? "").trim();
-      const tanggal = tanggalValid(input.tanggal_kunjungan);
-      const berat = angkaOpsional(input.berat_kg, 500);
-      const tinggi = angkaOpsional(input.tinggi_cm, 300);
-      if (!POLA_UUID.test(wargaId) || !namaAnak || !namaIbu || !tanggal || Number.isNaN(berat) || Number.isNaN(tinggi)) {
-        return { success: false, message: "Data kunjungan balita tidak valid. Pilih kartu keluarga yang punya izin kesehatan." };
-      }
-      const db = klienPrivileged(sesi);
-      const { data: kk, error: errKk } = await db
-        .from("warga")
-        .select("id")
-        .eq("id", wargaId)
-        .eq("rt_id", LEGACY_POSYANDU_RT_ID)
-        .maybeSingle();
-      if (errKk || !kk) return { success: false, message: "Kartu keluarga tidak berada di RT posyandu ini." };
-      const izin = await izinKesehatanRumahTangga(db, wargaId, LEGACY_POSYANDU_RT_ID, { wajibAnak: true });
-      if (!izin.ok) return { success: false, message: izin.message };
-      const { data, error } = await db
-        .from("kunjungan_balita")
-        .insert([{
-          rt_id: LEGACY_POSYANDU_RT_ID,
-          nama_anak: namaAnak,
-          nama_ibu: namaIbu,
-          tanggal_kunjungan: tanggal,
-          berat_kg: berat,
-          tinggi_cm: tinggi,
-          imunisasi: String(input.imunisasi ?? "").trim().slice(0, 500) || null,
-          catatan: String(input.catatan ?? "").trim().slice(0, 2000) || null,
-        }])
-        .select("id, created_at, nama_anak, nama_ibu, tanggal_kunjungan, berat_kg, tinggi_cm, imunisasi, catatan")
-        .single();
-      if (error || !data) return { success: false, message: "Kunjungan balita belum dapat disimpan." };
-      return { success: true, data };
+      const sesi = await wajibOtentikasiAdmin();
+      const hasil = await simpanKunjunganBalita(getSupabaseAdminClientDariSesi(sesi), {
+        rtId: sesi.rtId,
+        aktor: sesi.nama,
+        payload,
+      });
+      return hasil.ok
+        ? { success: true, data: hasil.data }
+        : { success: false, message: hasil.message };
     } catch {
       return { success: false, message: "Aksi kunjungan balita belum dapat diproses." };
     }
   }
 
-  async function simpanKunjunganLansia(payload: unknown) {
+  async function aksiSimpanKunjunganLansia(payload: unknown) {
     "use server";
     try {
-      const sesi = await wajibWebmaster();
-      if (!LEGACY_POSYANDU_RT_ID) {
-        return { success: false, message: "Modul kunjungan belum tersedia sampai pemetaan RT selesai." };
-      }
-      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        return { success: false, message: "Format kunjungan lansia tidak valid." };
-      }
-      const input = payload as Record<string, unknown>;
-      const namaPeserta = String(input.nama_peserta ?? "").trim().slice(0, 150);
-      const wargaId = String(input.warga_id ?? "").trim();
-      const tanggal = tanggalValid(input.tanggal_kunjungan);
-      const gula = angkaOpsional(input.gula_darah, 3000);
-      const berat = angkaOpsional(input.berat_kg, 500);
-      if (!POLA_UUID.test(wargaId) || !namaPeserta || !tanggal || Number.isNaN(gula) || Number.isNaN(berat)) {
-        return { success: false, message: "Data kunjungan lansia tidak valid. Pilih kartu keluarga yang punya izin kesehatan." };
-      }
-      const db = klienPrivileged(sesi);
-      const { data: kk, error: errKk } = await db
-        .from("warga")
-        .select("id")
-        .eq("id", wargaId)
-        .eq("rt_id", LEGACY_POSYANDU_RT_ID)
-        .maybeSingle();
-      if (errKk || !kk) return { success: false, message: "Kartu keluarga tidak berada di RT posyandu ini." };
-      const izin = await izinKesehatanRumahTangga(db, wargaId, LEGACY_POSYANDU_RT_ID);
-      if (!izin.ok) return { success: false, message: izin.message };
-      const { data, error } = await db
-        .from("kunjungan_lansia")
-        .insert([{
-          rt_id: LEGACY_POSYANDU_RT_ID,
-          nama_peserta: namaPeserta,
-          tanggal_kunjungan: tanggal,
-          tensi_darah: String(input.tensi_darah ?? "").trim().slice(0, 30) || null,
-          gula_darah: gula,
-          berat_kg: berat,
-          catatan: String(input.catatan ?? "").trim().slice(0, 2000) || null,
-        }])
-        .select("id, created_at, nama_peserta, tanggal_kunjungan, tensi_darah, gula_darah, berat_kg, catatan")
-        .single();
-      if (error || !data) return { success: false, message: "Kunjungan lansia belum dapat disimpan." };
-      return { success: true, data };
+      const sesi = await wajibOtentikasiAdmin();
+      const hasil = await simpanKunjunganLansia(getSupabaseAdminClientDariSesi(sesi), {
+        rtId: sesi.rtId,
+        aktor: sesi.nama,
+        payload,
+      });
+      return hasil.ok
+        ? { success: true, data: hasil.data }
+        : { success: false, message: hasil.message };
     } catch {
       return { success: false, message: "Aksi kunjungan lansia belum dapat diproses." };
+    }
+  }
+
+  async function aksiHapusKunjungan(tabel: string, id: string) {
+    "use server";
+    try {
+      const sesi = await wajibOtentikasiAdmin();
+      const hasil = await hapusKunjunganPosyandu(getSupabaseAdminClientDariSesi(sesi), {
+        rtId: sesi.rtId,
+        aktor: sesi.nama,
+        tabel,
+        id,
+      });
+      return hasil.ok ? { success: true } : { success: false, message: hasil.message };
+    } catch {
+      return { success: false, message: "Kunjungan belum dapat dihapus." };
+    }
+  }
+
+  async function aksiAnonimkanYatim() {
+    "use server";
+    try {
+      const sesi = await wajibOtentikasiAdmin();
+      const hasil = await anonimkanKunjunganYatimRt(getSupabaseAdminClientDariSesi(sesi), {
+        rtId: sesi.rtId,
+        aktor: sesi.nama,
+      });
+      return hasil.ok
+        ? { success: true, message: `${hasil.jumlah} rekam tanpa tautan dianonimkan.` }
+        : { success: false, message: hasil.message };
+    } catch {
+      return { success: false, message: "Rekam yatim belum dapat dianonimkan." };
     }
   }
 
@@ -323,22 +259,21 @@ export default async function AdminIbuIbuPage() {
 
   return (
     <IbuIbuAdminClient
-      kunjunganLansia={lansiaRes.data || []}
-      kunjunganBalita={balitaRes.data || []}
+      kunjunganLansia={kunjunganLansia}
+      kunjunganBalita={kunjunganBalita}
       arisan={arisanRes.data || []}
       transaksi={transaksiRes.data || []}
       aksiSimpanArisan={simpanArisan}
       aksiSimpanTransaksi={simpanTransaksiArisan}
       aksiHapus={hapusCatatan}
-      aksiSimpanKunjunganBalita={simpanKunjunganBalita}
-      aksiSimpanKunjunganLansia={simpanKunjunganLansia}
-      bolehKelolaKunjungan={bolehKelolaKunjungan}
+      aksiSimpanKunjunganBalita={aksiSimpanKunjunganBalita}
+      aksiSimpanKunjunganLansia={aksiSimpanKunjunganLansia}
+      aksiHapusKunjungan={aksiHapusKunjungan}
+      aksiAnonimkanYatim={aksiAnonimkanYatim}
+      jumlahRekamYatim={jumlahRekamYatim}
       laporanJumantik={jumantikRes.error ? null : jumantikRes.data}
       aksiCatatJumantik={catatLaporanJumantik}
-      kartuKeluarga={(kkRes.data || []).map((baris) => ({
-        id: String((baris as { id?: unknown }).id || ""),
-        nama: String((baris as { nama_lengkap?: unknown }).nama_lengkap || "Tanpa nama"),
-      })).filter((baris) => baris.id)}
+      kartuIzin={kartuIzin.ok ? kartuIzin.data : []}
     />
   );
 }

@@ -27,8 +27,16 @@ test("Go-live PDP: hak subjek, kesehatan, TTL, minimisasi JWT", async () => {
   const portal = await baca("app/portal/page.tsx");
   assert.match(portal, /HakSubjekPortal/);
 
-  const posyandu = await baca("app/admin/ibu-ibu/page.tsx");
+  const posyandu = await baca("lib/posyandu-kunjungan.ts");
   assert.match(posyandu, /izinKesehatanRumahTangga/);
+  assert.match(posyandu, /wajibAnak: true/);
+  assert.match(posyandu, /warga_id: wargaId/);
+  assert.doesNotMatch(posyandu, /LEGACY_POSYANDU_RT_ID/);
+
+  const adminPosyandu = await baca("app/admin/ibu-ibu/page.tsx");
+  assert.match(adminPosyandu, /daftarKartuIzinPosyandu/);
+  assert.match(adminPosyandu, /wajibOtentikasiAdmin/);
+  assert.doesNotMatch(adminPosyandu, /LEGACY_POSYANDU_RT_ID/);
 
   const landing = await baca("app/page.tsx");
   assert.doesNotMatch(landing, /Ada warga terjangkit/);
@@ -45,6 +53,8 @@ test("Go-live PDP: hak subjek, kesehatan, TTL, minimisasi JWT", async () => {
   const fungsiKesehatan = izin.slice(izin.indexOf("export async function izinKesehatanRumahTangga"));
   assert.match(fungsiKesehatan, /!jejak\.data\.data_kesehatan/);
   assert.doesNotMatch(fungsiKesehatan.slice(0, fungsiKesehatan.indexOf("export async function terapkanPenarikanIzin")), /sumber === "penarikan"/);
+  const tarik = izin.slice(izin.indexOf("export async function terapkanPenarikanIzin"));
+  assert.match(tarik, /anonimkanKunjunganRumahTangga/);
 
   const landingDal = await baca("lib/landing-publik.ts");
   assert.doesNotMatch(landingDal, /agama/);
