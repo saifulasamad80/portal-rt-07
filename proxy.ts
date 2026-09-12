@@ -10,8 +10,8 @@ export function proxy(request: NextRequest) {
 
   // 3. TAMBAL DOSA CSP: Bikin aturan ketat dari mana aja sumber file yang boleh di-load
   const scriptSrc = process.env.NODE_ENV === "production"
-    ? "script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net";
+    ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com https://cdn.jsdelivr.net";
   const cspHeader = `
     default-src 'self';
     ${scriptSrc};

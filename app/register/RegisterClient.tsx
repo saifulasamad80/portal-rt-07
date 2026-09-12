@@ -10,6 +10,7 @@ import {
   umurDariTanggalIso,
 } from "@/lib/kebijakan-privasi";
 import { PILIHAN_PENDIDIKAN } from "@/lib/verifikasi-carik";
+import BacaFotoIdentitas, { type TerapanOcrIdentitas } from "@/components/BacaFotoIdentitas";
 
 const FITUR_KTP_AKTIF = false; 
 const MAKS_ANGGOTA = 30;
@@ -162,6 +163,45 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
     setAnggota((dataLama) => dataLama.map((item, i) => i === index ? { ...item, [field]: value } : item));
   };
   const hapusAnggota = (index: number) => setAnggota((dataLama) => dataLama.filter((_, i) => i !== index));
+
+  const terapkanOcr = (isian: TerapanOcrIdentitas) => {
+    const kepala = isian.kepala;
+    if (kepala.nik) setNik(kepala.nik);
+    if (kepala.no_kk) setNoKk(kepala.no_kk);
+    if (kepala.nama_lengkap) setNama(kepala.nama_lengkap);
+    if (kepala.tempat_lahir) setTempatLahir(kepala.tempat_lahir);
+    if (kepala.tanggal_lahir) setTglLahir(kepala.tanggal_lahir);
+    if (kepala.jenis_kelamin) setGender(kepala.jenis_kelamin);
+    if (kepala.agama) setAgama(kepala.agama);
+    if (kepala.pekerjaan) setPekerjaan(kepala.pekerjaan);
+    if (kepala.pendidikan) setPendidikan(kepala.pendidikan);
+    if (kepala.detail_alamat) setDetailAlamat(kepala.detail_alamat);
+    if (isian.anggota.length === 0) return;
+    setAnggota((lama) => {
+      const salinan = [...lama];
+      for (const item of isian.anggota) {
+        if (!item.nik && !item.nama_lengkap) continue;
+        const baris = {
+          nama: item.nama_lengkap,
+          nik: item.nik,
+          hubungan: item.hubungan_keluarga,
+          hubunganDetail: item.hubungan_detail,
+          tglLahir: item.tanggal_lahir,
+          tempatLahir: item.tempat_lahir,
+          gender: item.jenis_kelamin,
+          agama: item.agama,
+          pekerjaan: item.pekerjaan,
+          pendidikan: item.pendidikan,
+          fileKtp: null,
+          ktpMenyusul: false,
+        };
+        const indeks = item.nik ? salinan.findIndex((a) => a.nik === item.nik) : -1;
+        if (indeks >= 0) salinan[indeks] = { ...salinan[indeks], ...baris, fileKtp: salinan[indeks].fileKtp };
+        else if (salinan.length < MAKS_ANGGOTA) salinan.push(baris);
+      }
+      return salinan;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -423,6 +463,7 @@ export default function RegisterClient({ aksiRegister, alasan, namaWilayah }: { 
                   <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'kk')} className="w-full text-xs text-slate-900" />
                   {fileKk && <div className="text-[10px] text-emerald-600 font-black mt-2 bg-emerald-50 px-2 py-1 rounded w-fit">✓ File terlampir</div>}
                 </div>
+                <BacaFotoIdentitas berkasUtama={fileKk} onTerapkan={terapkanOcr} />
               </div>
             )}
           </div>

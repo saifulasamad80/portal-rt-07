@@ -25,6 +25,7 @@ import {
 } from "@/lib/verifikasi-carik";
 import PesanDialog from "@/components/PesanDialog";
 import { aksiNikTidakSesuai, aksiSimpanCarik } from "./actions";
+import BacaFotoIdentitas, { type TerapanOcrIdentitas } from "@/components/BacaFotoIdentitas";
 
 const LANGKAH = [
   { id: "nik", judul: "Identitas NIK" },
@@ -243,6 +244,60 @@ export default function SensusClient({
       salinan[index] = { ...salinan[index], [nama]: nilai };
       return salinan;
     });
+  };
+
+  const terapkanOcr = (isian: TerapanOcrIdentitas) => {
+    const kepala = isian.kepala;
+    setBiodata((sebelum) => ({
+      ...sebelum,
+      nama_lengkap: kepala.nama_lengkap || sebelum.nama_lengkap,
+      tempat_lahir: kepala.tempat_lahir || sebelum.tempat_lahir,
+      tanggal_lahir: kepala.tanggal_lahir || sebelum.tanggal_lahir,
+      jenis_kelamin: kepala.jenis_kelamin || sebelum.jenis_kelamin,
+      agama: kepala.agama || sebelum.agama,
+      pekerjaan: kepala.pekerjaan || sebelum.pekerjaan,
+      pendidikan: kepala.pendidikan || sebelum.pendidikan,
+      no_kk: kepala.no_kk || sebelum.no_kk,
+      hubungan_kk: kepala.hubungan_kk || sebelum.hubungan_kk,
+      detail_alamat: kepala.detail_alamat || sebelum.detail_alamat,
+    }));
+    setAnggota((lama) => {
+      const salinan = [...lama];
+      for (const item of isian.anggota) {
+        if (!item.nik && !item.nama_lengkap) continue;
+        const indeks = item.nik ? salinan.findIndex((a) => a.nik === item.nik) : -1;
+        if (indeks >= 0) {
+          const ada = salinan[indeks];
+          salinan[indeks] = {
+            ...ada,
+            nama_lengkap: ada.nama_lengkap || item.nama_lengkap,
+            tempat_lahir: ada.tempat_lahir || item.tempat_lahir,
+            tanggal_lahir: ada.tanggal_lahir || item.tanggal_lahir,
+            jenis_kelamin: ada.jenis_kelamin || item.jenis_kelamin,
+            agama: ada.agama || item.agama,
+            pekerjaan: ada.pekerjaan || item.pekerjaan,
+            pendidikan: ada.pendidikan || item.pendidikan,
+            hubungan_keluarga: ada.hubungan_keluarga || item.hubungan_keluarga,
+            hubungan_detail: ada.hubungan_detail || item.hubungan_detail,
+          };
+        } else {
+          salinan.push({
+            nama_lengkap: item.nama_lengkap,
+            nik: item.nik,
+            hubungan_keluarga: item.hubungan_keluarga,
+            hubungan_detail: item.hubungan_detail,
+            tanggal_lahir: item.tanggal_lahir,
+            tempat_lahir: item.tempat_lahir,
+            jenis_kelamin: item.jenis_kelamin,
+            agama: item.agama,
+            pekerjaan: item.pekerjaan,
+            pendidikan: item.pendidikan,
+          });
+        }
+      }
+      return salinan;
+    });
+    if (langkah < 1) setLangkah(1);
   };
 
   const validasiLangkah = (index: number) => {
@@ -477,6 +532,7 @@ export default function SensusClient({
         {langkah === 1 && (
           <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 md:p-7 space-y-4">
             <h2 className="text-lg font-bold text-slate-900">Biodata kepala keluarga</h2>
+            <BacaFotoIdentitas nikTerkunci={warga.nik} onTerapkan={terapkanOcr} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className={kelasLabel}>NIK</label>
@@ -575,6 +631,7 @@ export default function SensusClient({
                 NIK yang sudah dipakai rumah tangga lain akan ditahan untuk pemeriksaan pengurus, bukan digabung otomatis.
               </p>
             </div>
+            <BacaFotoIdentitas nikTerkunci={warga.nik} onTerapkan={terapkanOcr} />
 
             {anggota.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
